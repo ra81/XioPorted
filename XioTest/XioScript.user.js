@@ -2,43 +2,24 @@
 // @name           XioScript
 // @namespace      https://github.com/XiozZe/XioScript
 // @description    XioScript with XioMaintenance
-// @version        12.0.80
-// @author		   XiozZe
+// @version        12.0.84
+// @author		   XiozZe. Ported to TypeScript by RA81
 // @require        https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js
 // @include        http*://*virtonomic*.*/*/*
 // @exclude        http*://virtonomics.wikia.com*
 // ==/UserScript==
 // включены опции стриктНулл.
 // запрет неявных Эни, ретурнов, this
-var version = "12.0.83";
-var $ = jQuery = jQuery.noConflict(true);
-var ls = localStorage;
-var realm = xpCookie('last_realm');
-var getUrls = [];
-var finUrls = [];
-var xcallback = [];
-var mapped = {};
-var xcount = {};
-var xmax = {};
-var typedone = [];
-var xwait = [];
-var xequip = [];
-var fireequip = false;
-var servergetcount = 0;
-var serverpostcount = 0;
-var suppliercount = 0;
-var processingtime = 0;
-var timeinterval = 0;
-var mousedown = false;
-var $tron;
-var XMreload = false;
-var xsup = [];
-var xsupcheck = {};
-var urlUnitlist = "";
-var blackmail = [];
-var _m = $(".dashboard a").attr("href").match(/\d+/);
-var companyid = numberfy(_m ? _m[0] : "0");
-var equipfilter = [];
+var version = "12.0.84";
+// просто кусок кода которым я проверял работу с селектами
+//$("#mainContent > table.unit-list-2014 > tbody > tr:nth-child(1) > td:nth-child(11) > select:nth-child(1)").change(
+//    function () {
+//        let id = $(this).attr("data-id");
+//        let p = $(this).closest("tr");
+//        p.css("background-color", "rgb(255, 210, 170)");
+//        console.log(p.get());
+//        console.log(id);
+//    }); 
 var policyJSON = {
     pp: {
         func: salePrice,
@@ -225,6 +206,177 @@ var policyJSON = {
         wait: []
     }
 };
+//interface IJsonPolicies {
+//    pp: IPolicy;
+//    pw: IPolicy;
+//    ps: IPolicy;
+//    pn: IPolicy;
+//    sc: IPolicy;
+//    sl: IPolicy;
+//    ee: IPolicy;
+//    pt: IPolicy;
+//    sp: IPolicy;
+//    sr: IPolicy;
+//    sh: IPolicy;
+//    ad: IPolicy;
+//    es: IPolicy;
+//    en: IPolicy;
+//    eh: IPolicy;
+//    ep: IPolicy;
+//    et: IPolicy;
+//    qm: IPolicy;
+//    tc: IPolicy;
+//    rs: IPolicy;
+//    pb: IPolicy;
+//    pa: IPolicy;
+//    wz: IPolicy;
+//} 
+//namespace Shops {
+//    export class TradingHall {
+//        name: string[];
+//        price: number[];
+//        quality: number[];
+//        purch: number[];
+//        cityprice: number[];
+//        cityquality: number[];
+//        deliver: number[];
+//        stock: number[];
+//        share: number[];
+//        report: string[];       // ссыли на розничные отчеты для всех товаров магаз
+//        history: string[];      // ссыли на отчет по продажам
+//        img: string[];          // ссыли на картинку товара
+//    }
+//    export class SalesHistory {
+//        price: number[];
+//        quantity: number[];
+//    }
+//    export class RetailReport {
+//        marketsize: number;
+//        localprice: number;
+//        localquality: number;
+//        cityprice: number;
+//        cityquality: number;
+//    }
+//    function market6Ex(url: string, i: number): number {
+//        //debugger;
+//        // в расчетах предполагаем, что парсер нам гарантирует 0 или число, если элемент есть в массиве.
+//        // не паримся с undefined
+//        var unit = mapped[url] as Shops.TradingHall;
+//        if (!unit) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has unit == null`);
+//            return 0;
+//        }
+//        //console.log(unit);
+//        var salesHistory = mapped[unit.history[i]] as Shops.SalesHistory; // {price:[], quantity:[]}
+//        if (!salesHistory) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory == null`);
+//            return 0;
+//        }
+//        // в истории продаж всегда должна быть хотя бы одна строка. Пусть с 0, но должна быть
+//        if (salesHistory.price.length < 1) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory.price.length < 1`);
+//            return 0;
+//        }
+//        // мое качество сегодня и цена стоящая в окне цены, кач и цена локальных магазов сегодня
+//        var myQuality = unit.quality[i];
+//        var myPrice = unit.price[i];
+//        var cityPrice = unit.cityprice[i];
+//        var cityQuality = unit.cityquality[i];
+//        // продажи сегодня и цена для тех продаж.
+//        var priceOld = salesHistory.price[0];
+//        var saleOld = salesHistory.quantity[0];
+//        var priceOlder = salesHistory.price[1] || 0; // более старых цен может и не быть вовсе если продаж раньше не было
+//        var saleOlder = salesHistory.quantity[1] || 0;
+//        // закупка и склад сегодня
+//        var deliver = unit.deliver[i];
+//        var stock = unit.stock[i];
+//        // доля рынка которую занимаем сегодня. если продаж не было то будет 0
+//        var share = unit.share[i];
+//        // если продаж вообще не было, история будет содержать 1 стру с нулями.
+//        var isNewProduct = Math.max.apply(null, salesHistory.price) === 0;
+//        var stockNotSold = stock > deliver;
+//        let price = 0;
+//        if (isNewProduct) {
+//            //debugger;
+//            // если продукт новый, и склад был, но явно продаж не было, ТО
+//            // если цена проставлена, снижаем ее. Иначе считаем базовую
+//            // если товара не было, то оставляем ту цену что вписана, либо ставим базовую. Вдруг я руками вписал сам.
+//            if (stockNotSold) {
+//                //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                if (myPrice === 0)
+//                    calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                else
+//                    postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
+//            } else
+//                price = myPrice > 0 ? myPrice : calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//        }
+//        // если на складе пусто, нужно все равно менять цену если продажи были.
+//        // просто потому что на след раз когда на складе будет товар но не будет продаж, мы долю рынка не увидим.
+//        if (!isNewProduct) {
+//            if (saleOld === 0) {
+//                // Если товар был и не продавался Что то не так, снижаем цену резко на 5%
+//                // если saleOld === 0, то всегда и priceOld будет 0. Так уж работает
+//                // пробуем взять ту цену что стоит сейчас и снизить ее, если цены нет, то ставим базовую
+//                if (stockNotSold) {
+//                    //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                    // TODO: как то подумать чтобы если продаж не было не снижать от установленной а привязаться к прошлым продажам если кач подходит
+//                    if (myPrice === 0)
+//                        calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                    else
+//                        postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
+//                }
+//                // если продаж не было и товара не было, то фигли менять что либо. Стоит как есть.
+//            }
+//            if (saleOld > 0) {
+//                // рынок не занят и не все продаем? Снижаем цену. Если продали все то цену чуть повысим
+//                if (share < 4.5)
+//                    price = stockNotSold ? priceOld * (1 - 0.03) : priceOld * (1 + 0.01);
+//                // рынок занят и продали не все? Цену чуть снижаем. Если все продаем то повышаем цену, иначе продаваться будет больше
+//                if (share > 4.5 && share < 6)
+//                    price = stockNotSold ? priceOld * (1 - 0.01) : priceOld * (1 + 0.03);
+//                if (share > 6 && share < 7.5)
+//                    price = stockNotSold ? priceOld * (1 + 0.01) : priceOld * (1 + 0.03);
+//                if (share > 7.5)
+//                    price = stockNotSold ? priceOld * (1 + 0.03) : priceOld * (1 + 0.05);
+//            }
+//        }
+//        // если цена уже минимальна а продажи 0, алармить об этом
+//        return price;
+//    }
+//    function calcBaseRetailPrice(myQuality: number, localPrice: number, localQuality: number): number {
+//        if (myQuality === 0 || localPrice === 0 || localQuality === 0)
+//            throw new Error("Аргументы должны быть > 0!");
+//        return Math.max(localPrice * (1 + Math.log(myQuality / localQuality)), 0, 4);
+//    }
+//} 
+var $ = jQuery = jQuery.noConflict(true);
+var ls = localStorage;
+var realm = xpCookie('last_realm');
+var getUrls = [];
+var finUrls = [];
+var xcallback = [];
+var mapped = {};
+var xcount = {};
+var xmax = {};
+var typedone = [];
+var xwait = [];
+var xequip = [];
+var fireequip = false;
+var servergetcount = 0;
+var serverpostcount = 0;
+var suppliercount = 0;
+var processingtime = 0;
+var timeinterval = 0;
+//var mousedown = false;
+//var $tron: HTMLElement;
+var XMreload = false;
+var xsup = [];
+var xsupcheck = {};
+var urlUnitlist = "";
+var blackmail = [];
+var _m = $(".dashboard a").attr("href").match(/\d+/);
+var companyid = numberfy(_m ? _m[0] : "0");
+var equipfilter = [];
 // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
 function numberfy(variable) {
     if (String(variable) === 'Не огр.' ||
@@ -277,28 +429,255 @@ function xpCookie(name) {
     }
     return null;
 }
+// из аргументов функции вытаскивает само имя функции. для лога чисто
+function getFuncName(args) {
+    var items = args.callee.toString().split("(");
+    return items[0] ? items[0] + "()" : "";
+}
 function XioMaintenance(subidList, policyNames) {
-    throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
+}
+;
+function XioGenerator(subidList) {
+    console.log(getFuncName(arguments));
 }
 ;
 function XioExport() {
-    throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
 }
 ;
 function XioImport() {
-    throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
 }
 ;
 function XioHoliday() {
-    throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
 }
 ;
 function XioOverview() {
-    throw new Error("Not implemented");
+    var unitsTable = $(".unit-list-2014");
+    // скрыть все колонки кроме Город, Подразделение
+    unitsTable.find("td, th").filter(":not(:nth-child(2)):not(:nth-child(3)):not(:nth-child(8))").addClass("XioHide").hide();
+    unitsTable.find("tr.odd").css("backgroundColor", "lightgoldenrodyellow");
+    // удалить размер подразделения под названием юнита
+    unitsTable.find("td:nth-child(3) span").remove();
+    unitsTable.css("white-space", "nowrap").css("user-select", "none");
+    // переносим сами комментарии в тот же ряд где и имя юнита в тот же див. и удаляем лишние tr нафиг
+    var $comments = unitsTable.find("tr.unit_comment");
+    for (var i = 0; i < $comments.length; i++) {
+        var notetext = $comments.eq(i).find("span").text();
+        $comments.eq(i).prev().addClass("wborder").find("td:nth-child(3)").append("<div class=st><span style='max-width:300px;'>" + notetext + "</span></div>");
+    }
+    $comments.remove();
+    // отрисовка кнопок в хедере таблицы с поколоночными операциями и Общими на группу юнитов
+    var policyString = [];
+    var groupString = [];
+    var thstring = "<th class=XOhtml style=\"padding-right:5px\">\n                      <input type=button id=XioGeneratorPRO class='XioGo' value='Gen ALL' style='width:50%'>\n                      <input type=button id=XioFirePRO class='XioGo' value='FIRE ALL' style='width:50%' >\n                    </th>";
+    var tdstring = "";
+    for (var key in policyJSON) {
+        var policy_1 = policyJSON[key];
+        if (groupString.indexOf(policy_1.group) < 0) {
+            groupString.push(policy_1.group);
+            policyString.push([policy_1.name]);
+            thstring += "<th class=XOhtml style='padding-right:5px'>\n                           <input type=button class='XioGo XioGroup' value=" + policy_1.group + " style='width:100%'>\n                         </th>";
+            tdstring += "<td class=XOhtml></td>";
+        }
+        else {
+            policyString[groupString.indexOf(policy_1.group)].push(policy_1.name);
+        }
+    }
+    unitsTable.find("th:nth-child(7)").after(thstring);
+    // далее отработка каждого юнита
+    //
+    var subids = unitsTable.find("tr:not(.unit_comment) td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get();
+    // вставляем кнопки в каждую строку. generate/fire. для отработки конкретного юнита
+    var $td = unitsTable.find("tr:not(.unit_comment) td:nth-child(8)");
+    for (var i = 0; i < subids.length; i++) {
+        $td.eq(i).after(("<td class=XOhtml>\n                           <input type=button data-id=" + subids[i] + " class='XioGo XioGenerator' value=Generate>\n                           <input type=button class='XioGo XioSub' value=" + subids[i] + ">\n                         </td>") + tdstring);
+    }
+    // для всех юнитов в списке выводим селекты политик и проставляем значения политик взятые из лок хранилища
+    for (var i = 0; i < subids.length; i++) {
+        var savedPolicyStrings = ls["x" + realm + subids[i]] ? ls["x" + realm + subids[i]].split(";") : [];
+        for (var j = 0; j < savedPolicyStrings.length; j++) {
+            var name = savedPolicyStrings[j].substring(0, 2);
+            var policy = policyJSON[name];
+            if (policy == null)
+                continue;
+            var choices = savedPolicyStrings[j].substring(2).split("-");
+            // в каждую строку юнита добавляем селекты для выбора политик.
+            var htmlstring = "";
+            for (var k = 0; k < policy.order.length; k++) {
+                if (k >= 1)
+                    htmlstring += "<br>";
+                htmlstring += "<select data-id=" + subids[i] + " data-name=" + name + " data-choice=" + k + " class=XioChoice>";
+                for (var l = 0; l < policy.order[k].length; l++)
+                    htmlstring += "<option value=" + l + ">" + policy.order[k][l] + "</option>";
+                htmlstring += "</select>";
+            }
+            // для всех селектов которые добавили проставляем значения политик из лок стораджа
+            var $selects = unitsTable.find("tr:not(.unit_comment)").eq(i + 1).find("td").eq(groupString.indexOf(policy.group) + 9).html(htmlstring).find("select");
+            for (var k = 0; k < policy.order.length; k++) {
+                var ch = parseInt(choices[k]);
+                var policyChoice = policy.order[k].indexOf(policy.save[k][ch]);
+                policyChoice = Math.max(policyChoice, 0);
+                $selects.eq(k).val(policyChoice);
+            }
+        }
+    }
+    // чета удаляем не понял чо
+    var j = 0;
+    for (var i = 0; i < policyString.length; i++) {
+        if (unitsTable.find("td:nth-child(" + (10 + i - j) + ")").find("select").length === 0) {
+            $(".unit-list-2014 th:nth-child(" + (9 + i - j) + "), .unit-list-2014  td:nth-child(" + (10 + i - j) + ")").remove();
+            j++;
+        }
+    }
+    // проставляем ширину кнопок ксио и селектов
+    var ths = $("th.XOhtml[style]");
+    for (var i = 0; i < ths.length; i++) {
+        var $selects = $("td.XOhtml:nth-child(" + (10 + i) + ") select");
+        var $inputs = $("th.XOhtml:nth-child(" + (9 + i) + ") input");
+        var wa = $selects.map(function (i, e) { return $(e).width(); }).get();
+        var width = wa.concat([$inputs.width() + 16]).reduce(function (p, c) { return Math.max(p, c); });
+        $selects.width(width);
+        $inputs.width(width - 16);
+    }
+    // расширяем дивы чобы влазила широкая таблица когда дофига селектов
+    $("#wrapper").width(unitsTable.width() + 80);
+    $("#mainContent").width(unitsTable.width());
+    // всем селектам вешаем доп свойство open.
+    $(".XioChoice").data("open", false);
+    var $tron; // TODO: тут я решил избавиться от глобальной переменной ибо нахера она? функции захватывают локальный скоуп
+    var $mousedown = false;
+    var $this;
+    // по нажатию кнопки выделяем строку юнита и запомним tr на котором собсна это произошло
+    $(document).on("mousedown.XO", ".wborder", function (e) {
+        if (!$(e.target).is('.XioChoice') && !$(e.target).is('.XioChoice option')) {
+            $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+            $(".trXIO").removeClass("trXIO");
+            $(this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            $mousedown = true;
+            $tron = $(e.target).is("tr") ? $(e.target) : $(e.target).parents("tr");
+        }
+    });
+    // при наведении мышкой на строку юнитам
+    unitsTable.on("mouseover.XO", ".wborder", function (e) {
+        if ($mousedown) {
+            $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+            $(".trXIO").removeClass("trXIO");
+            $this = $(this);
+            // ваще не понял этой магии
+            if ($this.index() < $tron.index()) {
+                $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            }
+            else if ($this.index() > $tron.index()) {
+                $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            }
+            $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+        }
+    });
+    $(document).on("mouseup.XO", ".wborder", function () {
+        $mousedown = false;
+    });
+    // при наведении мышкой на строку юнитам
+    $(document).on("mouseover.XO", ".wborder", function (e) {
+        if ($mousedown) {
+            $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+            $(".trXIO").removeClass("trXIO");
+            $this = $(this);
+            // ваще не понял этой магии
+            if ($this.index() < $tron.index()) {
+                $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            }
+            else if ($this.index() > $tron.index()) {
+                $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            }
+            $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+        }
+    });
+    var detector = navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1 ? 'mousedown.XO' : 'click.XO';
+    $(document).on(detector, ".XioChoice", function (e) {
+        $this = $(this);
+        // меняем повешанные на селект данные open при клике по нему
+        if ($(this).data("open") === false) {
+            //open
+            $(this).data("open", true);
+            $(document).on("mouseup.XO.XIN", "", execute);
+        }
+        else {
+            //not open
+            $(this).data("open", false);
+        }
+        function execute() {
+            //close
+            $(document).off(".XIN");
+            setTimeout(function () {
+                $this.data('open', false);
+            }, 1);
+            var thisname = $this.attr("data-name");
+            var thischoice = numberfy($this.attr("data-choice"));
+            var thisvalue = policyJSON[thisname].order[thischoice][$this.val()];
+            var column = $this.parent().index();
+            var $arr = $(".trXIO td:nth-child(" + (column + 1) + ") .XioChoice");
+            //if row not selected
+            if ($arr.length === 0) {
+                $arr = $("tr:nth-child(" + ($this.parent().parent().index() + 1) + ") td:nth-child(" + (column + 1) + ") .XioChoice");
+            }
+            for (var i = 0; i < $arr.length; i++) {
+                var name = $arr.eq(i).attr("data-name");
+                var subid = $arr.eq(i).attr("data-id");
+                var choice = numberfy($arr.eq(i).attr("data-choice"));
+                var index = policyJSON[name].save[choice].indexOf(thisvalue);
+                var value = policyJSON[name].order[choice].indexOf(thisvalue);
+                if (index >= 0) {
+                    $arr.eq(i).val(value);
+                    var savedPolicyStrings = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
+                    var savedPolicies = [];
+                    var savedPolicyChoices = [];
+                    for (var j = 0; j < savedPolicyStrings.length; j++) {
+                        savedPolicies[j] = savedPolicyStrings[j].substring(0, 2);
+                        savedPolicyChoices[j] = savedPolicyStrings[j].substring(2);
+                    }
+                    var option = savedPolicies.indexOf(name);
+                    var split = savedPolicyChoices[option].split("-");
+                    split[choice] = index.toString();
+                    savedPolicyChoices[option] = split.join("-");
+                    var newPolicyString = "";
+                    for (var j = 0; j < savedPolicies.length; j++) {
+                        newPolicyString += ";" + savedPolicies[j] + savedPolicyChoices[j];
+                    }
+                    ls["x" + realm + subid] = newPolicyString.substring(1);
+                }
+            }
+        }
+    });
+    // жмак по кнопке GenerateAll
+    $(document).on('click.XO', "#XioGeneratorPRO", function () {
+        XioGenerator(subids);
+    });
+    // жмак по кнопке FireAll
+    $(document).on('click.XO', "#XioFirePRO", function () {
+        XioMaintenance(subids, []);
+    });
+    // generate отдельного юнита
+    $(document).on('click.XO', ".XioGenerator", function () {
+        var subid = numberfy($(this).attr("data-id"));
+        XioGenerator([subid]);
+    });
+    // жмак по кнопке в хедере колонки
+    $(document).on('click.XO', ".XioGroup", function () {
+        var allowedPolicies = $(this).val();
+        XioMaintenance(subids, [allowedPolicies]);
+    });
+    // fire/subid кнопка юнита
+    $(document).on('click.XO', ".XioSub", function (e) {
+        var subid = numberfy($(this).val());
+        XioMaintenance([subid], []);
+    });
 }
-;
 function topManagerStats() {
-    throw new Error("Not implemented");
+    var fName = arguments.callee.toString();
+    console.log(fName);
 }
 function preference(policies) {
     // работать будем с конкретным юнитом в котором находимся
@@ -681,4 +1060,4 @@ document.onreadystatechange = function () {
     }
 };
 document.onreadystatechange(new ProgressEvent("XioLoad"));
-//# sourceMappingURL=Xio.js.map
+//# sourceMappingURL=XioScript.user.js.map

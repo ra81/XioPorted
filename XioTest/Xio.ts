@@ -1,18 +1,4 @@
-﻿// ==UserScript==
-// @name           XioScript
-// @namespace      https://github.com/XiozZe/XioScript
-// @description    XioScript with XioMaintenance
-// @version        12.0.80
-// @author		   XiozZe
-// @require        https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js
-// @include        http*://*virtonomic*.*/*/*
-// @exclude        http*://virtonomics.wikia.com*
-// ==/UserScript==
-// включены опции стриктНулл.
-// запрет неявных Эни, ретурнов, this
-
-var version = "12.0.83";
-
+﻿
 var $ = jQuery = jQuery.noConflict(true);
 
 var ls = localStorage;
@@ -32,8 +18,8 @@ var serverpostcount = 0;
 var suppliercount = 0;
 var processingtime = 0;
 var timeinterval = 0;
-var mousedown = false;
-var $tron: HTMLElement;
+//var mousedown = false;
+//var $tron: HTMLElement;
 var XMreload = false;
 var xsup = [];
 var xsupcheck = {};
@@ -42,207 +28,6 @@ var blackmail = [];
 let _m = $(".dashboard a").attr("href").match(/\d+/) as string[];
 var companyid = numberfy(_m ? _m[0] : "0");
 var equipfilter = [];
-
-interface IDictionary<T> {
-    [index: string]: T;
-}
-
-interface IPolicy {
-    func: () => void;
-    save: string[][];
-    order: string[][];
-    name: string;
-    group: string;
-    wait: string[];
-}
-
-let policyJSON: IDictionary<IPolicy> = {
-    pp: {
-        func: salePrice,
-        save: [["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"], ["Stock", "Output"], ["Keep", "Reject"]],
-        order: [["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"], ["Stock", "Output"], ["Keep", "Reject"]],
-        name: "priceProd",
-        group: "Price",
-        wait: []
-    },
-    pw: {
-        func: salePrice,
-        save: [["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"], ["Stock"], ["Keep", "Reject"]],
-        order: [["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"], ["Stock"], ["Keep", "Reject"]],
-        name: "priceProd",
-        group: "Price",
-        wait: []
-    },
-    ps: {
-        func: salePolicy,
-        save: [["-", "No sale", "Any", "Company", "Corp."], ["All", "Output"]],
-        order: [["-", "No sale", "Any", "Company", "Corp."], ["All", "Output"]],
-        name: "policy",
-        group: "Policy",
-        wait: []
-    },
-    pn: {
-        func: salePolicy,
-        save: [["-", "No sale", "Any", "Company", "Corp."]],
-        order: [["-", "No sale", "Any", "Company", "Corp."]],
-        name: "policy",
-        group: "Policy",
-        wait: []
-    },
-    sc: {
-        func: servicePrice,
-        save: [["-", "Sales", "Turnover", "Profit"], ["P x0.0", "P x1.0", "P x1.1", "P x1.4", "P x2.0"]],
-        order: [["-", "Sales", "Turnover", "Profit"], ["P x0.0", "P x1.0", "P x1.1", "P x1.4", "P x2.0"]],
-        name: "priceService",
-        group: "Price",
-        wait: []
-    },
-    sl: {
-        func: serviceWithoutStockPrice,
-        save: [["-", "Sales", "Turnover"]],
-        order: [["-", "Sales", "Turnover"]],
-        name: "priceService",
-        group: "Price",
-        wait: []
-    },
-    ee: {
-        func: incineratorPrice,
-        save: [["-", "Max"]],
-        order: [["-", "Max"]],
-        name: "priceService",
-        group: "Price",
-        wait: []
-    },
-    pt: {
-        func: retailPrice,
-        save: [["-", "Zero", "Market 10%", "Turnover", "Stock", "Local", "City", "Sales", "Market 6%"], ["P x0.0", "P x1.0", "P x1.1", "P x1.4", "P x2.0"]],
-        order: [["-", "Zero", "Market 6%", "Market 10%", "Sales", "Turnover", "Stock", "Local", "City"], ["P x0.0", "P x1.0", "P x1.1", "P x1.4", "P x2.0"]],
-        name: "priceRetail",
-        group: "Price",
-        wait: []
-    },
-    sp: {
-        func: prodSupply,
-        save: [["-", "Zero", "Required", "Stock", "Remove"]],
-        order: [["-", "Zero", "Required", "Stock", "Remove"]],
-        name: "supplyProd",
-        group: "Supply",
-        wait: ["priceProd", "policy", "tech", "equip"]
-    },
-    sr: {
-        func: storeSupply,
-        save: [["-", "Zero", "Sold", "Amplify", "Stock", "Enhance"], ["None", "One", "$1 000", "$1 000 000", "Market 1%", "Market 5%", "Market 10%"], ["Any Q", "Local Q", "City Q"]],
-        order: [["-", "Zero", "Sold", "Stock", "Amplify", "Enhance"], ["None", "One", "$1 000", "$1 000 000", "Market 1%", "Market 5%", "Market 10%"], ["Any Q", "Local Q", "City Q"]],
-        name: "supplyRetail",
-        group: "Supply",
-        wait: ["priceProd", "policy"]
-    },
-    sh: {
-        func: wareSupply,
-        save: [["-", "Zero", "Required", "Stock", "Enhance", "Nuance", "Maximum"], ["None", "Mine", "All", "Other"], ["Remove", "Zeros", "Ones"], ["Any available volume", "1k", "10k", "100k", "1m", "10m", "100m", "1b", "10b", "100b"]],
-        order: [["-", "Zero", "Required", "Stock", "Enhance", "Nuance", "Maximum"], ["None", "Mine", "All", "Other"], ["Remove", "Zeros", "Ones"], ["Any available volume", "1k", "10k", "100k", "1m", "10m", "100m", "1b", "10b", "100b"]],
-        name: "supplyWare",
-        group: "Supply",
-        wait: ["supplyProd", "supplyRetail"]
-    },
-    ad: {
-        func: advertisement,
-        save: [["-", "Zero", "Min TV", "Max", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Req"]],
-        order: [["-", "Zero", "Min TV", "Req", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Max"]],
-        name: "ads",
-        group: "Ads",
-        wait: []
-    },
-    es: {
-        func: salary,
-        save: [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"], ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
-        order: [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "130%top1", "139%top1"], ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
-        name: "salaryOldInterface",
-        group: "Salary",
-        wait: ["equip"]
-    },
-    en: {
-        func: salary,
-        save: [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"], ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
-        order: [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "130%top1", "139%top1"], ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
-        name: "salaryNewInterface",
-        group: "Salary",
-        wait: ["equip"]
-    },
-    eh: {
-        func: holiday,
-        save: [["-", "Holiday", "Working"]],
-        order: [["-", "Holiday", "Working"]],
-        name: "holidayElse",
-        group: "Holiday",
-        wait: []
-    },
-    ep: {
-        func: holiday,
-        save: [["-", "Holiday", "Working", "Stock"]],
-        order: [["-", "Holiday", "Working", "Stock"]],
-        name: "holidayProd",
-        group: "Holiday",
-        wait: ["priceProd"]
-    },
-    et: {
-        func: training,
-        save: [["-", "Always", "City Salary", "1 Year"]],
-        order: [["-", "Always", "City Salary", "1 Year"]],
-        name: "training",
-        group: "Training",
-        wait: ["salaryNewInterface", "salaryOldInterface"]
-    },
-    qm: {
-        func: equipment,
-        save: [["-", "Required", "Maximal", "Q2.00"], ["Black", "Full", "Perc"]],  //Fill
-        order: [["-", "Required", "Maximal", "Q2.00"], ["Black", "Full", "Perc"]],
-        name: "equip",
-        group: "Equipment",
-        wait: ["tech", "research"]
-    },
-    tc: {
-        func: technology,
-        save: [["-", "Research"]],
-        order: [["-", "Research"]],
-        name: "tech",
-        group: "Technology",
-        wait: []
-    },
-    rs: {
-        func: research,
-        save: [["-", "Continue"]],
-        order: [["-", "Continue"]],
-        name: "research",
-        group: "Research",
-        wait: []
-    },
-    pb: {
-        func: prodBooster,
-        save: [["-", "Always", "Profitable"]],
-        order: [["-", "Always", "Profitable"]],
-        name: "solars",
-        group: "Solars",
-        wait: []
-    },
-    pa: {
-        func: politicAgitation,
-        save: [["-", "Continuous agitation"]],
-        order: [["-", "Continuous agitation"]],
-        name: "politics",
-        group: "Politics",
-        wait: []
-    },
-    wz: {
-        func: wareSize,
-        save: [["-", "Packed", "Full"]],
-        order: [["-", "Packed", "Full"]],
-        name: "size",
-        group: "Size",
-        wait: []
-    }
-};
-
 
 // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
 function numberfy(variable: string): number {
@@ -309,29 +94,317 @@ function xpCookie(name: string): string | null {
     return null;
 }
 
+// из аргументов функции вытаскивает само имя функции. для лога чисто
+function getFuncName(args: IArguments) :string {
+    let items = args.callee.toString().split("(");
+    return items[0] ? items[0] + "()" : "";
+}
 
 function XioMaintenance(subidList:number[], policyNames:string[]) {
-     throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
+};
+
+function XioGenerator(subidList: number[]) {
+    console.log(getFuncName(arguments));
 };
 
 function XioExport() {
-    throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
 };
 
 function XioImport() {
-    throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
 };
 
 function XioHoliday() {
-    throw new Error("Not implemented");
+    console.log(getFuncName(arguments));
 };
 
 function XioOverview() {
-    throw new Error("Not implemented");
-};
+    let unitsTable = $(".unit-list-2014");
+
+    // скрыть все колонки кроме Город, Подразделение
+    unitsTable.find("td, th").filter(":not(:nth-child(2)):not(:nth-child(3)):not(:nth-child(8))").addClass("XioHide").hide();
+    unitsTable.find("tr.odd").css("backgroundColor", "lightgoldenrodyellow");
+    // удалить размер подразделения под названием юнита
+    unitsTable.find("td:nth-child(3) span").remove();
+    unitsTable.css("white-space", "nowrap").css("user-select", "none");
+
+    // переносим сами комментарии в тот же ряд где и имя юнита в тот же див. и удаляем лишние tr нафиг
+    var $comments = unitsTable.find("tr.unit_comment");
+    for (var i = 0; i < $comments.length; i++) {
+        var notetext = $comments.eq(i).find("span").text();
+        $comments.eq(i).prev().addClass("wborder").find("td:nth-child(3)").append("<div class=st><span style='max-width:300px;'>" + notetext + "</span></div>");
+    }
+    $comments.remove();
+
+    // отрисовка кнопок в хедере таблицы с поколоночными операциями и Общими на группу юнитов
+    var policyString: string[][] = [];
+    var groupString: string[] = [];
+    var thstring = `<th class=XOhtml style="padding-right:5px">
+                      <input type=button id=XioGeneratorPRO class='XioGo' value='Gen ALL' style='width:50%'>
+                      <input type=button id=XioFirePRO class='XioGo' value='FIRE ALL' style='width:50%' >
+                    </th>`;
+
+    var tdstring = "";
+    for (var key in policyJSON) {
+        let policy = policyJSON[key];
+        if (groupString.indexOf(policy.group) < 0) {
+            groupString.push(policy.group);
+            policyString.push([policy.name]);
+            thstring += `<th class=XOhtml style='padding-right:5px'>
+                           <input type=button class='XioGo XioGroup' value=${policy.group} style='width:100%'>
+                         </th>`;
+            tdstring += "<td class=XOhtml></td>";
+        }
+        else {
+            policyString[groupString.indexOf(policy.group)].push(policy.name);
+        }
+    }
+
+    unitsTable.find("th:nth-child(7)").after(thstring);
+
+
+    // далее отработка каждого юнита
+    //
+    let subids = unitsTable.find("tr:not(.unit_comment) td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+
+    // вставляем кнопки в каждую строку. generate/fire. для отработки конкретного юнита
+    let $td = unitsTable.find("tr:not(.unit_comment) td:nth-child(8)");
+    for (var i = 0; i < subids.length; i++) {
+        $td.eq(i).after(`<td class=XOhtml>
+                           <input type=button data-id=${subids[i]} class='XioGo XioGenerator' value=Generate>
+                           <input type=button class='XioGo XioSub' value=${subids[i]}>
+                         </td>` + tdstring
+        );
+    }
+
+    // для всех юнитов в списке выводим селекты политик и проставляем значения политик взятые из лок хранилища
+    for (var i = 0; i < subids.length; i++) {
+        var savedPolicyStrings: string[] = ls["x" + realm + subids[i]] ? ls["x" + realm + subids[i]].split(";") : [];
+        for (var j = 0; j < savedPolicyStrings.length; j++) {
+            var name = savedPolicyStrings[j].substring(0, 2);
+            var policy = policyJSON[name];
+            if (policy == null)
+                continue;
+
+            var choices = savedPolicyStrings[j].substring(2).split("-");
+
+            // в каждую строку юнита добавляем селекты для выбора политик.
+            var htmlstring = "";
+            for (var k = 0; k < policy.order.length; k++) {
+                if (k >= 1)
+                    htmlstring += "<br>";
+
+                htmlstring += "<select data-id=" + subids[i] + " data-name=" + name + " data-choice=" + k + " class=XioChoice>";
+                for (var l = 0; l < policy.order[k].length; l++)
+                    htmlstring += "<option value=" + l + ">" + policy.order[k][l] + "</option>";
+
+                htmlstring += "</select>";
+            }
+
+            // для всех селектов которые добавили проставляем значения политик из лок стораджа
+            let $selects = unitsTable.find("tr:not(.unit_comment)").eq(i + 1).find("td").eq(groupString.indexOf(policy.group) + 9).html(htmlstring).find("select");
+            for (var k = 0; k < policy.order.length; k++) {
+                let ch = parseInt(choices[k]);
+                var policyChoice = policy.order[k].indexOf(policy.save[k][ch]);
+                policyChoice = Math.max(policyChoice, 0);
+                $selects.eq(k).val(policyChoice);
+            }
+        }
+    }
+
+    // чета удаляем не понял чо
+    var j = 0;
+    for (var i = 0; i < policyString.length; i++) {
+        if (unitsTable.find("td:nth-child(" + (10 + i - j) + ")").find("select").length === 0) {
+            $(".unit-list-2014 th:nth-child(" + (9 + i - j) + "), .unit-list-2014  td:nth-child(" + (10 + i - j) + ")").remove();
+            j++;
+        }
+    }
+
+    // проставляем ширину кнопок ксио и селектов
+    var ths = $("th.XOhtml[style]");
+    for (var i = 0; i < ths.length; i++) {
+        let $selects = $("td.XOhtml:nth-child(" + (10 + i) + ") select");
+        let $inputs = $("th.XOhtml:nth-child(" + (9 + i) + ") input");
+        let wa = $selects.map(function (i, e) { return $(e).width(); }).get() as any as number[];
+        let width = wa.concat([$inputs.width() + 16]).reduce(function (p, c) { return Math.max(p, c); });
+        $selects.width(width);
+        $inputs.width(width - 16);
+    }
+
+    // расширяем дивы чобы влазила широкая таблица когда дофига селектов
+    $("#wrapper").width(unitsTable.width() + 80);
+    $("#mainContent").width(unitsTable.width());
+
+    // всем селектам вешаем доп свойство open.
+    $(".XioChoice").data("open", false);
+
+    let $tron: JQuery;  // TODO: тут я решил избавиться от глобальной переменной ибо нахера она? функции захватывают локальный скоуп
+    let $mousedown = false;
+    let $this: JQuery;
+
+    // по нажатию кнопки выделяем строку юнита и запомним tr на котором собсна это произошло
+    $(document).on("mousedown.XO", ".wborder",
+        function (this: HTMLElement, e: JQueryEventObject) {
+            if (!$(e.target).is('.XioChoice') && !$(e.target).is('.XioChoice option')) {
+                $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+                $(".trXIO").removeClass("trXIO");
+                $(this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+                $mousedown = true;
+                $tron = $(e.target).is("tr") ? $(e.target) : $(e.target).parents("tr");
+            }
+    });
+
+    // при наведении мышкой на строку юнитам
+    unitsTable.on("mouseover.XO", ".wborder",
+        function (this: HTMLElement, e: JQueryEventObject) {
+            if ($mousedown) {
+                $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+                $(".trXIO").removeClass("trXIO");
+                $this = $(this);
+
+                // ваще не понял этой магии
+                if ($this.index() < $tron.index()) {
+                    $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+                }
+                else if ($this.index() > $tron.index()) {
+                    $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+                }
+                $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            }
+        });
+
+    $(document).on("mouseup.XO", ".wborder", function () {
+        $mousedown = false;
+    });
+
+    // при наведении мышкой на строку юнитам
+    $(document).on("mouseover.XO", ".wborder",
+        function (this: HTMLElement, e: JQueryEventObject) {
+            if ($mousedown) {
+                $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+                $(".trXIO").removeClass("trXIO");
+                $this = $(this);
+
+                // ваще не понял этой магии
+                if ($this.index() < $tron.index()) {
+                    $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+                }
+                else if ($this.index() > $tron.index()) {
+                    $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+                }
+                $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            }
+    });
+
+    var detector = navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1 ? 'mousedown.XO' : 'click.XO';
+
+    $(document).on(detector, ".XioChoice",
+        function (this: HTMLElement, e: JQueryEventObject) {
+            $this = $(this);
+
+            // меняем повешанные на селект данные open при клике по нему
+            if ($(this).data("open") === false) {
+                //open
+                $(this).data("open", true);
+                $(document).on("mouseup.XO.XIN", "", execute);
+            }
+            else {
+                //not open
+                $(this).data("open", false);
+            }
+
+            function execute() {
+                //close
+                $(document).off(".XIN");
+
+                setTimeout(function () {
+                    $this.data('open', false);
+                }, 1);
+
+                var thisname = $this.attr("data-name");
+                var thischoice = numberfy($this.attr("data-choice"));
+                var thisvalue = policyJSON[thisname].order[thischoice][$this.val()];
+                var column = $this.parent().index();
+
+                var $arr = $(".trXIO td:nth-child(" + (column + 1) + ") .XioChoice");
+                //if row not selected
+                if ($arr.length === 0) {
+                    $arr = $("tr:nth-child(" + ($this.parent().parent().index() + 1) + ") td:nth-child(" + (column + 1) + ") .XioChoice");
+                }
+
+                for (var i = 0; i < $arr.length; i++) {
+
+                    var name = $arr.eq(i).attr("data-name");
+                    var subid = $arr.eq(i).attr("data-id");
+                    var choice = numberfy($arr.eq(i).attr("data-choice"));
+                    var index = policyJSON[name].save[choice].indexOf(thisvalue);
+                    var value = policyJSON[name].order[choice].indexOf(thisvalue);
+
+                    if (index >= 0) {
+
+                        $arr.eq(i).val(value);
+                        var savedPolicyStrings:string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
+                        var savedPolicies: string[] = [];
+                        var savedPolicyChoices: string[] = [];
+                        for (var j = 0; j < savedPolicyStrings.length; j++) {
+                            savedPolicies[j] = savedPolicyStrings[j].substring(0, 2);
+                            savedPolicyChoices[j] = savedPolicyStrings[j].substring(2);
+                        }
+
+                        var option = savedPolicies.indexOf(name);
+                        var split = savedPolicyChoices[option].split("-");
+                        split[choice] = index.toString();
+                        savedPolicyChoices[option] = split.join("-");
+
+                        let newPolicyString = "";
+                        for (var j = 0; j < savedPolicies.length; j++) {
+                            newPolicyString += ";" + savedPolicies[j] + savedPolicyChoices[j];
+                        }
+                        ls["x" + realm + subid] = newPolicyString.substring(1);
+                    }
+                }
+            }
+        });
+
+    // жмак по кнопке GenerateAll
+    $(document).on('click.XO', "#XioGeneratorPRO", function () {
+        XioGenerator(subids);
+    });
+
+    // жмак по кнопке FireAll
+    $(document).on('click.XO', "#XioFirePRO", function () {
+        XioMaintenance(subids, []);
+    });
+
+    // generate отдельного юнита
+    $(document).on('click.XO', ".XioGenerator",
+        function (this: HTMLElement) {
+        var subid = numberfy($(this).attr("data-id"));
+        XioGenerator([subid]);
+    });
+
+    // жмак по кнопке в хедере колонки
+    $(document).on('click.XO', ".XioGroup",
+        function (this: HTMLElement) {
+        var allowedPolicies = $(this).val();
+        XioMaintenance(subids, [allowedPolicies]);
+    });
+
+    // fire/subid кнопка юнита
+    $(document).on('click.XO', ".XioSub",
+        function (this: HTMLElement, e: JQueryEventObject) {
+        var subid = numberfy($(this).val());
+        XioMaintenance([subid], []);
+    });
+}
+
 
 function topManagerStats() {
-    throw new Error("Not implemented");
+    let fName = arguments.callee.toString();
+    console.log(fName);
 }
 
 function preference(policies: string[]) : boolean {

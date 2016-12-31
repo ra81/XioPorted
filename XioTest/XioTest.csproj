@@ -32,9 +32,10 @@
     <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
+    <TypeScriptCompile Include="Header.ts" />
+    <TypeScriptCompile Include="IDictionary.ts" />
     <TypeScriptCompile Include="PolicyJson.ts" />
     <TypeScriptCompile Include="Xio.ts" />
-    <TypeScriptCompile Include="IDictionary.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
     <TypeScriptCompile Include="Shops.ts" />
   </ItemGroup>
@@ -81,8 +82,8 @@
     <TypeScriptTarget>ES5</TypeScriptTarget>
     <TypeScriptJSXEmit>None</TypeScriptJSXEmit>
     <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>
-    <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
-    <TypeScriptOutFile />
+    <TypeScriptModuleKind>System</TypeScriptModuleKind>
+    <TypeScriptOutFile>XioScript.user.js</TypeScriptOutFile>
     <TypeScriptOutDir />
     <TypeScriptGeneratesDeclarations>True</TypeScriptGeneratesDeclarations>
     <TypeScriptNoEmitOnError>True</TypeScriptNoEmitOnError>

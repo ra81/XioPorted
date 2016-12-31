@@ -1,4 +1,16 @@
 declare var version: string;
+interface IDictionary<T> {
+    [index: string]: T;
+}
+interface IPolicy {
+    func: () => void;
+    save: string[][];
+    order: string[][];
+    name: string;
+    group: string;
+    wait: string[];
+}
+declare let policyJSON: IDictionary<IPolicy>;
 declare var $: JQueryStatic;
 declare var ls: Storage;
 declare var realm: string | null;
@@ -17,8 +29,6 @@ declare var serverpostcount: number;
 declare var suppliercount: number;
 declare var processingtime: number;
 declare var timeinterval: number;
-declare var mousedown: boolean;
-declare var $tron: HTMLElement;
 declare var XMreload: boolean;
 declare var xsup: never[];
 declare var xsupcheck: {};
@@ -27,22 +37,12 @@ declare var blackmail: never[];
 declare let _m: string[];
 declare var companyid: number;
 declare var equipfilter: never[];
-interface IDictionary<T> {
-    [index: string]: T;
-}
-interface IPolicy {
-    func: () => void;
-    save: string[][];
-    order: string[][];
-    name: string;
-    group: string;
-    wait: string[];
-}
-declare let policyJSON: IDictionary<IPolicy>;
 declare function numberfy(variable: string): number;
 declare function buildingShortener(): void;
 declare function xpCookie(name: string): string | null;
+declare function getFuncName(args: IArguments): string;
 declare function XioMaintenance(subidList: number[], policyNames: string[]): void;
+declare function XioGenerator(subidList: number[]): void;
 declare function XioExport(): void;
 declare function XioImport(): void;
 declare function XioHoliday(): void;
