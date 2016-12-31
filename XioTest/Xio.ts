@@ -276,32 +276,13 @@ function XioOverview() {
             }
         });
 
-    $(document).on("mouseup.XO", ".wborder", function () {
+    unitsTable.on("mouseup.XO", ".wborder", function () {
         $mousedown = false;
-    });
-
-    // при наведении мышкой на строку юнитам
-    $(document).on("mouseover.XO", ".wborder",
-        function (this: HTMLElement, e: JQueryEventObject) {
-            if ($mousedown) {
-                $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
-                $(".trXIO").removeClass("trXIO");
-                $this = $(this);
-
-                // ваще не понял этой магии
-                if ($this.index() < $tron.index()) {
-                    $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-                }
-                else if ($this.index() > $tron.index()) {
-                    $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-                }
-                $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-            }
     });
 
     var detector = navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1 ? 'mousedown.XO' : 'click.XO';
 
-    $(document).on(detector, ".XioChoice",
+    unitsTable.on(detector, ".XioChoice",
         function (this: HTMLElement, e: JQueryEventObject) {
             $this = $(this);
 
@@ -370,31 +351,31 @@ function XioOverview() {
         });
 
     // жмак по кнопке GenerateAll
-    $(document).on('click.XO', "#XioGeneratorPRO", function () {
+    unitsTable.on('click.XO', "#XioGeneratorPRO", function () {
         XioGenerator(subids);
     });
 
     // жмак по кнопке FireAll
-    $(document).on('click.XO', "#XioFirePRO", function () {
+    unitsTable.on('click.XO', "#XioFirePRO", function () {
         XioMaintenance(subids, []);
     });
 
     // generate отдельного юнита
-    $(document).on('click.XO', ".XioGenerator",
+    unitsTable.on('click.XO', ".XioGenerator",
         function (this: HTMLElement) {
         var subid = numberfy($(this).attr("data-id"));
         XioGenerator([subid]);
     });
 
     // жмак по кнопке в хедере колонки
-    $(document).on('click.XO', ".XioGroup",
+    unitsTable.on('click.XO', ".XioGroup",
         function (this: HTMLElement) {
         var allowedPolicies = $(this).val();
         XioMaintenance(subids, [allowedPolicies]);
     });
 
     // fire/subid кнопка юнита
-    $(document).on('click.XO', ".XioSub",
+    unitsTable.on('click.XO', ".XioSub",
         function (this: HTMLElement, e: JQueryEventObject) {
         var subid = numberfy($(this).val());
         XioMaintenance([subid], []);
@@ -835,9 +816,5 @@ function XioScript() : boolean {
 }
 
 // запуск вешаем на событие
-document.onreadystatechange = () => {
-    if (document.readyState === "complete") {
-        XioScript();
-    }
-};
-document.onreadystatechange(new ProgressEvent("XioLoad"));
+$(document).ready(() => XioScript());
+//document.onreadystatechange(new ProgressEvent("XioLoad"));
