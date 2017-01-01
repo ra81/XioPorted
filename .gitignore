@@ -1,4 +1,5 @@
 .vs/*
 XioTest/bin/*
 XioTest/obj/*
-XioTest/out/*
+XioTest/out/*.ts
+XioTest/out/*.map
