@@ -9,6 +9,53 @@ interface IPolicy {
     wait: string[];
 }
 
+// из сохраненных значений опций, получаем отображаемые значения
+function save2Show(policy: IPolicy, choices: number[]): number[] {
+    if (policy == null)
+        throw new Error("policy is null");
+
+    if (choices == null || choices.length === 0)
+        throw new Error("choices не заданы.");
+
+    let res: number[] = [];
+    for (var optionNumber = 0; optionNumber < choices.length; optionNumber++) {
+        let saveIndex = choices[optionNumber];
+        let saveValue = policy.save[optionNumber][saveIndex];
+
+        let showIndex = policy.order[optionNumber].indexOf(saveValue);
+        if (showIndex < 0)
+            throw new Error(`невозможно преобразовать. saveIndex:${saveIndex}, saveValue: ${saveValue}, showIndex:${showIndex}`);
+
+        res[optionNumber] = showIndex;
+    }
+
+    return res;
+}
+
+// из отображаемых опций получаем их сохраняемые значения
+function show2Save(policy: IPolicy, choices: number[]): number[] {
+    if (policy == null)
+        throw new Error("policy is null");
+
+    if (choices == null || choices.length === 0)
+        throw new Error("choices не заданы.");
+
+    let res: number[] = [];
+    for (var optionNumber = 0; optionNumber < choices.length; optionNumber++) {
+        let showIndex = choices[optionNumber];
+        let showValue = policy.order[optionNumber][showIndex];
+
+        let saveIndex = policy.save[optionNumber].indexOf(showValue);
+        if (saveIndex < 0)
+            throw new Error(`невозможно преобразовать. showIndex:${showIndex}, showValue: ${showValue}, saveIndex:${saveIndex}`);
+
+        res[optionNumber] = saveIndex;
+    }
+
+    return res;
+}
+
+
 let policyJSON: IDictionary<IPolicy> = {
     pp: {
         func: salePrice,

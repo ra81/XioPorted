@@ -27,6 +27,7 @@ class PolicyOptions {
 }
 
 // берет любой набор элементов с аттрибутами data-name, data-choice и value и собирает с них опции 
+// сразу их нормализуя в save формат
 function parseOptions(elements: JQuery, policyDict: IDictionary<IPolicy>): PolicyOptions | null {
 
     // проверять что это селекты не будем, любая хуйня может быть лишь бы были в ней поля
@@ -47,13 +48,15 @@ function parseOptions(elements: JQuery, policyDict: IDictionary<IPolicy>): Polic
         if (isNaN(optionValueIndex))
             throw new Error("Элементы в поле value должны содержать численное значение опции.")
 
-        let optionValue = policy.order[optionNumber][optionValueIndex];
-        let saveValueIndex = policy.save[optionNumber].indexOf(optionValue);
-        if (saveValueIndex < 0)
-            throw new Error(`Не найден saveIndex для значения опции ${optionValue}.`);
+        opts[optionNumber] = optionValueIndex;
+        //let optionValue = policy.order[optionNumber][optionValueIndex];
+        //let saveValueIndex = policy.save[optionNumber].indexOf(optionValue);
+        //if (saveValueIndex < 0)
+        //    throw new Error(`Не найден saveIndex для значения опции ${optionValue}.`);
 
-        opts.push(saveValueIndex);
+        //opts.push(saveValueIndex);
     }
+    opts = show2Save(policy, opts);     // переводим из отображаемой в сохраняемую нотацию
 
     let newPolicyStr = policyKey + opts.join("-");
     return PolicyOptions.fromString(newPolicyStr);
@@ -82,7 +85,8 @@ function loadOptions(realm: string, subid: string): IDictionary<PolicyOptions> {
     return parsedDict;
 }
 
-// записывает в хранилище все опции всех политик для указанного юнита в указанном реалме
+// записывает в хранилище все опции всех политик для указанного юнита в указанном реалме. 
+// подразумеваем что опции уже в save формате
 function storeOptions(realm: string, subid: string, options: IDictionary<PolicyOptions>): void {
 
     if (Object.keys.length === 0)

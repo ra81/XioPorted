@@ -193,36 +193,34 @@ function XioOverview() {
     }
 
     // для всех юнитов в списке выводим селекты политик и проставляем значения политик взятые из лок хранилища
+    if (realm == null)
+        throw new Error("неведомая хуйня но реалм у нас почему то null");
+
     for (var i = 0; i < subids.length; i++) {
-        var savedPolicyStrings: string[] = ls["x" + realm + subids[i]] ? ls["x" + realm + subids[i]].split(";") : [];
-        for (var j = 0; j < savedPolicyStrings.length; j++) {
-            var name = savedPolicyStrings[j].substring(0, 2);
-            var policy = policyJSON[name];
-            if (policy == null)
-                continue;
 
-            var choices = savedPolicyStrings[j].substring(2).split("-");
+        let parsedDict = loadOptions(realm, subids[i].toString())
+        for (var key in parsedDict) {
+            let options = parsedDict[key];
+            let policy = policyJSON[key];
+            let showChoices = save2Show(policy, options.choices);
 
-            // в каждую строку юнита добавляем селекты для выбора политик.
+            // в каждую строку юнита добавляем селекты для выбора политик. пока без установки значений.
             var htmlstring = "";
-            for (var k = 0; k < policy.order.length; k++) {
-                if (k >= 1)
+            for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
+                if (optionNumber >= 1)
                     htmlstring += "<br>";
 
-                htmlstring += "<select data-id=" + subids[i] + " data-name=" + name + " data-choice=" + k + " class=XioChoice>";
-                for (var l = 0; l < policy.order[k].length; l++)
-                    htmlstring += "<option value=" + l + ">" + policy.order[k][l] + "</option>";
+                htmlstring += "<select data-id=" + subids[i] + " data-name=" + key + " data-choice=" + optionNumber + " class=XioChoice>";
+                for (var ind = 0; ind < policy.order[optionNumber].length; ind++)
+                    htmlstring += "<option value=" + ind + ">" + policy.order[optionNumber][ind] + "</option>";
 
                 htmlstring += "</select>";
             }
 
-            // для всех селектов которые добавили проставляем значения политик из лок стораджа
+            // проставляем теперь значения для этих селектов
             let $selects = unitsTable.find("tr:not(.unit_comment)").eq(i + 1).find("td").eq(groupString.indexOf(policy.group) + 9).html(htmlstring).find("select");
-            for (var k = 0; k < policy.order.length; k++) {
-                let ch = parseInt(choices[k]);
-                var policyChoice = policy.order[k].indexOf(policy.save[k][ch]);
-                policyChoice = Math.max(policyChoice, 0);
-                $selects.eq(k).val(policyChoice);
+            for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
+                $selects.eq(optionNumber).val(Math.max(showChoices[optionNumber], 0));
             }
         }
     }
@@ -251,7 +249,7 @@ function XioOverview() {
     $("#wrapper").width(unitsTable.width() + 80);
     $("#mainContent").width(unitsTable.width());
 
-    // всем селектам вешаем доп свойство open.
+    // всем селектам вешаем доп свойство open. удалить нах походу. левая ботва
     $(".XioChoice").data("open", false);
 
 
@@ -307,76 +305,6 @@ function XioOverview() {
             parsedDict[policyKey] = newPolicy;
             storeOptions(realm, subid, parsedDict);
         });
-
-    var detector = navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1 ? 'mousedown.XO' : 'click.XO';
-
-    //unitsTable.on(detector, ".XioChoice",
-    //    function (this: HTMLElement, e: JQueryEventObject) {
-    //        $this = $(this);
-
-    //        // меняем повешанные на селект данные open при клике по нему
-    //        if ($(this).data("open") === false) {
-    //            //open
-    //            $(this).data("open", true);
-    //            $(document).on("mouseup.XO.XIN", "", execute);
-    //        }
-    //        else {
-    //            //not open
-    //            $(this).data("open", false);
-    //        }
-
-    //        function execute() {
-    //            //close
-    //            $(document).off(".XIN");
-
-    //            setTimeout(function () {
-    //                $this.data('open', false);
-    //            }, 1);
-
-    //            var thisname = $this.attr("data-name");
-    //            var thischoice = numberfy($this.attr("data-choice"));
-    //            var thisvalue = policyJSON[thisname].order[thischoice][$this.val()];
-    //            var column = $this.parent().index();
-
-    //            var $arr = $(".trXIO td:nth-child(" + (column + 1) + ") .XioChoice");
-    //            //if row not selected
-    //            if ($arr.length === 0) {
-    //                $arr = $("tr:nth-child(" + ($this.parent().parent().index() + 1) + ") td:nth-child(" + (column + 1) + ") .XioChoice");
-    //            }
-
-    //            for (var i = 0; i < $arr.length; i++) {
-
-    //                var name = $arr.eq(i).attr("data-name");
-    //                var subid = $arr.eq(i).attr("data-id");
-    //                var choice = numberfy($arr.eq(i).attr("data-choice"));
-    //                var index = policyJSON[name].save[choice].indexOf(thisvalue);
-    //                var value = policyJSON[name].order[choice].indexOf(thisvalue);
-
-    //                if (index >= 0) {
-
-    //                    $arr.eq(i).val(value);
-    //                    var savedPolicyStrings:string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
-    //                    var savedPolicies: string[] = [];
-    //                    var savedPolicyChoices: string[] = [];
-    //                    for (var j = 0; j < savedPolicyStrings.length; j++) {
-    //                        savedPolicies[j] = savedPolicyStrings[j].substring(0, 2);
-    //                        savedPolicyChoices[j] = savedPolicyStrings[j].substring(2);
-    //                    }
-
-    //                    var option = savedPolicies.indexOf(name);
-    //                    var split = savedPolicyChoices[option].split("-");
-    //                    split[choice] = index.toString();
-    //                    savedPolicyChoices[option] = split.join("-");
-
-    //                    let newPolicyString = "";
-    //                    for (var j = 0; j < savedPolicies.length; j++) {
-    //                        newPolicyString += ";" + savedPolicies[j] + savedPolicyChoices[j];
-    //                    }
-    //                    ls["x" + realm + subid] = newPolicyString.substring(1);
-    //                }
-    //            }
-    //        }
-    //    });
 
     // жмак по кнопке GenerateAll
     unitsTable.on('click.XO', "#XioGeneratorPRO", function () {
