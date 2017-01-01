@@ -241,44 +241,84 @@ function XioOverview() {
     // всем селектам вешаем доп свойство open.
     $(".XioChoice").data("open", false);
 
-    let $tron: JQuery;  // TODO: тут я решил избавиться от глобальной переменной ибо нахера она? функции захватывают локальный скоуп
-    let $mousedown = false;
-    let $this: JQuery;
+    //let $tron: JQuery;  // TODO: тут я решил избавиться от глобальной переменной ибо нахера она? функции захватывают локальный скоуп
+    //let $mousedown = false;
+    //let $this: JQuery;
+
+    // создаем свой стиль для выделенной строки и добавим на страницу
+    ////let trxioClass = "tr.trXIO {background-color: rgb(255, 210, 170);}";
+    //$("<style>").prop("type", "text/css").html(trxioClass).appendTo("head");
+
+    // запоминаем стили четной и нечетной строки чтобы потом их возвращать назад
+    //let evenStyle = unitsTable.find("tr.wborder").not(".odd").first().attr("style");
+    //let oddStyle = unitsTable.find("tr.wborder").filter(".odd").first().attr("style");
 
     // по нажатию кнопки выделяем строку юнита и запомним tr на котором собсна это произошло
-    $(document).on("mousedown.XO", ".wborder",
+    unitsTable.on("mousedown.XO", "tr.wborder",
         function (this: HTMLElement, e: JQueryEventObject) {
-            if (!$(e.target).is('.XioChoice') && !$(e.target).is('.XioChoice option')) {
-                $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
-                $(".trXIO").removeClass("trXIO");
-                $(this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-                $mousedown = true;
-                $tron = $(e.target).is("tr") ? $(e.target) : $(e.target).parents("tr");
+            let tron = $(this);
+            let oldTron = unitsTable.find("tr.trXIO");
+
+            // со старой строки убираем класс, и возвращаем назад стили
+            if (oldTron.length) {
+                oldTron.removeClass("trXIO");
+                if (oldTron.hasClass("odd"))
+                    oldTron.css("backgroundColor", "lightgoldenrodyellow");
+                else
+                    oldTron.css("backgroundColor", "");
             }
-    });
 
-    // при наведении мышкой на строку юнитам
-    unitsTable.on("mouseover.XO", ".wborder",
+            // задаем цвет строки БЕЗ класса. Иначе при выделении строки штатные классы будут преобладать и будет херь
+            tron.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+        });
+
+    // при наведении мышкой на строку юнитам. нах не надо.
+    //unitsTable.on("mouseover.XO", "tr.wborder",
+    //    function (this: HTMLElement, e: JQueryEventObject) {
+    //        let tr = $(this);
+
+    //        //if (tr.hasClass("trXIO"))
+    //        //{
+    //        //}
+    //        //if ($mousedown) {
+    //        //    $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+    //        //    $(".trXIO").removeClass("trXIO");
+    //        //    $this = $(this);
+
+    //        //    // ваще не понял этой магии
+    //        //    if ($this.index() < $tron.index()) {
+    //        //        $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+    //        //    }
+    //        //    else if ($this.index() > $tron.index()) {
+    //        //        $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+    //        //    }
+    //        //    $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+    //        //}
+    //    });
+
+    unitsTable.on("change.XO", "select.XioChoice",
         function (this: HTMLElement, e: JQueryEventObject) {
-            if ($mousedown) {
-                $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
-                $(".trXIO").removeClass("trXIO");
-                $this = $(this);
+            let select = $(e.target);
+            let unitsTable = $(".unit-list-2014");
+            //console.log(unitsTable.get(0)); // ТУТУ: this показывает на селект а не на таблицу. Надо изменить
 
-                // ваще не понял этой магии
-                if ($this.index() < $tron.index()) {
-                    $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-                }
-                else if ($this.index() > $tron.index()) {
-                    $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-                }
-                $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            // берем строку на которой стоим, выделяем ее а старую выделенную если она есть вернем назад
+            let tron = select.closest("tr");
+            if (tron.length) {
+                let oldTron = unitsTable.find(".trXIO");
+                if (oldTron.length === 0)
+                    console.log("не нашли старый выделенный ряд");
+
+                oldTron.css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
+                oldTron.removeClass("trXIO");
+
+                tron.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
             }
         });
 
-    unitsTable.on("mouseup.XO", ".wborder", function () {
-        $mousedown = false;
-    });
+    //unitsTable.on("mouseup.XO", ".wborder", function () {
+    //    $mousedown = false;
+    //});
 
     var detector = navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1 ? 'mousedown.XO' : 'click.XO';
 
