@@ -286,96 +286,26 @@ function XioOverview() {
             logDebug("select changed");
 
             let select = $(e.target);
-            let tron = select.closest("tr");
-            let policyKey = select.attr("data-name");                                // pp, pw итд
-            let policy = policyJSON[policyKey];
-
+            let policyKey = select.attr("data-name");   // pp, pw итд
             let subid = select.attr("data-id");
-            //var thisOptionNumber = numberfy(select.attr("data-choice"));                  // номер опции. 1 2 3 итд
-            //var thisOptionValue = policy.order[thisOptionNumber][select.val()];   // значение опции, числом
-            //var column = select.parent().index();                                   // колонка чтобы знать какая там группа опций
-            //logDebug(`policyKey:${policyKey}, thischoice:${thisOptionNumber}, thisvalue:${thisOptionValue}, column:${column}`);
 
-            // формируем новые данные для текущей политики на основании выбранных опций
-            let opts:number[] = [];
+            // формируем новые данные для политики на основании выбранных опций
             let allOptions = select.closest("td.XOhtml").children("select.XioChoice");
-            for (var i = 0; i < allOptions.length; i++) {
-                let o = allOptions.eq(i);
-                let optionNumber = numberfy(o.attr("data-choice"));
-                let optionValueIndex = o.val();
-                let optionValue = policy.order[optionNumber][optionValueIndex];
-                let saveValueIndex = policy.save[optionNumber].indexOf(optionValue);
+            let newPolicy = parseOptions(allOptions, policyJSON);
+            if (newPolicy == null)
+                throw new Error("неведомая хуйня но политика не спарсилась.");
 
-                opts.push(saveValueIndex);
-            }
-            let newPolicyStr = policyKey + opts.join("-");
-            let newPolicy = PolicyOptions.fromString(newPolicyStr);
-            logDebug(`newPolicyStr:${newPolicyStr}, newPolicy:${newPolicy.toString()}`);
+            logDebug(`newPolicy:${newPolicy.toString()}`);
 
             // парсим данные из локального хранилища
-            let storageKey = "x" + realm + subid;
-            let savedPolicyStrings: string[] = ls[storageKey] ? ls[storageKey].split(";") : [];
-            let savedPolicies: string[] = [];
-            let savedPolicyChoices: string[] = [];
-            let parsedDict: IDictionary<PolicyOptions> = {};
-            for (var n = 0; n < savedPolicyStrings.length; n++) {
-                let name = savedPolicyStrings[n].substring(0, 2);
-                let choices = savedPolicyStrings[n].substring(2).split("-").map((item, index, arr) => numberfy(item));
+            if (realm == null)
+                throw new Error("неведомая хуйня но реалм у нас почему то null");
 
-                parsedDict[name] = new PolicyOptions(name, choices);
-                logDebug(`parsed:${parsedDict[name].toString()}`);
-            }
+            let parsedDict = loadOptions(realm, subid);
 
             // заменяем в отпарсенных данных нужную политику на новые данные и тут же формируем строку для сохранения
             parsedDict[policyKey] = newPolicy;
-            let newItems: string[] = [];
-            for (var key in parsedDict)
-                newItems.push(parsedDict[key].toString());
-
-            let newSaveString = newItems.join(";");
-            logDebug(`newSaveString:${newSaveString}`);
-            ls[storageKey] = newSaveString;
-
-            //var $arr = $(".trXIO td:nth-child(" + (column + 1) + ") .XioChoice");
-            ////if row not selected
-            ////if ($arr.length === 0) {
-            ////    $arr = $("tr:nth-child(" + ($this.parent().parent().index() + 1) + ") td:nth-child(" + (column + 1) + ") .XioChoice");
-            ////}
-            //// знаем td где у нас все опции данной политики. Нам надо прочитать все селекты и их значения.
-            //// далее читаем для данного subid из стораджа
-            //// сплитим строку по политикам, находим кусок с нужной политикой
-            //// реплейсим кусок, собирам куски назад в общее. реплейсим все в сторадже.
-            //for (var i = 0; i < $arr.length; i++) {
-
-            //    var name = $arr.eq(i).attr("data-name");
-            //    var subid = $arr.eq(i).attr("data-id");
-            //    var choice = numberfy($arr.eq(i).attr("data-choice"));
-            //    var index = policyJSON[name].save[choice].indexOf(thisvalue);
-            //    var value = policyJSON[name].order[choice].indexOf(thisvalue);
-
-            //    if (index >= 0) {
-
-            //        $arr.eq(i).val(value);
-            //        var savedPolicyStrings: string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
-            //        var savedPolicies: string[] = [];
-            //        var savedPolicyChoices: string[] = [];
-            //        for (var j = 0; j < savedPolicyStrings.length; j++) {
-            //            savedPolicies[j] = savedPolicyStrings[j].substring(0, 2);
-            //            savedPolicyChoices[j] = savedPolicyStrings[j].substring(2);
-            //        }
-
-            //        var option = savedPolicies.indexOf(name);
-            //        var split = savedPolicyChoices[option].split("-");
-            //        split[choice] = index.toString();
-            //        savedPolicyChoices[option] = split.join("-");
-
-            //        let newPolicyString = "";
-            //        for (var j = 0; j < savedPolicies.length; j++) {
-            //            newPolicyString += ";" + savedPolicies[j] + savedPolicyChoices[j];
-            //        }
-            //        ls["x" + realm + subid] = newPolicyString.substring(1);
-            //    }
-            //}
+            storeOptions(realm, subid, parsedDict);
         });
 
     var detector = navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1 ? 'mousedown.XO' : 'click.XO';
