@@ -1,6 +1,7 @@
 ﻿
 var $ = jQuery = jQuery.noConflict(true);
 
+let $xioDebug = true;
 var ls = localStorage;
 var realm = xpCookie('last_realm');
 var getUrls = [];
@@ -28,6 +29,11 @@ var blackmail = [];
 let _m = $(".dashboard a").attr("href").match(/\d+/) as string[];
 var companyid = numberfy(_m ? _m[0] : "0");
 var equipfilter = [];
+
+function logDebug(msg: string) {
+    if ($xioDebug)
+        console.log(msg);
+}
 
 // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
 function numberfy(variable: string): number {
@@ -121,11 +127,18 @@ function XioHoliday() {
 };
 
 function XioOverview() {
+
     let unitsTable = $(".unit-list-2014");
+
+    //  задаем стили для строк
+    let trOddCss = { backgroundColor: "lightgoldenrodyellow" };     // четная
+    let trEvenCss = { backgroundColor: "" };                        // нечетная
+    let trSelectedCss = { backgroundColor: "rgb(255, 210, 170)" };  // тыкнули мышкой
 
     // скрыть все колонки кроме Город, Подразделение
     unitsTable.find("td, th").filter(":not(:nth-child(2)):not(:nth-child(3)):not(:nth-child(8))").addClass("XioHide").hide();
-    unitsTable.find("tr.odd").css("backgroundColor", "lightgoldenrodyellow");
+    unitsTable.find("tr.odd").css(trOddCss);
+
     // удалить размер подразделения под названием юнита
     unitsTable.find("td:nth-child(3) span").remove();
     unitsTable.css("white-space", "nowrap").css("user-select", "none");
@@ -241,21 +254,16 @@ function XioOverview() {
     // всем селектам вешаем доп свойство open.
     $(".XioChoice").data("open", false);
 
-    //let $tron: JQuery;  // TODO: тут я решил избавиться от глобальной переменной ибо нахера она? функции захватывают локальный скоуп
-    //let $mousedown = false;
-    //let $this: JQuery;
 
-    // создаем свой стиль для выделенной строки и добавим на страницу
-    ////let trxioClass = "tr.trXIO {background-color: rgb(255, 210, 170);}";
-    //$("<style>").prop("type", "text/css").html(trxioClass).appendTo("head");
-
-    // запоминаем стили четной и нечетной строки чтобы потом их возвращать назад
-    //let evenStyle = unitsTable.find("tr.wborder").not(".odd").first().attr("style");
-    //let oddStyle = unitsTable.find("tr.wborder").filter(".odd").first().attr("style");
-
-    // по нажатию кнопки выделяем строку юнита и запомним tr на котором собсна это произошло
+    // развешиваем события на элементы
+    //
+    // по нажатию левой кнопкой выделяем строку цветом и классом
     unitsTable.on("mousedown.XO", "tr.wborder",
         function (this: HTMLElement, e: JQueryEventObject) {
+            // обрабатывать только левую кнопку
+            if (e.which !== 1)
+                return;
+
             let tron = $(this);
             let oldTron = unitsTable.find("tr.trXIO");
 
@@ -263,132 +271,182 @@ function XioOverview() {
             if (oldTron.length) {
                 oldTron.removeClass("trXIO");
                 if (oldTron.hasClass("odd"))
-                    oldTron.css("backgroundColor", "lightgoldenrodyellow");
+                    oldTron.css(trOddCss);
                 else
-                    oldTron.css("backgroundColor", "");
+                    oldTron.css(trEvenCss);
             }
 
             // задаем цвет строки БЕЗ класса. Иначе при выделении строки штатные классы будут преобладать и будет херь
-            tron.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            tron.addClass("trXIO").css(trSelectedCss);
         });
-
-    // при наведении мышкой на строку юнитам. нах не надо.
-    //unitsTable.on("mouseover.XO", "tr.wborder",
-    //    function (this: HTMLElement, e: JQueryEventObject) {
-    //        let tr = $(this);
-
-    //        //if (tr.hasClass("trXIO"))
-    //        //{
-    //        //}
-    //        //if ($mousedown) {
-    //        //    $(".trXIO").css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
-    //        //    $(".trXIO").removeClass("trXIO");
-    //        //    $this = $(this);
-
-    //        //    // ваще не понял этой магии
-    //        //    if ($this.index() < $tron.index()) {
-    //        //        $this.nextUntil($tron).addBack().add($tron).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-    //        //    }
-    //        //    else if ($this.index() > $tron.index()) {
-    //        //        $tron.nextUntil($this).addBack().add($this).addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-    //        //    }
-    //        //    $this.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
-    //        //}
-    //    });
-
+   
+    // смена значения в селекте
     unitsTable.on("change.XO", "select.XioChoice",
         function (this: HTMLElement, e: JQueryEventObject) {
+            logDebug("select changed");
+
             let select = $(e.target);
-            let unitsTable = $(".unit-list-2014");
-            //console.log(unitsTable.get(0)); // ТУТУ: this показывает на селект а не на таблицу. Надо изменить
-
-            // берем строку на которой стоим, выделяем ее а старую выделенную если она есть вернем назад
             let tron = select.closest("tr");
-            if (tron.length) {
-                let oldTron = unitsTable.find(".trXIO");
-                if (oldTron.length === 0)
-                    console.log("не нашли старый выделенный ряд");
+            let policyKey = select.attr("data-name");                                // pp, pw итд
+            let policy = policyJSON[policyKey];
 
-                oldTron.css("backgroundColor", "").filter(".odd").css("backgroundColor", "lightgoldenrodyellow");
-                oldTron.removeClass("trXIO");
+            let subid = select.attr("data-id");
+            //var thisOptionNumber = numberfy(select.attr("data-choice"));                  // номер опции. 1 2 3 итд
+            //var thisOptionValue = policy.order[thisOptionNumber][select.val()];   // значение опции, числом
+            //var column = select.parent().index();                                   // колонка чтобы знать какая там группа опций
+            //logDebug(`policyKey:${policyKey}, thischoice:${thisOptionNumber}, thisvalue:${thisOptionValue}, column:${column}`);
 
-                tron.addClass("trXIO").css("backgroundColor", "rgb(255, 210, 170)");
+            // формируем новые данные для текущей политики на основании выбранных опций
+            let opts:number[] = [];
+            let allOptions = select.closest("td.XOhtml").children("select.XioChoice");
+            for (var i = 0; i < allOptions.length; i++) {
+                let o = allOptions.eq(i);
+                let optionNumber = numberfy(o.attr("data-choice"));
+                let optionValueIndex = o.val();
+                let optionValue = policy.order[optionNumber][optionValueIndex];
+                let saveValueIndex = policy.save[optionNumber].indexOf(optionValue);
+
+                opts.push(saveValueIndex);
             }
-        });
+            let newPolicyStr = policyKey + opts.join("-");
+            let newPolicy = PolicyOptions.fromString(newPolicyStr);
+            logDebug(`newPolicyStr:${newPolicyStr}, newPolicy:${newPolicy.toString()}`);
 
-    //unitsTable.on("mouseup.XO", ".wborder", function () {
-    //    $mousedown = false;
-    //});
+            // парсим данные из локального хранилища
+            let storageKey = "x" + realm + subid;
+            let savedPolicyStrings: string[] = ls[storageKey] ? ls[storageKey].split(";") : [];
+            let savedPolicies: string[] = [];
+            let savedPolicyChoices: string[] = [];
+            let parsedDict: IDictionary<PolicyOptions> = {};
+            for (var n = 0; n < savedPolicyStrings.length; n++) {
+                let name = savedPolicyStrings[n].substring(0, 2);
+                let choices = savedPolicyStrings[n].substring(2).split("-").map((item, index, arr) => numberfy(item));
+
+                parsedDict[name] = new PolicyOptions(name, choices);
+                logDebug(`parsed:${parsedDict[name].toString()}`);
+            }
+
+            // заменяем в отпарсенных данных нужную политику на новые данные и тут же формируем строку для сохранения
+            parsedDict[policyKey] = newPolicy;
+            let newItems: string[] = [];
+            for (var key in parsedDict)
+                newItems.push(parsedDict[key].toString());
+
+            let newSaveString = newItems.join(";");
+            logDebug(`newSaveString:${newSaveString}`);
+            ls[storageKey] = newSaveString;
+
+            //var $arr = $(".trXIO td:nth-child(" + (column + 1) + ") .XioChoice");
+            ////if row not selected
+            ////if ($arr.length === 0) {
+            ////    $arr = $("tr:nth-child(" + ($this.parent().parent().index() + 1) + ") td:nth-child(" + (column + 1) + ") .XioChoice");
+            ////}
+            //// знаем td где у нас все опции данной политики. Нам надо прочитать все селекты и их значения.
+            //// далее читаем для данного subid из стораджа
+            //// сплитим строку по политикам, находим кусок с нужной политикой
+            //// реплейсим кусок, собирам куски назад в общее. реплейсим все в сторадже.
+            //for (var i = 0; i < $arr.length; i++) {
+
+            //    var name = $arr.eq(i).attr("data-name");
+            //    var subid = $arr.eq(i).attr("data-id");
+            //    var choice = numberfy($arr.eq(i).attr("data-choice"));
+            //    var index = policyJSON[name].save[choice].indexOf(thisvalue);
+            //    var value = policyJSON[name].order[choice].indexOf(thisvalue);
+
+            //    if (index >= 0) {
+
+            //        $arr.eq(i).val(value);
+            //        var savedPolicyStrings: string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
+            //        var savedPolicies: string[] = [];
+            //        var savedPolicyChoices: string[] = [];
+            //        for (var j = 0; j < savedPolicyStrings.length; j++) {
+            //            savedPolicies[j] = savedPolicyStrings[j].substring(0, 2);
+            //            savedPolicyChoices[j] = savedPolicyStrings[j].substring(2);
+            //        }
+
+            //        var option = savedPolicies.indexOf(name);
+            //        var split = savedPolicyChoices[option].split("-");
+            //        split[choice] = index.toString();
+            //        savedPolicyChoices[option] = split.join("-");
+
+            //        let newPolicyString = "";
+            //        for (var j = 0; j < savedPolicies.length; j++) {
+            //            newPolicyString += ";" + savedPolicies[j] + savedPolicyChoices[j];
+            //        }
+            //        ls["x" + realm + subid] = newPolicyString.substring(1);
+            //    }
+            //}
+        });
 
     var detector = navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1 ? 'mousedown.XO' : 'click.XO';
 
-    unitsTable.on(detector, ".XioChoice",
-        function (this: HTMLElement, e: JQueryEventObject) {
-            $this = $(this);
+    //unitsTable.on(detector, ".XioChoice",
+    //    function (this: HTMLElement, e: JQueryEventObject) {
+    //        $this = $(this);
 
-            // меняем повешанные на селект данные open при клике по нему
-            if ($(this).data("open") === false) {
-                //open
-                $(this).data("open", true);
-                $(document).on("mouseup.XO.XIN", "", execute);
-            }
-            else {
-                //not open
-                $(this).data("open", false);
-            }
+    //        // меняем повешанные на селект данные open при клике по нему
+    //        if ($(this).data("open") === false) {
+    //            //open
+    //            $(this).data("open", true);
+    //            $(document).on("mouseup.XO.XIN", "", execute);
+    //        }
+    //        else {
+    //            //not open
+    //            $(this).data("open", false);
+    //        }
 
-            function execute() {
-                //close
-                $(document).off(".XIN");
+    //        function execute() {
+    //            //close
+    //            $(document).off(".XIN");
 
-                setTimeout(function () {
-                    $this.data('open', false);
-                }, 1);
+    //            setTimeout(function () {
+    //                $this.data('open', false);
+    //            }, 1);
 
-                var thisname = $this.attr("data-name");
-                var thischoice = numberfy($this.attr("data-choice"));
-                var thisvalue = policyJSON[thisname].order[thischoice][$this.val()];
-                var column = $this.parent().index();
+    //            var thisname = $this.attr("data-name");
+    //            var thischoice = numberfy($this.attr("data-choice"));
+    //            var thisvalue = policyJSON[thisname].order[thischoice][$this.val()];
+    //            var column = $this.parent().index();
 
-                var $arr = $(".trXIO td:nth-child(" + (column + 1) + ") .XioChoice");
-                //if row not selected
-                if ($arr.length === 0) {
-                    $arr = $("tr:nth-child(" + ($this.parent().parent().index() + 1) + ") td:nth-child(" + (column + 1) + ") .XioChoice");
-                }
+    //            var $arr = $(".trXIO td:nth-child(" + (column + 1) + ") .XioChoice");
+    //            //if row not selected
+    //            if ($arr.length === 0) {
+    //                $arr = $("tr:nth-child(" + ($this.parent().parent().index() + 1) + ") td:nth-child(" + (column + 1) + ") .XioChoice");
+    //            }
 
-                for (var i = 0; i < $arr.length; i++) {
+    //            for (var i = 0; i < $arr.length; i++) {
 
-                    var name = $arr.eq(i).attr("data-name");
-                    var subid = $arr.eq(i).attr("data-id");
-                    var choice = numberfy($arr.eq(i).attr("data-choice"));
-                    var index = policyJSON[name].save[choice].indexOf(thisvalue);
-                    var value = policyJSON[name].order[choice].indexOf(thisvalue);
+    //                var name = $arr.eq(i).attr("data-name");
+    //                var subid = $arr.eq(i).attr("data-id");
+    //                var choice = numberfy($arr.eq(i).attr("data-choice"));
+    //                var index = policyJSON[name].save[choice].indexOf(thisvalue);
+    //                var value = policyJSON[name].order[choice].indexOf(thisvalue);
 
-                    if (index >= 0) {
+    //                if (index >= 0) {
 
-                        $arr.eq(i).val(value);
-                        var savedPolicyStrings:string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
-                        var savedPolicies: string[] = [];
-                        var savedPolicyChoices: string[] = [];
-                        for (var j = 0; j < savedPolicyStrings.length; j++) {
-                            savedPolicies[j] = savedPolicyStrings[j].substring(0, 2);
-                            savedPolicyChoices[j] = savedPolicyStrings[j].substring(2);
-                        }
+    //                    $arr.eq(i).val(value);
+    //                    var savedPolicyStrings:string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
+    //                    var savedPolicies: string[] = [];
+    //                    var savedPolicyChoices: string[] = [];
+    //                    for (var j = 0; j < savedPolicyStrings.length; j++) {
+    //                        savedPolicies[j] = savedPolicyStrings[j].substring(0, 2);
+    //                        savedPolicyChoices[j] = savedPolicyStrings[j].substring(2);
+    //                    }
 
-                        var option = savedPolicies.indexOf(name);
-                        var split = savedPolicyChoices[option].split("-");
-                        split[choice] = index.toString();
-                        savedPolicyChoices[option] = split.join("-");
+    //                    var option = savedPolicies.indexOf(name);
+    //                    var split = savedPolicyChoices[option].split("-");
+    //                    split[choice] = index.toString();
+    //                    savedPolicyChoices[option] = split.join("-");
 
-                        let newPolicyString = "";
-                        for (var j = 0; j < savedPolicies.length; j++) {
-                            newPolicyString += ";" + savedPolicies[j] + savedPolicyChoices[j];
-                        }
-                        ls["x" + realm + subid] = newPolicyString.substring(1);
-                    }
-                }
-            }
-        });
+    //                    let newPolicyString = "";
+    //                    for (var j = 0; j < savedPolicies.length; j++) {
+    //                        newPolicyString += ";" + savedPolicies[j] + savedPolicyChoices[j];
+    //                    }
+    //                    ls["x" + realm + subid] = newPolicyString.substring(1);
+    //                }
+    //            }
+    //        }
+    //    });
 
     // жмак по кнопке GenerateAll
     unitsTable.on('click.XO', "#XioGeneratorPRO", function () {
