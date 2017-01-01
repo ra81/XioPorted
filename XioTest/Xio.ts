@@ -168,7 +168,7 @@ function XioOverview() {
             thstring += `<th class=XOhtml style='padding-right:5px'>
                            <input type=button class='XioGo XioGroup' value=${policy.group} style='width:100%'>
                          </th>`;
-            tdstring += "<td class=XOhtml></td>";
+            tdstring += `<td policy-key=${key} policy-group=${policy.group} class=XOhtml></td>`;
         }
         else {
             policyString[groupString.indexOf(policy.group)].push(policy.name);
@@ -218,7 +218,9 @@ function XioOverview() {
             }
 
             // проставляем теперь значения для этих селектов
-            let $selects = unitsTable.find("tr:not(.unit_comment)").eq(i + 1).find("td").eq(groupString.indexOf(policy.group) + 9).html(htmlstring).find("select");
+            let targetTd = unitsTable.find("tr").not(".unit_comment").eq(i + 1).find(`td[policy-group='${policy.group}']`);
+            targetTd.html(htmlstring);
+            let $selects = targetTd.find("select");
             for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
                 $selects.eq(optionNumber).val(Math.max(showChoices[optionNumber], 0));
             }
