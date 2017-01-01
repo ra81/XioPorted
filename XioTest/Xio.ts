@@ -346,6 +346,7 @@ function topManagerStats() {
     console.log(fName);
 }
 
+// для текущего урла, находит загружает указанные политики с хранилища, рисует селекты
 function preference(policies: string[]) : boolean {
     
     // работать будем с конкретным юнитом в котором находимся
@@ -477,6 +478,8 @@ function preference(policies: string[]) : boolean {
 
     return true;
 }
+
+// по урлу страницы возвращает policyKey который к ней относится
 function preferencePages(html: JQuery, url: string): string[] {
 
     let $html = $(html);

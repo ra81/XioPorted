@@ -243,28 +243,3 @@ let policyJSON: IDictionary<IPolicy> = {
     }
 };
 
-//interface IJsonPolicies {
-//    pp: IPolicy;
-//    pw: IPolicy;
-//    ps: IPolicy;
-//    pn: IPolicy;
-//    sc: IPolicy;
-//    sl: IPolicy;
-//    ee: IPolicy;
-//    pt: IPolicy;
-//    sp: IPolicy;
-//    sr: IPolicy;
-//    sh: IPolicy;
-//    ad: IPolicy;
-//    es: IPolicy;
-//    en: IPolicy;
-//    eh: IPolicy;
-//    ep: IPolicy;
-//    et: IPolicy;
-//    qm: IPolicy;
-//    tc: IPolicy;
-//    rs: IPolicy;
-//    pb: IPolicy;
-//    pa: IPolicy;
-//    wz: IPolicy;
-//}
