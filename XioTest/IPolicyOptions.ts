@@ -59,7 +59,7 @@ function makeStorageKey(realm: string, subid: string): string {
     return "x" + realm + subid;
 }
 
-// загружаем из хранилища сразу все опции для данного юнита и реалма. выдаем стандартный словарь
+// загружаем из хранилища сразу все опции для данного юнита и реалма. выдаем стандартный словарь или {}
 function loadOptions(realm: string, subid: string): IDictionary<PolicyOptions> {
 
     let storageKey = makeStorageKey(realm, subid);
@@ -81,7 +81,7 @@ function loadOptions(realm: string, subid: string): IDictionary<PolicyOptions> {
 // подразумеваем что опции уже в save формате
 function storeOptions(realm: string, subid: string, options: IDictionary<PolicyOptions>): void {
 
-    if (Object.keys.length === 0)
+    if (dictIsEmpty(options))
         throw new Error("Попытка записать в лок. хранилище пустой набор опций. Аларм.");
 
     let storageKey = makeStorageKey(realm, subid);
@@ -94,6 +94,21 @@ function storeOptions(realm: string, subid: string, options: IDictionary<PolicyO
     logDebug(`newSaveString:${newSaveString}`);
 
     ls[storageKey] = newSaveString;
+}
+
+// обновляет запись с политиками в хранилище. если чет делалось то вернет полный список опций юнита уже обновленный или {}
+function updateOptions(realm: string, subid: string, options: IDictionary<PolicyOptions>): IDictionary<PolicyOptions> {
+    if (dictIsEmpty(options))
+        return {};
+
+    let loaded = loadOptions(realm, subid);     // будет {} если опций нет
+    logDebug(`oldOptions:${dict2String(loaded)}`);
+    for (let key in options)
+        loaded[key] = options[key];
+
+    logDebug(`newOptions:${dict2String(loaded)}`)
+    storeOptions(realm, subid, loaded);
+    return loaded;
 }
 
 // формирует готовый контейнер с опциями который можно тупо вставлять куда надо

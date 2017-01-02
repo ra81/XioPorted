@@ -306,15 +306,9 @@ function XioOverview() {
             if (newOptions == null)
                 throw new Error("неведомая хуйня но политика не спарсилась.");
 
-            logDebug(`newOptions:${newOptions.toString()}`);
-
-            // парсим данные из локального хранилища
-            let parsedDict = loadOptions($realm, subid);
-            logDebug(`oldOptions:${parsedDict[policyKey].toString()}`);
-
-            // заменяем в отпарсенных данных нужную политику на новые данные и тут же формируем строку для сохранения
-            parsedDict[policyKey] = newOptions;
-            storeOptions($realm, subid, parsedDict);
+            let dict: IDictionary<PolicyOptions> = {};
+            dict[policyKey] = newOptions;
+            updateOptions($realm, subid, dict);
         });
 
     // жмак по кнопке GenerateAll

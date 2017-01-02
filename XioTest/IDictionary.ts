@@ -5,3 +5,21 @@
 interface IDictionary<T> {
     [key: string]: T;
 }
+
+// проверяет есть ли ключи в словаре
+function dictIsEmpty<T>(dict: IDictionary<T>): boolean {
+    return Object.keys(dict).length === 0;
+}
+
+// словарь в виде одной строки через ;
+function dict2String<T>(dict: IDictionary<T>): string {
+    if (dictIsEmpty(dict))
+        return "";
+
+    let newItems: string[] = [];
+    let keys = Object.keys(dict);
+    for (let i = 0; i < keys.length; i++)
+        newItems.push(dict[keys[i]].toString());
+
+    return newItems.join(";");
+}
