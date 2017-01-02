@@ -12,3 +12,5 @@
 Следовательно когда нам нужно считать текущий набор настроек для юнита и политики то
 - targetTd = $("td.XioContainer").filter(`[unit-id=${subid}]`).filter(`[policy-key=${key}]`);
   selects = targetTd.find("select.XioChoice");
+
+  

@@ -134,6 +134,7 @@ function XioHoliday() {
     console.log(getFuncName(arguments));
 };
 
+// TODO: не убирает лишние колонки при выводе
 // переписать построение селектов и их инициализацию
 function XioOverview() {
 
@@ -247,6 +248,8 @@ function XioOverview() {
     $("#wrapper").width(unitsTable.width() + 80);
     $("#mainContent").width(unitsTable.width());
 
+    // TODO: надо удалить колонки в которых нет селектов вообще или не рисовать их ваще
+
     // развешиваем события на элементы
     //
     // по нажатию левой кнопкой выделяем строку цветом и классом
@@ -339,7 +342,7 @@ function preference(policies: string[]) : boolean {
     // не задали ничего для простановки, и не будем ничо делать
     if (policies.length === 0)
         return false;
-
+    //  TODO: не сохраняет политики внутри юнита.
     // работать будем с конкретным юнитом в котором находимся
     let subidRx = document.URL.match(/(view\/?)\d+/);
     if (subidRx == null)
@@ -373,6 +376,7 @@ function preference(policies: string[]) : boolean {
 
     // проставляем настройки политик
     let parsedDict = loadOptions($realm, subid.toString());
+    //debugger;
     for (var i = 0; i < policies.length; i++) {
         let policyKey = policies[i];
         let policy = policyJSON[policyKey];
@@ -381,6 +385,7 @@ function preference(policies: string[]) : boolean {
         let container = $topblock.find(`td#${containerKey}`);
         if (container.length === 0)
             throw new Error("неведомая хуйня но не нашли контейнер для политики");
+
         setOptions(container.get(0), parsedDict[policyKey], false, policy);
     };
 
