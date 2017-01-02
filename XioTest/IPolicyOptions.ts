@@ -73,7 +73,7 @@ function loadOptions(realm: string, subid: string): IDictionary<PolicyOptions> {
         parsedDict[key] = new PolicyOptions(key, choices);
         logDebug(`parsed policy:${parsedDict[key].toString()}`);
     }
-
+    
     return parsedDict;
 }
 
@@ -86,8 +86,9 @@ function storeOptions(realm: string, subid: string, options: IDictionary<PolicyO
 
     let storageKey = makeStorageKey(realm, subid);
     let newItems: string[] = [];
-    for (var key in options)
-        newItems.push(options[key].toString());
+    let keys = Object.keys(options).sort();     // сортирнем ключики
+    for (let i = 0; i < keys.length; i++)
+        newItems.push(options[keys[i]].toString());
 
     let newSaveString = newItems.join(";");
     logDebug(`newSaveString:${newSaveString}`);
