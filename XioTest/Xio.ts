@@ -134,7 +134,6 @@ function XioHoliday() {
     console.log(getFuncName(arguments));
 };
 
-// TODO: не убирает лишние колонки при выводе
 // переписать построение селектов и их инициализацию
 function XioOverview() {
 
@@ -178,12 +177,14 @@ function XioOverview() {
 
     // для каждой группы формируем кнопки в хедере
     for (var i = 0; i < groups.length; i++) {
-        thstring += `<th class=XOhtml style='padding-right:5px'>
+        thstring += `<th policy-group=${groups[i]} class=XOhtml style='padding-right:5px'>
                         <input type=button class='XioGo XioGroup' value=${groups[i]} style='width:100%'>
                      </th>`;
     }
     unitsTable.find("th:nth-child(7)").after(thstring);
 
+    // сюда сложим все группы которые реально есть, остальное потом захайдим чтобы не засоряло эфир
+    let existingGroups: string[] = [];
 
     // вставляем кнопки в каждую строку. generate/fire. и вставляем опции уже с настройками
     let unitRows = unitsTable.find("tr").not(".unit_comment");
@@ -201,6 +202,9 @@ function XioOverview() {
                 throw new Error("неведомая хуйня но в одном юните две политики с одной группы политик.");
 
             groupDict[policy.group] = key;
+
+            if (existingGroups.indexOf(policy.group) < 0)
+                existingGroups.push(policy.group);
         }
 
         // кнопки файр и гер для юнита
@@ -210,13 +214,15 @@ function XioOverview() {
                      </td>`;
 
         // для сохраненных настроек юнита, выводим опции
+        let emptyPolicy = { func: () => { }, save: [], order: [], name: "", group: "", wait: [] }
         for (var n = 0; n < groups.length; n++) {
             let policyKey = groupDict[groups[n]];
             if (policyKey)
-                tdStr += buildContainerHtml(subid.toString(), policyKey, policyJSON[policyKey]);
-            else
-                tdStr += "<td></td>";
-            
+                tdStr += buildContainerHtml(subid.toString(), policyKey, policyJSON[policyKey], false);
+            else {
+                emptyPolicy.group = groups[n];
+                tdStr += buildContainerHtml("", "", emptyPolicy, true);
+            }
         }
         $td.eq(i).after(tdStr);
 
@@ -231,6 +237,17 @@ function XioOverview() {
 
             setOptions(container.get(0), unitOptions[key], false, policyJSON[key]);
         }
+    }
+
+    // хайдим колонки где нет селектов
+    for (var i = 0; i < groups.length; i++) {
+        if (existingGroups.indexOf(groups[i]) >= 0)
+            continue;
+
+        // не стал делать через index() ибо в таблице td != th. если чет поменялось все поедет.
+        // td ищу тока XioEmpty намеренно. Ибо если он криво будет скрывать мы увидим, иначе скроет нужное
+        unitsTable.find(`th[policy-group=${groups[i]}]`).hide();
+        unitsTable.find(`td.XioEmpty[policy-group=${groups[i]}]`).hide();
     }
 
     // проставляем ширину кнопок ксио и селектов
@@ -248,7 +265,6 @@ function XioOverview() {
     $("#wrapper").width(unitsTable.width() + 80);
     $("#mainContent").width(unitsTable.width());
 
-    // TODO: надо удалить колонки в которых нет селектов вообще или не рисовать их ваще
 
     // развешиваем события на элементы
     //

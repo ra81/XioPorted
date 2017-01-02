@@ -97,15 +97,22 @@ function storeOptions(realm: string, subid: string, options: IDictionary<PolicyO
 }
 
 // формирует готовый контейнер с опциями который можно тупо вставлять куда надо
-function buildContainerHtml(subid: string, policyKey: string, policy: IPolicy): string {
+function buildContainerHtml(subid: string, policyKey: string, policy: IPolicy, empty?: boolean): string {
+
+    if (policy == null)
+        throw new Error("policy должен быть задан.")
+
+    if (empty)
+        return `<td policy-group=${policy.group} class='XioContainer XioEmpty'></td>`;
+
+    // если не пустой надо сделать
     if (subid == null || subid.length === 0)
         throw new Error("subid должен быть задан.")
 
     if (policyKey == null || policyKey.length === 0)
         throw new Error("policyKey должен быть задан.")
 
-    if (policy == null)
-        throw new Error("policy должен быть задан.")
+    
 
     let uniqueId = subid + "-" + policyKey;
     let htmlstring = `<td unit-id=${subid} policy-group=${policy.group} policy-key=${policyKey} id=${uniqueId} class=XioContainer>

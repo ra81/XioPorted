@@ -13,4 +13,6 @@
 - targetTd = $("td.XioContainer").filter(`[unit-id=${subid}]`).filter(`[policy-key=${key}]`);
   selects = targetTd.find("select.XioChoice");
 
-  
+ 
+- для политик которых нет в юните, ставим пустой контейнер <td policy-group=${policy.group} class='XioContainer XioEmpty'> 
+  потом его же скрываем
