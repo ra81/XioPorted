@@ -377,7 +377,8 @@ function preference(policies: string[]) : boolean {
         let policyKey = policies[i];
         let policy = policyJSON[policyKey];
 
-        let container = $topblock.find(`td#${policyKey}`);
+        let containerKey = subid + "-" + policyKey;
+        let container = $topblock.find(`td#${containerKey}`);
         if (container.length === 0)
             throw new Error("неведомая хуйня но не нашли контейнер для политики");
         setOptions(container.get(0), parsedDict[policyKey], false, policy);
