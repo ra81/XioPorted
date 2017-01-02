@@ -22,39 +22,31 @@ class PolicyOptions {
         let key = str.substring(0, 2);
         let choices = str.substring(2).split("-").map((item, index, arr) => numberfy(item));
 
-        return new PolicyOptions(key, choices);;
+        return new PolicyOptions(key, choices);
     }
 }
 
-// берет любой набор элементов с аттрибутами data-name, data-choice и value и собирает с них опции 
+// берет контейнер селектов и собирает данные с аттрибутами data-name, data-choice и value
 // сразу их нормализуя в save формат
-function parseOptions(elements: JQuery, policyDict: IDictionary<IPolicy>): PolicyOptions | null {
+function parseOptions(container: HTMLElement, policyDict: IDictionary<IPolicy>): PolicyOptions {
 
-    // проверять что это селекты не будем, любая хуйня может быть лишь бы были в ней поля
-    if (elements.length === 0)
-        return null;
+    let td = $(container);
+    let selects = td.find("select.XioChoice");
+    if (selects.length === 0)
+        throw new Error("Нельзя ничего спарсить если нет элементов.");
 
     let opts: number[] = [];
-    let policyKey = elements.eq(0).attr("data-name");;
+    let policyKey = td.attr("policy-key");
     let policy: IPolicy = policyDict[policyKey];
-    for (var i = 0; i < elements.length; i++) {
-        let el = elements.eq(i);
+    for (var i = 0; i < selects.length; i++) {
+        let el = selects.eq(i);
 
-        if (policyKey !== el.attr("data-name"))
-            throw new Error("Все элементы для парсинга опций должны принадлежать к одной политике.");
-
-        let optionNumber = numberfy(el.attr("data-choice"));    // даже если аттрибута нет, нумерификация вернет 0 жопа.
-        let optionValueIndex = parseInt(el.val());              // NaN будет если хуня в значении
+        let optionNumber = numberfy(el.attr("option-number"));    // даже если аттрибута нет, нумерификация вернет 0 жопа.
+        let optionValueIndex = parseInt(el.val());                // NaN будет если хуня в значении
         if (isNaN(optionValueIndex))
             throw new Error("Элементы в поле value должны содержать численное значение опции.")
 
         opts[optionNumber] = optionValueIndex;
-        //let optionValue = policy.order[optionNumber][optionValueIndex];
-        //let saveValueIndex = policy.save[optionNumber].indexOf(optionValue);
-        //if (saveValueIndex < 0)
-        //    throw new Error(`Не найден saveIndex для значения опции ${optionValue}.`);
-
-        //opts.push(saveValueIndex);
     }
     opts = show2Save(policy, opts);     // переводим из отображаемой в сохраняемую нотацию
 
@@ -101,4 +93,60 @@ function storeOptions(realm: string, subid: string, options: IDictionary<PolicyO
     logDebug(`newSaveString:${newSaveString}`);
 
     ls[storageKey] = newSaveString;
+}
+
+// формирует готовый контейнер с опциями который можно тупо вставлять куда надо
+function buildContainerHtml(subid: string, policyKey: string, policy: IPolicy): string {
+    if (subid == null || subid.length === 0)
+        throw new Error("subid должен быть задан.")
+
+    if (policyKey == null || policyKey.length === 0)
+        throw new Error("policyKey должен быть задан.")
+
+    if (policy == null)
+        throw new Error("policy должен быть задан.")
+
+    let uniqueId = subid + "-" + policyKey;
+    let htmlstring = `<td unit-id=${subid} policy-group=${policy.group} policy-key=${policyKey} id=${uniqueId} class=XioContainer>
+                         ${buildOptionsHtml(policy)}
+                       </td>`;
+
+    return htmlstring;
+}
+
+function buildOptionsHtml(policy: IPolicy): string {
+
+    // в каждую строку юнита добавляем селекты для выбора политик. пока без установки значений.
+    var htmlstring = "";
+    for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
+        if (optionNumber >= 1)
+            htmlstring += "<br>";
+
+        htmlstring += `<select option-number=${optionNumber} class=XioChoice>`;
+        for (var ind = 0; ind < policy.order[optionNumber].length; ind++) {
+            let optionValue = policy.order[optionNumber][ind];
+            htmlstring += `<option value=${ind}>${optionValue}</option>`;
+        }
+
+        htmlstring += "</select>";
+    }
+
+    return htmlstring;
+}
+
+// опции в режиме отображения подаем
+function setOptions(container: HTMLElement, options: PolicyOptions, showMode: boolean, policy: IPolicy) {
+
+    let $selects = $(container).find("select.XioChoice");
+    let showChoices = showMode ? options.choices : save2Show(policy, options.choices);
+
+    // проставляем теперь значения для этих селектов
+    for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++)
+        $selects.filter(`[option-number=${optionNumber}]`).val(Math.max(showChoices[optionNumber], 0));
+}
+
+// в будущем будут фильтры, эта шняга понадобится. да и пусть будет централизованно
+function parseSubid(trList: HTMLElement[]): number[] {
+    let rows = $(trList);
+    return rows.find("td.unit_id").map((i, e) => numberfy( $(e).text() )).get() as any as number[];
 }

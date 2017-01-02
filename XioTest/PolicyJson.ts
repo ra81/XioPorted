@@ -69,7 +69,7 @@ let policyJSON: IDictionary<IPolicy> = {
         func: salePrice,
         save: [["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"], ["Stock"], ["Keep", "Reject"]],
         order: [["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"], ["Stock"], ["Keep", "Reject"]],
-        name: "priceProd",
+        name: "priceWare",
         group: "Price",
         wait: []
     },

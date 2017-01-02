@@ -3,7 +3,7 @@ var $ = jQuery = jQuery.noConflict(true);
 
 let $xioDebug = true;
 var ls = localStorage;
-var realm = xpCookie('last_realm');
+let $realm = getRealm();
 var getUrls = [];
 var finUrls = [];
 var xcallback = [];
@@ -29,6 +29,14 @@ var blackmail = [];
 let _m = $(".dashboard a").attr("href").match(/\d+/) as string[];
 var companyid = numberfy(_m ? _m[0] : "0");
 var equipfilter = [];
+
+function getRealm(): string {
+    let r = xpCookie('last_realm');
+    if (r == null)
+        throw new Error("неведомая хуйня но реалм == null")
+
+    return r;
+}
 
 function logDebug(msg: string) {
     if ($xioDebug)
@@ -126,6 +134,7 @@ function XioHoliday() {
     console.log(getFuncName(arguments));
 };
 
+// переписать построение селектов и их инициализацию
 function XioOverview() {
 
     let unitsTable = $(".unit-list-2014");
@@ -151,7 +160,14 @@ function XioOverview() {
     }
     $comments.remove();
 
-    // отрисовка кнопок в хедере таблицы с поколоночными операциями и Общими на группу юнитов
+    // формируем список всех груп для политик. надо ниже
+    let groups: string[] = [];
+    for (var key in policyJSON) {
+        if (groups.indexOf(policyJSON[key].group) < 0)
+            groups.push(policyJSON[key].group);
+    }
+
+    // кнопки FIRE ALL / Gen ALL
     var policyString: string[][] = [];
     var groupString: string[] = [];
     var thstring = `<th class=XOhtml style="padding-right:5px">
@@ -159,88 +175,68 @@ function XioOverview() {
                       <input type=button id=XioFirePRO class='XioGo' value='FIRE ALL' style='width:50%' >
                     </th>`;
 
-    var tdstring = "";
-    for (var key in policyJSON) {
-        let policy = policyJSON[key];
-        if (groupString.indexOf(policy.group) < 0) {
-            groupString.push(policy.group);
-            policyString.push([policy.name]);
-            thstring += `<th class=XOhtml style='padding-right:5px'>
-                           <input type=button class='XioGo XioGroup' value=${policy.group} style='width:100%'>
-                         </th>`;
-            tdstring += `<td policy-key=${key} policy-group=${policy.group} class=XOhtml></td>`;
-        }
-        else {
-            policyString[groupString.indexOf(policy.group)].push(policy.name);
-        }
+    // для каждой группы формируем кнопки в хедере
+    for (var i = 0; i < groups.length; i++) {
+        thstring += `<th class=XOhtml style='padding-right:5px'>
+                        <input type=button class='XioGo XioGroup' value=${groups[i]} style='width:100%'>
+                     </th>`;
     }
-
     unitsTable.find("th:nth-child(7)").after(thstring);
 
 
-    // далее отработка каждого юнита
-    //
-    let subids = unitsTable.find("tr:not(.unit_comment) td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
-
-    // вставляем кнопки в каждую строку. generate/fire. для отработки конкретного юнита
-    let $td = unitsTable.find("tr:not(.unit_comment) td:nth-child(8)");
+    // вставляем кнопки в каждую строку. generate/fire. и вставляем опции уже с настройками
+    let unitRows = unitsTable.find("tr").not(".unit_comment");
+    let subids = parseSubid(unitRows.get());
+    let $td = unitRows.find("td.alerts");
     for (var i = 0; i < subids.length; i++) {
-        $td.eq(i).after(`<td class=XOhtml>
-                           <input type=button data-id=${subids[i]} class='XioGo XioGenerator' value=Generate>
-                           <input type=button class='XioGo XioSub' value=${subids[i]}>
-                         </td>` + tdstring
-        );
-    }
+        let subid = subids[i];
 
-    // для всех юнитов в списке выводим селекты политик и проставляем значения политик взятые из лок хранилища
-    if (realm == null)
-        throw new Error("неведомая хуйня но реалм у нас почему то null");
-
-    for (var i = 0; i < subids.length; i++) {
-
-        let parsedDict = loadOptions(realm, subids[i].toString())
-        for (var key in parsedDict) {
-            let options = parsedDict[key];
+        // словарь поможет быстро найти нужную политику для группы
+        let unitOptions = loadOptions($realm, subid.toString()); // {} если не нашли опции
+        let groupDict: IDictionary<string> = {};
+        for (var key in unitOptions) {
             let policy = policyJSON[key];
-            let showChoices = save2Show(policy, options.choices);
+            if (groupDict[policy.group])
+                throw new Error("неведомая хуйня но в одном юните две политики с одной группы политик.");
 
-            // в каждую строку юнита добавляем селекты для выбора политик. пока без установки значений.
-            var htmlstring = "";
-            for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
-                if (optionNumber >= 1)
-                    htmlstring += "<br>";
-
-                htmlstring += "<select data-id=" + subids[i] + " data-name=" + key + " data-choice=" + optionNumber + " class=XioChoice>";
-                for (var ind = 0; ind < policy.order[optionNumber].length; ind++)
-                    htmlstring += "<option value=" + ind + ">" + policy.order[optionNumber][ind] + "</option>";
-
-                htmlstring += "</select>";
-            }
-
-            // проставляем теперь значения для этих селектов
-            let targetTd = unitsTable.find("tr").not(".unit_comment").eq(i + 1).find(`td[policy-group='${policy.group}']`);
-            targetTd.html(htmlstring);
-            let $selects = targetTd.find("select");
-            for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
-                $selects.eq(optionNumber).val(Math.max(showChoices[optionNumber], 0));
-            }
+            groupDict[policy.group] = key;
         }
-    }
 
-    // чета удаляем не понял чо
-    var j = 0;
-    for (var i = 0; i < policyString.length; i++) {
-        if (unitsTable.find("td:nth-child(" + (10 + i - j) + ")").find("select").length === 0) {
-            $(".unit-list-2014 th:nth-child(" + (9 + i - j) + "), .unit-list-2014  td:nth-child(" + (10 + i - j) + ")").remove();
-            j++;
+        // кнопки файр и гер для юнита
+        let tdStr = `<td class=XOhtml>
+                        <input type=button unit-id=${subids[i]} class='XioGo XioGenerator' value=Generate>
+                        <input type=button unit-id=${subids[i]} class='XioGo XioSub' value=${subids[i]}>
+                     </td>`;
+
+        // для сохраненных настроек юнита, выводим опции
+        for (var n = 0; n < groups.length; n++) {
+            let policyKey = groupDict[groups[n]];
+            if (policyKey)
+                tdStr += buildContainerHtml(subid.toString(), policyKey, policyJSON[policyKey]);
+            else
+                tdStr += "<td></td>";
+            
+        }
+        $td.eq(i).after(tdStr);
+
+        // проставляем сразу настройки политик
+        for (var key in unitOptions) {
+            let containerKey = subid + "-" + key;
+            let container = unitsTable.find(`td#${containerKey}`);
+            if (container.length !== 1)
+                throw new Error("неведомая хуйня но два контейнера с одинаковым ключом.");
+            else if (container.length === 0)
+                throw new Error("неведомая хуйня но контейнер не нашли.");
+
+            setOptions(container.get(0), unitOptions[key], false, policyJSON[key]);
         }
     }
 
     // проставляем ширину кнопок ксио и селектов
     var ths = $("th.XOhtml[style]");
     for (var i = 0; i < ths.length; i++) {
-        let $selects = $("td.XOhtml:nth-child(" + (10 + i) + ") select");
-        let $inputs = $("th.XOhtml:nth-child(" + (9 + i) + ") input");
+        let $selects = unitsTable.find("td.XioContainer:nth-child(" + (10 + i) + ")").find(".XioChoice");
+        let $inputs = unitsTable.find("th.XOhtml:nth-child(" + (9 + i) + ")").find("input");
         let wa = $selects.map(function (i, e) { return $(e).width(); }).get() as any as number[];
         let width = wa.concat([$inputs.width() + 16]).reduce(function (p, c) { return Math.max(p, c); });
         $selects.width(width);
@@ -250,10 +246,6 @@ function XioOverview() {
     // расширяем дивы чобы влазила широкая таблица когда дофига селектов
     $("#wrapper").width(unitsTable.width() + 80);
     $("#mainContent").width(unitsTable.width());
-
-    // всем селектам вешаем доп свойство open. удалить нах походу. левая ботва
-    $(".XioChoice").data("open", false);
-
 
     // развешиваем события на элементы
     //
@@ -286,61 +278,57 @@ function XioOverview() {
             logDebug("select changed");
 
             let select = $(e.target);
-            let policyKey = select.attr("data-name");   // pp, pw итд
-            let subid = select.attr("data-id");
+            let container = select.closest("td.XioContainer");
+            let policyKey = container.attr("policy-key");
+            let subid = container.attr("unit-id");
 
             // формируем новые данные для политики на основании выбранных опций
-            let allOptions = select.closest("td.XOhtml").children("select.XioChoice");
-            let newPolicy = parseOptions(allOptions, policyJSON);
-            if (newPolicy == null)
+            let newOptions = parseOptions(container.get(0), policyJSON);
+            if (newOptions == null)
                 throw new Error("неведомая хуйня но политика не спарсилась.");
 
-            logDebug(`newPolicy:${newPolicy.toString()}`);
+            logDebug(`newOptions:${newOptions.toString()}`);
 
             // парсим данные из локального хранилища
-            if (realm == null)
-                throw new Error("неведомая хуйня но реалм у нас почему то null");
-
-            let parsedDict = loadOptions(realm, subid);
+            let parsedDict = loadOptions($realm, subid);
+            logDebug(`oldOptions:${parsedDict[policyKey].toString()}`);
 
             // заменяем в отпарсенных данных нужную политику на новые данные и тут же формируем строку для сохранения
-            parsedDict[policyKey] = newPolicy;
-            storeOptions(realm, subid, parsedDict);
+            parsedDict[policyKey] = newOptions;
+            storeOptions($realm, subid, parsedDict);
         });
 
     // жмак по кнопке GenerateAll
-    unitsTable.on('click.XO', "#XioGeneratorPRO", function () {
-        XioGenerator(subids);
-    });
+    unitsTable.on('click.XO', "#XioGeneratorPRO",
+        function () { XioGenerator(subids); });
 
     // жмак по кнопке FireAll
-    unitsTable.on('click.XO', "#XioFirePRO", function () {
-        XioMaintenance(subids, []);
-    });
+    unitsTable.on('click.XO', "#XioFirePRO",
+        function () { XioMaintenance(subids, []); });
 
     // generate отдельного юнита
     unitsTable.on('click.XO', ".XioGenerator",
         function (this: HTMLElement) {
-        var subid = numberfy($(this).attr("data-id"));
-        XioGenerator([subid]);
-    });
+            let subid = numberfy($(this).attr("unit-id"));
+            XioGenerator([subid]);
+        });
 
     // жмак по кнопке в хедере колонки
     unitsTable.on('click.XO', ".XioGroup",
         function (this: HTMLElement) {
-        var allowedPolicies = $(this).val();
-        XioMaintenance(subids, [allowedPolicies]);
-    });
+            var allowedPolicies = $(this).val();
+            XioMaintenance(subids, [allowedPolicies]);
+        });
 
     // fire/subid кнопка юнита
     unitsTable.on('click.XO', ".XioSub",
         function (this: HTMLElement, e: JQueryEventObject) {
-        var subid = numberfy($(this).val());
-        XioMaintenance([subid], []);
-    });
+            let subid = numberfy($(this).attr("unit-id"));
+            XioMaintenance([subid], []);
+        });
 }
 
-
+// убрал содержимое, нафиг не нужно
 function topManagerStats() {
     let fName = arguments.callee.toString();
     console.log(fName);
@@ -348,82 +336,53 @@ function topManagerStats() {
 
 // для текущего урла, находит загружает указанные политики с хранилища, рисует селекты
 function preference(policies: string[]) : boolean {
-    
+    // не задали ничего для простановки, и не будем ничо делать
+    if (policies.length === 0)
+        return false;
+
     // работать будем с конкретным юнитом в котором находимся
     let subidRx = document.URL.match(/(view\/?)\d+/);
     if (subidRx == null)
         return false;
 
     let subid = numberfy(subidRx[0].split("/")[1]);
+    if (subid === 0)
+        throw new Error(`не шмагла извлечь subid из url:${document.URL}`);
 
-    // загружаем из лок хранилища настройки политик для текущего юнита xolga6384820 : es3-1;eh0;et0;qm2-2
-    let savedPolicyStrings: string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
-    let savedPolicies: string[] = [];
-    let savedPolicyChoices: string[][] = [];
-    for (var i = 0; i < savedPolicyStrings.length; i++) {
-        savedPolicies[i] = savedPolicyStrings[i].substring(0, 2);
-        savedPolicyChoices[i] = savedPolicyStrings[i].substring(2).split("-");
-    }
-    
     // место под комбобоксы настроек
     let $topblock = $("div.metro_header");
-    $topblock.append("<table id=XMoptions style='font-size: 14px; color:gold;'><tr id=XMHead></tr><tr id=XMOpt></tr></table>");
+    $topblock.append(`<table id=XMoptions style='font-size: 14px; color:gold;'>
+                        <tr id=XMHead></tr>
+                        <tr id=XMOpt></tr>
+                      </table>`);
 
-    let policyNames: string[] = [];
     let headstring = "";
     let htmlstring = "";
-    let setpolicies: any = [];
 
+    // формируем селекты под опции
     for (var i = 0; i < policies.length; i++) {
-        let policy = policyJSON[policies[i]];
-
-        // вдруг такой политики не описано. чудо как бы
-        if (!policy)
-            continue;
-
-        policyNames.push(policy.group);
+        let policyKey = policies[i];
+        let policy = policyJSON[policyKey];
+        
         headstring += `<td>${policy.group}</td>`;
-        htmlstring += `<td id=${policies[i]}>`;     // id=pp/ps/pw и так далее
-
-        // наполняем комбобоксы списками политик в том порядке в каком они должны отображаться
-        for (var j = 0; j < policy.order.length; j++) {
-            if (j >= 1)
-                htmlstring += "<br>";
-
-            htmlstring += "<select class=XioPolicy data-index=" + j + ">";
-
-            for (var k = 0; k < policy.order[j].length; k++)
-                htmlstring += "<option>" + policy.order[j][k] + "</option>";
-
-            htmlstring += "</select>";
-
-            // если есть сохраненные данные для данной политики у юнита
-            // кладем все функции установщиков в массив чтобы потом разом вызвать. ебанутое решение имхо
-            let index = savedPolicies.indexOf(policies[i]);
-            if (index >= 0) {
-                let savedChoice = numberfy(savedPolicyChoices[index][j]);
-                let policyChoice = policy.order[j].indexOf(policy.save[j][savedChoice]);
-
-                // хитрый ход конем чтобы сохранить контекст. переменные нужно запомнить.
-                // здесь был bind но он жопа. Анонимная функция лучше
-                let setter = () => {
-                    var _policyStr = policies[i]; // запоминаем в скоупе функции переменные которые нам надо
-                    var _ind = j;
-                    var _choice = policyChoice;
-
-                    // вернем анонимную функцию которая выполнится в скоупе где переменные запомнены
-                    return () => $(`#${_policyStr} select:eq(${_ind}) option`).eq(_choice).attr("selected", "true");
-                }
-                setpolicies.push(setter());
-            }
-        }
-        htmlstring += "</td>";
+        htmlstring += buildContainerHtml(subid.toString(), policyKey, policy);
     }
 
     $("#XMHead").html(headstring);
     $("#XMOpt").html(htmlstring);
-    for (var i = 0; i < setpolicies.length; i++)
-        setpolicies[i]();
+
+    // проставляем настройки политик
+    let parsedDict = loadOptions($realm, subid.toString());
+    for (var i = 0; i < policies.length; i++) {
+        let policyKey = policies[i];
+        let policy = policyJSON[policyKey];
+
+        let container = $topblock.find(`td#${policyKey}`);
+        if (container.length === 0)
+            throw new Error("неведомая хуйня но не нашли контейнер для политики");
+        setOptions(container.get(0), parsedDict[policyKey], false, policy);
+    };
+
 
     if (policies.length) {
         let $selects = $("#XMoptions select");
@@ -434,14 +393,41 @@ function preference(policies: string[]) : boolean {
         $("#XMoptions").before("<input type=button id=XioFire value=FIRE!>");
     }
 
+    // TODO: тут не понимаю почему группы, но дальше будет видно когда буду браться за метод майнтаненс
+    let policyNames = policies.map((item, i, arr) => policyJSON[item].group);
     $("#XioFire").click(() => XioMaintenance([subid], policyNames));
+
+    $("td.XOhtml").on("change.XO", "select.XioChoice",
+        function (this: HTMLElement, e: JQueryEventObject) {
+            logDebug("select changed");
+
+            let select = $(e.target);
+            let td = select.closest("td.XOhtml");
+            let policyKey = td.attr("policy-key");
+            let subid = select.attr("unit-id");
+
+            // формируем новые данные для политики на основании выбранных опций
+            let allOptions = td.children("select.XioChoice");
+            let newPolicy = parseOptions(td.get(0), policyJSON);
+            if (newPolicy == null)
+                throw new Error("неведомая хуйня но политика не спарсилась.");
+
+            logDebug(`newPolicy:${newPolicy.toString()}`);
+
+            // парсим данные из локального хранилища
+            let parsedDict = loadOptions($realm, subid);
+
+            // заменяем в отпарсенных данных нужную политику на новые данные и тут же формируем строку для сохранения
+            parsedDict[policyKey] = newPolicy;
+            storeOptions($realm, subid, parsedDict);
+        });
 
     $(".XioPolicy").change(function (this: HTMLElement) {
         let $thistd = $(this).parent();
         let thisid = $thistd.attr("id");
 
         // загружаем из лок хранилища настройки политик для текущего юнита xolga6384820 : es3-1;eh0;et0;qm2-2
-        let savedPolicyStrings: string[] = ls["x" + realm + subid] ? ls["x" + realm + subid].split(";") : [];
+        let savedPolicyStrings: string[] = ls["x" + $realm + subid] ? ls["x" + $realm + subid].split(";") : [];
         let savedPolicies: string[] = [];
         let savedPolicyChoices: string[] = [];
         for (var i = 0; i < savedPolicyStrings.length; i++) {
@@ -472,7 +458,7 @@ function preference(policies: string[]) : boolean {
         for (var i = 0; i < savedPolicies.length; i++)
             newPolicyString += ";" + savedPolicies[i] + savedPolicyChoices[i];
         
-        ls["x" + realm + subid] = newPolicyString.substring(1);
+        ls["x" + $realm + subid] = newPolicyString.substring(1);
     })
         .each(function (this: HTMLElement) { $(this).trigger("change"); });
 
@@ -480,6 +466,7 @@ function preference(policies: string[]) : boolean {
 }
 
 // по урлу страницы возвращает policyKey который к ней относится
+// переписано. можно оптимизировать запросы к дом.
 function preferencePages(html: JQuery, url: string): string[] {
 
     let $html = $(html);
@@ -700,7 +687,6 @@ let xPrefPages: (jq: JQuery, url: string) => any[] = () => { return []};
 function XioScript() : boolean {
     //determines which functions to run;
 
-    
     console.log("XioScript 12 is running!");
 
     //page options
