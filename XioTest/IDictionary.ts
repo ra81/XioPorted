@@ -17,9 +17,8 @@ function dict2String<T>(dict: IDictionary<T>): string {
         return "";
 
     let newItems: string[] = [];
-    let keys = Object.keys(dict);
-    for (let i = 0; i < keys.length; i++)
-        newItems.push(dict[keys[i]].toString());
+    for (let key in dict)
+        newItems.push(key + ":" + dict[key].toString());
 
     return newItems.join(";");
 }

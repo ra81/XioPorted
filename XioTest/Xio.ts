@@ -118,8 +118,131 @@ function XioMaintenance(subidList:number[], policyNames:string[]) {
     console.log(getFuncName(arguments));
 };
 
-function XioGenerator(subidList: number[]) {
-    console.log(getFuncName(arguments));
+function XioGenerator(subids: number[]) {
+
+    // морозим кнопки. убираем старый лог
+    $(".XioGo").prop("disabled", true);
+    $(".XioProperty").remove();
+
+    // формируем новый лог
+    $("div.metro_header").append(""
+        + "<table id=XMtable class=XioProperty style='font-size: 18px; color:gold; border-spacing: 10px 0; margin-top: 10px;'>"
+        + "<tr>"
+        + "<td>Total server calls: </td>"
+        + "<td id=XioServerCalls>0</td>"
+        + "</tr>"
+        + "<tr>"
+        + "<td id=xDone colspan=4 style='visibility: hidden; color: lightgoldenrodyellow'>All Done!</td>"
+        + "</tr>"
+        + "</table>"
+    );
+
+    servergetcount = 0;
+    let getcount = 0;
+    let data: any = {};
+
+    for (let j = 0; j < subids.length; j++) {
+
+        let subid = subids[j];
+        data[subid] = [];
+
+        let url = "/" + $realm + "/main/unit/view/" + subid;
+
+        getcount++;
+        (function (url, subid) {
+            $.get(url, function (htmlmain) {
+
+                servergetcount++;
+                $("#XioServerCalls").text(servergetcount);
+
+                data[subid].push({
+                    html: htmlmain,
+                    url: url
+                });
+
+
+                let links = $(htmlmain).find(".tabu > li > a:gt(2)").map( (i, el) => $(el).attr("href") ).get() as any as string[];
+                logDebug(`links: ${links.join(" | ")}`);
+
+                getcount += links.length;
+                !--getcount && checkpreference();
+                for (let i = 0; i < links.length; i++) {
+                    (function (url, subid) {
+                        $.get(url, function (html) {
+
+                            servergetcount++;
+                            $("#XioServerCalls").text(servergetcount);
+
+                            data[subid].push({
+                                html: html,
+                                url: url
+                            });
+
+                            !--getcount && checkpreference();
+                        });
+                    })(links[i], subid);
+                }
+            });
+        })(url, subid);
+    }
+
+    function checkpreference() {
+
+        let refresh = false;
+        for (var j = 0; j < subids.length; j++) {
+
+            var subid = subids[j];
+
+            // получаем полный список policyKey для данного subid
+            let policies:string[] = [];
+            for (let i = 0; i < data[subid].length; i++) {
+                let prePages = preferencePages(data[subid][i].html, data[subid][i].url);
+                let xPages = xPrefPages(data[subid][i].html, data[subid][i].url);
+                policies.push.apply(policies, prePages.concat(xPages));
+            }
+
+            logDebug(`subid policies:${policies.join(", ")}`);
+            let loaded = loadOptions($realm, subid.toString()); // {} если пусто
+            logDebug(`loaded options:${dict2String(loaded)}`);
+
+            // сначала проверим чтобы в опциях не было неположенных политик
+            for (let key in loaded) {
+                if (policies.indexOf(key) < 0)
+                    delete loaded[key];
+            }
+            logDebug(`options cleaned:${dict2String(loaded)}`);
+
+            // теперь добавим те ключи которых нет в опциях или сбросим те которые криво записаны
+            let keys = Object.keys(loaded);
+            for (let i = 0; i < policies.length; i++) {
+                let key = policies[i];
+                let policy = policyJSON[key];
+                if (keys.indexOf(key) >= 0 && loaded[key].choices.length === policy.save.length)
+                    continue;
+
+                // ну нет бля быстрого способа заполнить массив нулями. 
+                let choices: number[] = new Array(policy.save.length);
+                for (let i = 0; i < choices.length; i++)
+                    choices[i] = 0;
+
+                loaded[key] = new PolicyOptions(key, choices);
+                refresh = true;
+            }
+
+            storeOptions($realm, subid.toString(), loaded);
+        }
+
+        if (refresh) {
+            $(".XioHide").removeClass("XioHide").show(); // показать скрытые ранее колонки
+            $(".XOhtml").remove();          // всякие заголовки и прочая херь
+            $(".XioContainer").remove();    // все контейнеры с селектами
+            $(".unit-list-2014").off(".XO");// скинуть события
+            XioOverview();
+        }
+
+        $("#xDone").css("visibility", "");
+        $(".XioGo").prop("disabled", false);
+    }
 };
 
 function XioExport() {
