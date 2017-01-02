@@ -413,70 +413,24 @@ function preference(policies: string[]) : boolean {
     let policyNames = policies.map((item, i, arr) => policyJSON[item].group);
     $("#XioFire").click(() => XioMaintenance([subid], policyNames));
 
-    $("td.XOhtml").on("change.XO", "select.XioChoice",
+    $("#XMoptions").on("change.XO", "select.XioChoice",
         function (this: HTMLElement, e: JQueryEventObject) {
             logDebug("select changed");
 
             let select = $(e.target);
-            let td = select.closest("td.XOhtml");
-            let policyKey = td.attr("policy-key");
-            let subid = select.attr("unit-id");
+            let container = select.closest("td.XioContainer");
+            let policyKey = container.attr("policy-key");
+            let subid = container.attr("unit-id");
 
             // формируем новые данные для политики на основании выбранных опций
-            let allOptions = td.children("select.XioChoice");
-            let newPolicy = parseOptions(td.get(0), policyJSON);
-            if (newPolicy == null)
+            let newOptions = parseOptions(container.get(0), policyJSON);
+            if (newOptions == null)
                 throw new Error("неведомая хуйня но политика не спарсилась.");
 
-            logDebug(`newPolicy:${newPolicy.toString()}`);
-
-            // парсим данные из локального хранилища
-            let parsedDict = loadOptions($realm, subid);
-
-            // заменяем в отпарсенных данных нужную политику на новые данные и тут же формируем строку для сохранения
-            parsedDict[policyKey] = newPolicy;
-            storeOptions($realm, subid, parsedDict);
+            let dict: IDictionary<PolicyOptions> = {};
+            dict[policyKey] = newOptions;
+            updateOptions($realm, subid, dict);
         });
-
-    $(".XioPolicy").change(function (this: HTMLElement) {
-        let $thistd = $(this).parent();
-        let thisid = $thistd.attr("id");
-
-        // загружаем из лок хранилища настройки политик для текущего юнита xolga6384820 : es3-1;eh0;et0;qm2-2
-        let savedPolicyStrings: string[] = ls["x" + $realm + subid] ? ls["x" + $realm + subid].split(";") : [];
-        let savedPolicies: string[] = [];
-        let savedPolicyChoices: string[] = [];
-        for (var i = 0; i < savedPolicyStrings.length; i++) {
-            savedPolicies[i] = savedPolicyStrings[i].substring(0, 2);
-            savedPolicyChoices[i] = savedPolicyStrings[i].substring(2);
-        }
-
-        // формируем строку для записи в лок хранилище
-        let thischoice = "";
-        for (var i = 0; i < policyJSON[thisid].order.length; i++) {
-            if (i >= 1)
-                thischoice += "-";
-
-            let selected = $thistd.find("option:selected").eq(i).text();
-            thischoice += policyJSON[thisid].save[i].indexOf(selected);
-        }
-
-        let ind = savedPolicies.indexOf(thisid);
-        if (ind >= 0) {
-            savedPolicyChoices[ind] = thischoice;
-        }
-        else {
-            savedPolicies.push(thisid);
-            savedPolicyChoices.push(thischoice);
-        }
-
-        let newPolicyString = "";
-        for (var i = 0; i < savedPolicies.length; i++)
-            newPolicyString += ";" + savedPolicies[i] + savedPolicyChoices[i];
-        
-        ls["x" + $realm + subid] = newPolicyString.substring(1);
-    })
-        .each(function (this: HTMLElement) { $(this).trigger("change"); });
 
     return true;
 }
@@ -541,12 +495,14 @@ function preferencePages(html: JQuery, url: string): string[] {
         //salary
         if ($html.find("a[href*='/window/unit/employees/engage/']").length) {
             //New Interface
-            if ($html.find(".fa-users").length) {
-                policyArray.push("en");
-            }
-            else {
-                policyArray.push("es");
-            }
+            // TODO: нах убрал новый интерфейс какой то. оставляем только один. иначе глючит потом. 
+            policyArray.push("es");
+            //if ($html.find(".fa-users").length) {
+            //    policyArray.push("en");
+            //}
+            //else {
+            //    policyArray.push("es");
+            //}
             //training
             policyArray.push("et");
         }
