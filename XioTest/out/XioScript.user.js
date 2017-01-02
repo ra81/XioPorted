@@ -20,9 +20,8 @@ function dict2String(dict) {
     if (dictIsEmpty(dict))
         return "";
     var newItems = [];
-    var keys = Object.keys(dict);
-    for (var i = 0; i < keys.length; i++)
-        newItems.push(dict[keys[i]].toString());
+    for (var key in dict)
+        newItems.push(key + ":" + dict[key].toString());
     return newItems.join(";");
 }
 // настройки одной политики для одного юнита
@@ -143,6 +142,8 @@ function buildOptionsHtml(policy) {
 }
 // опции в режиме отображения подаем
 function setOptions(container, options, showMode, policy) {
+    if (options == null)
+        throw new Error("options должны быть заданы.");
     var $selects = $(container).find("select.XioChoice");
     var showChoices = showMode ? options.choices : save2Show(policy, options.choices);
     // проставляем теперь значения для этих селектов
@@ -374,124 +375,6 @@ var policyJSON = {
         wait: []
     }
 };
-//namespace Shops {
-//    export class TradingHall {
-//        name: string[];
-//        price: number[];
-//        quality: number[];
-//        purch: number[];
-//        cityprice: number[];
-//        cityquality: number[];
-//        deliver: number[];
-//        stock: number[];
-//        share: number[];
-//        report: string[];       // ссыли на розничные отчеты для всех товаров магаз
-//        history: string[];      // ссыли на отчет по продажам
-//        img: string[];          // ссыли на картинку товара
-//    }
-//    export class SalesHistory {
-//        price: number[];
-//        quantity: number[];
-//    }
-//    export class RetailReport {
-//        marketsize: number;
-//        localprice: number;
-//        localquality: number;
-//        cityprice: number;
-//        cityquality: number;
-//    }
-//    function market6Ex(url: string, i: number): number {
-//        //debugger;
-//        // в расчетах предполагаем, что парсер нам гарантирует 0 или число, если элемент есть в массиве.
-//        // не паримся с undefined
-//        var unit = mapped[url] as Shops.TradingHall;
-//        if (!unit) {
-//            postMessage(`Subdivision <a href=${url}>${subid}</a> has unit == null`);
-//            return 0;
-//        }
-//        //console.log(unit);
-//        var salesHistory = mapped[unit.history[i]] as Shops.SalesHistory; // {price:[], quantity:[]}
-//        if (!salesHistory) {
-//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory == null`);
-//            return 0;
-//        }
-//        // в истории продаж всегда должна быть хотя бы одна строка. Пусть с 0, но должна быть
-//        if (salesHistory.price.length < 1) {
-//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory.price.length < 1`);
-//            return 0;
-//        }
-//        // мое качество сегодня и цена стоящая в окне цены, кач и цена локальных магазов сегодня
-//        var myQuality = unit.quality[i];
-//        var myPrice = unit.price[i];
-//        var cityPrice = unit.cityprice[i];
-//        var cityQuality = unit.cityquality[i];
-//        // продажи сегодня и цена для тех продаж.
-//        var priceOld = salesHistory.price[0];
-//        var saleOld = salesHistory.quantity[0];
-//        var priceOlder = salesHistory.price[1] || 0; // более старых цен может и не быть вовсе если продаж раньше не было
-//        var saleOlder = salesHistory.quantity[1] || 0;
-//        // закупка и склад сегодня
-//        var deliver = unit.deliver[i];
-//        var stock = unit.stock[i];
-//        // доля рынка которую занимаем сегодня. если продаж не было то будет 0
-//        var share = unit.share[i];
-//        // если продаж вообще не было, история будет содержать 1 стру с нулями.
-//        var isNewProduct = Math.max.apply(null, salesHistory.price) === 0;
-//        var stockNotSold = stock > deliver;
-//        let price = 0;
-//        if (isNewProduct) {
-//            //debugger;
-//            // если продукт новый, и склад был, но явно продаж не было, ТО
-//            // если цена проставлена, снижаем ее. Иначе считаем базовую
-//            // если товара не было, то оставляем ту цену что вписана, либо ставим базовую. Вдруг я руками вписал сам.
-//            if (stockNotSold) {
-//                //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                if (myPrice === 0)
-//                    calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                else
-//                    postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
-//            } else
-//                price = myPrice > 0 ? myPrice : calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//        }
-//        // если на складе пусто, нужно все равно менять цену если продажи были.
-//        // просто потому что на след раз когда на складе будет товар но не будет продаж, мы долю рынка не увидим.
-//        if (!isNewProduct) {
-//            if (saleOld === 0) {
-//                // Если товар был и не продавался Что то не так, снижаем цену резко на 5%
-//                // если saleOld === 0, то всегда и priceOld будет 0. Так уж работает
-//                // пробуем взять ту цену что стоит сейчас и снизить ее, если цены нет, то ставим базовую
-//                if (stockNotSold) {
-//                    //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                    // TODO: как то подумать чтобы если продаж не было не снижать от установленной а привязаться к прошлым продажам если кач подходит
-//                    if (myPrice === 0)
-//                        calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                    else
-//                        postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
-//                }
-//                // если продаж не было и товара не было, то фигли менять что либо. Стоит как есть.
-//            }
-//            if (saleOld > 0) {
-//                // рынок не занят и не все продаем? Снижаем цену. Если продали все то цену чуть повысим
-//                if (share < 4.5)
-//                    price = stockNotSold ? priceOld * (1 - 0.03) : priceOld * (1 + 0.01);
-//                // рынок занят и продали не все? Цену чуть снижаем. Если все продаем то повышаем цену, иначе продаваться будет больше
-//                if (share > 4.5 && share < 6)
-//                    price = stockNotSold ? priceOld * (1 - 0.01) : priceOld * (1 + 0.03);
-//                if (share > 6 && share < 7.5)
-//                    price = stockNotSold ? priceOld * (1 + 0.01) : priceOld * (1 + 0.03);
-//                if (share > 7.5)
-//                    price = stockNotSold ? priceOld * (1 + 0.03) : priceOld * (1 + 0.05);
-//            }
-//        }
-//        // если цена уже минимальна а продажи 0, алармить об этом
-//        return price;
-//    }
-//    function calcBaseRetailPrice(myQuality: number, localPrice: number, localQuality: number): number {
-//        if (myQuality === 0 || localPrice === 0 || localQuality === 0)
-//            throw new Error("Аргументы должны быть > 0!");
-//        return Math.max(localPrice * (1 + Math.log(myQuality / localQuality)), 0, 4);
-//    }
-//} 
 var $ = jQuery = jQuery.noConflict(true);
 var $xioDebug = true;
 var ls = localStorage;
@@ -592,8 +475,103 @@ function XioMaintenance(subidList, policyNames) {
     console.log(getFuncName(arguments));
 }
 ;
-function XioGenerator(subidList) {
-    console.log(getFuncName(arguments));
+function XioGenerator(subids) {
+    // морозим кнопки. убираем старый лог
+    $(".XioGo").prop("disabled", true);
+    $(".XioProperty").remove();
+    // формируем новый лог
+    $("div.metro_header").append(""
+        + "<table id=XMtable class=XioProperty style='font-size: 18px; color:gold; border-spacing: 10px 0; margin-top: 10px;'>"
+        + "<tr>"
+        + "<td>Total server calls: </td>"
+        + "<td id=XioServerCalls>0</td>"
+        + "</tr>"
+        + "<tr>"
+        + "<td id=xDone colspan=4 style='visibility: hidden; color: lightgoldenrodyellow'>All Done!</td>"
+        + "</tr>"
+        + "</table>");
+    servergetcount = 0;
+    var getcount = 0;
+    var data = {};
+    for (var j = 0; j < subids.length; j++) {
+        var subid = subids[j];
+        data[subid] = [];
+        var url = "/" + $realm + "/main/unit/view/" + subid;
+        getcount++;
+        (function (url, subid) {
+            $.get(url, function (htmlmain) {
+                servergetcount++;
+                $("#XioServerCalls").text(servergetcount);
+                data[subid].push({
+                    html: htmlmain,
+                    url: url
+                });
+                var links = $(htmlmain).find(".tabu > li > a:gt(2)").map(function (i, el) { return $(el).attr("href"); }).get();
+                logDebug("links: " + links.join(" | "));
+                getcount += links.length;
+                !--getcount && checkpreference();
+                for (var i = 0; i < links.length; i++) {
+                    (function (url, subid) {
+                        $.get(url, function (html) {
+                            servergetcount++;
+                            $("#XioServerCalls").text(servergetcount);
+                            data[subid].push({
+                                html: html,
+                                url: url
+                            });
+                            !--getcount && checkpreference();
+                        });
+                    })(links[i], subid);
+                }
+            });
+        })(url, subid);
+    }
+    function checkpreference() {
+        var refresh = false;
+        for (var j = 0; j < subids.length; j++) {
+            var subid = subids[j];
+            // получаем полный список policyKey для данного subid
+            var policies = [];
+            for (var i = 0; i < data[subid].length; i++) {
+                var prePages = preferencePages(data[subid][i].html, data[subid][i].url);
+                var xPages = xPrefPages(data[subid][i].html, data[subid][i].url);
+                policies.push.apply(policies, prePages.concat(xPages));
+            }
+            logDebug("subid policies:" + policies.join(", "));
+            var loaded = loadOptions($realm, subid.toString()); // {} если пусто
+            logDebug("loaded options:" + dict2String(loaded));
+            // сначала проверим чтобы в опциях не было неположенных политик
+            for (var key in loaded) {
+                if (policies.indexOf(key) < 0)
+                    delete loaded[key];
+            }
+            logDebug("options cleaned:" + dict2String(loaded));
+            // теперь добавим те ключи которых нет в опциях или сбросим те которые криво записаны
+            var keys = Object.keys(loaded);
+            for (var i = 0; i < policies.length; i++) {
+                var key = policies[i];
+                var policy = policyJSON[key];
+                if (keys.indexOf(key) >= 0 && loaded[key].choices.length === policy.save.length)
+                    continue;
+                // ну нет бля быстрого способа заполнить массив нулями. 
+                var choices = new Array(policy.save.length);
+                for (var i_1 = 0; i_1 < choices.length; i_1++)
+                    choices[i_1] = 0;
+                loaded[key] = new PolicyOptions(key, choices);
+                refresh = true;
+            }
+            storeOptions($realm, subid.toString(), loaded);
+        }
+        if (refresh) {
+            $(".XioHide").removeClass("XioHide").show(); // показать скрытые ранее колонки
+            $(".XOhtml").remove(); // всякие заголовки и прочая херь
+            $(".XioContainer").remove(); // все контейнеры с селектами
+            $(".unit-list-2014").off(".XO"); // скинуть события
+            XioOverview();
+        }
+        $("#xDone").css("visibility", "");
+        $(".XioGo").prop("disabled", false);
+    }
 }
 ;
 function XioExport() {
@@ -798,7 +776,6 @@ function preference(policies) {
     $("#XMOpt").html(htmlstring);
     // проставляем настройки политик
     var parsedDict = loadOptions($realm, subid.toString());
-    //debugger;
     for (var i = 0; i < policies.length; i++) {
         var policyKey = policies[i];
         var policy = policyJSON[policyKey];
@@ -806,7 +783,9 @@ function preference(policies) {
         var container = $topblock.find("td#" + containerKey);
         if (container.length === 0)
             throw new Error("неведомая хуйня но не нашли контейнер для политики");
-        setOptions(container.get(0), parsedDict[policyKey], false, policy);
+        // если для данной политики нет опций - не делаем ничо.
+        if (parsedDict[policyKey] != null)
+            setOptions(container.get(0), parsedDict[policyKey], false, policy);
     }
     ;
     if (policies.length) {
@@ -1108,4 +1087,122 @@ function XioScript() {
 // запуск вешаем на событие
 $(document).ready(function () { return XioScript(); });
 //document.onreadystatechange(new ProgressEvent("XioLoad")); 
+//namespace Shops {
+//    export class TradingHall {
+//        name: string[];
+//        price: number[];
+//        quality: number[];
+//        purch: number[];
+//        cityprice: number[];
+//        cityquality: number[];
+//        deliver: number[];
+//        stock: number[];
+//        share: number[];
+//        report: string[];       // ссыли на розничные отчеты для всех товаров магаз
+//        history: string[];      // ссыли на отчет по продажам
+//        img: string[];          // ссыли на картинку товара
+//    }
+//    export class SalesHistory {
+//        price: number[];
+//        quantity: number[];
+//    }
+//    export class RetailReport {
+//        marketsize: number;
+//        localprice: number;
+//        localquality: number;
+//        cityprice: number;
+//        cityquality: number;
+//    }
+//    function market6Ex(url: string, i: number): number {
+//        //debugger;
+//        // в расчетах предполагаем, что парсер нам гарантирует 0 или число, если элемент есть в массиве.
+//        // не паримся с undefined
+//        var unit = mapped[url] as Shops.TradingHall;
+//        if (!unit) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has unit == null`);
+//            return 0;
+//        }
+//        //console.log(unit);
+//        var salesHistory = mapped[unit.history[i]] as Shops.SalesHistory; // {price:[], quantity:[]}
+//        if (!salesHistory) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory == null`);
+//            return 0;
+//        }
+//        // в истории продаж всегда должна быть хотя бы одна строка. Пусть с 0, но должна быть
+//        if (salesHistory.price.length < 1) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory.price.length < 1`);
+//            return 0;
+//        }
+//        // мое качество сегодня и цена стоящая в окне цены, кач и цена локальных магазов сегодня
+//        var myQuality = unit.quality[i];
+//        var myPrice = unit.price[i];
+//        var cityPrice = unit.cityprice[i];
+//        var cityQuality = unit.cityquality[i];
+//        // продажи сегодня и цена для тех продаж.
+//        var priceOld = salesHistory.price[0];
+//        var saleOld = salesHistory.quantity[0];
+//        var priceOlder = salesHistory.price[1] || 0; // более старых цен может и не быть вовсе если продаж раньше не было
+//        var saleOlder = salesHistory.quantity[1] || 0;
+//        // закупка и склад сегодня
+//        var deliver = unit.deliver[i];
+//        var stock = unit.stock[i];
+//        // доля рынка которую занимаем сегодня. если продаж не было то будет 0
+//        var share = unit.share[i];
+//        // если продаж вообще не было, история будет содержать 1 стру с нулями.
+//        var isNewProduct = Math.max.apply(null, salesHistory.price) === 0;
+//        var stockNotSold = stock > deliver;
+//        let price = 0;
+//        if (isNewProduct) {
+//            //debugger;
+//            // если продукт новый, и склад был, но явно продаж не было, ТО
+//            // если цена проставлена, снижаем ее. Иначе считаем базовую
+//            // если товара не было, то оставляем ту цену что вписана, либо ставим базовую. Вдруг я руками вписал сам.
+//            if (stockNotSold) {
+//                //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                if (myPrice === 0)
+//                    calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                else
+//                    postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
+//            } else
+//                price = myPrice > 0 ? myPrice : calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//        }
+//        // если на складе пусто, нужно все равно менять цену если продажи были.
+//        // просто потому что на след раз когда на складе будет товар но не будет продаж, мы долю рынка не увидим.
+//        if (!isNewProduct) {
+//            if (saleOld === 0) {
+//                // Если товар был и не продавался Что то не так, снижаем цену резко на 5%
+//                // если saleOld === 0, то всегда и priceOld будет 0. Так уж работает
+//                // пробуем взять ту цену что стоит сейчас и снизить ее, если цены нет, то ставим базовую
+//                if (stockNotSold) {
+//                    //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                    // TODO: как то подумать чтобы если продаж не было не снижать от установленной а привязаться к прошлым продажам если кач подходит
+//                    if (myPrice === 0)
+//                        calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                    else
+//                        postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
+//                }
+//                // если продаж не было и товара не было, то фигли менять что либо. Стоит как есть.
+//            }
+//            if (saleOld > 0) {
+//                // рынок не занят и не все продаем? Снижаем цену. Если продали все то цену чуть повысим
+//                if (share < 4.5)
+//                    price = stockNotSold ? priceOld * (1 - 0.03) : priceOld * (1 + 0.01);
+//                // рынок занят и продали не все? Цену чуть снижаем. Если все продаем то повышаем цену, иначе продаваться будет больше
+//                if (share > 4.5 && share < 6)
+//                    price = stockNotSold ? priceOld * (1 - 0.01) : priceOld * (1 + 0.03);
+//                if (share > 6 && share < 7.5)
+//                    price = stockNotSold ? priceOld * (1 + 0.01) : priceOld * (1 + 0.03);
+//                if (share > 7.5)
+//                    price = stockNotSold ? priceOld * (1 + 0.03) : priceOld * (1 + 0.05);
+//            }
+//        }
+//        // если цена уже минимальна а продажи 0, алармить об этом
+//        return price;
+//    }
+//    function calcBaseRetailPrice(myQuality: number, localPrice: number, localQuality: number): number {
+//        if (myQuality === 0 || localPrice === 0 || localQuality === 0)
+//            throw new Error("Аргументы должны быть > 0!");
+//        return Math.max(localPrice * (1 + Math.log(myQuality / localQuality)), 0, 4);
+//    }
+//} 
 //# sourceMappingURL=XioScript.user.js.map

@@ -509,7 +509,6 @@ function preference(policies: string[]) : boolean {
 
     // проставляем настройки политик
     let parsedDict = loadOptions($realm, subid.toString());
-    //debugger;
     for (var i = 0; i < policies.length; i++) {
         let policyKey = policies[i];
         let policy = policyJSON[policyKey];
@@ -519,7 +518,9 @@ function preference(policies: string[]) : boolean {
         if (container.length === 0)
             throw new Error("неведомая хуйня но не нашли контейнер для политики");
 
-        setOptions(container.get(0), parsedDict[policyKey], false, policy);
+        // если для данной политики нет опций - не делаем ничо.
+        if (parsedDict[policyKey] != null)
+            setOptions(container.get(0), parsedDict[policyKey], false, policy);
     };
 
 

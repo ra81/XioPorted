@@ -160,6 +160,9 @@ function buildOptionsHtml(policy: IPolicy): string {
 // опции в режиме отображения подаем
 function setOptions(container: HTMLElement, options: PolicyOptions, showMode: boolean, policy: IPolicy) {
 
+    if (options == null)
+        throw new Error("options должны быть заданы.")
+
     let $selects = $(container).find("select.XioChoice");
     let showChoices = showMode ? options.choices : save2Show(policy, options.choices);
 
