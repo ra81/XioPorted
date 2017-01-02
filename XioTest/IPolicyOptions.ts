@@ -63,7 +63,7 @@ function makeStorageKey(realm: string, subid: string): string {
 function loadOptions(realm: string, subid: string): IDictionary<PolicyOptions> {
 
     let storageKey = makeStorageKey(realm, subid);
-    let savedPolicyStrings: string[] = ls[storageKey] ? ls[storageKey].split(";") : [];
+    let savedPolicyStrings: string[] = localStorage[storageKey] ? localStorage[storageKey].split(";") : [];
     let parsedDict: IDictionary<PolicyOptions> = {};
 
     for (var n = 0; n < savedPolicyStrings.length; n++) {
@@ -93,7 +93,7 @@ function storeOptions(realm: string, subid: string, options: IDictionary<PolicyO
     let newSaveString = newItems.join(";");
     logDebug(`newSaveString:${newSaveString}`);
 
-    ls[storageKey] = newSaveString;
+    localStorage[storageKey] = newSaveString;
 }
 
 // обновляет запись с политиками в хранилище. если чет делалось то вернет полный список опций юнита уже обновленный или {}

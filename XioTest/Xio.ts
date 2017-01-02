@@ -246,11 +246,43 @@ function XioGenerator(subids: number[]) {
 };
 
 function XioExport() {
-    console.log(getFuncName(arguments));
-};
+    $(".XioProperty").remove();
+    $("div.metro_header").append(`<br class=XioProperty>
+                                  <textarea id=XEarea class=XioProperty style='width: 900px'></textarea>`);
+
+    var string = "";
+    var rx = new RegExp("x" + $realm + "\\d+");
+    for (var key in localStorage) {
+        if (rx.test(key))
+            string += key.substring(1) + "=" + localStorage[key] + ",";
+    }
+
+    $("#XEarea").text(string).height($("#XEarea")[0].scrollHeight);
+}
 
 function XioImport() {
-    console.log(getFuncName(arguments));
+    $(".XioProperty").remove();
+    $("div.metro_header").append(`<br class=XioProperty>
+                                  <textarea id=XIarea class=XioProperty style='width: 900px'></textarea>
+                                  <br class=XioProperty>
+                                  <input type=button id=XioSave class=XioProperty value=Save!>`);
+    // TODO: импорт не работает. хз почему.
+    $(document).on('input propertychange', "#XIarea", function () {
+        $("#XIarea").height($("#XIarea")[0].scrollHeight);
+    });
+
+    // TODO: данную херь переписать. сделать через штатные способы записи опций
+    $("#XioSave").click(function () {
+        var string = $("#XIarea").val();
+        string = string.replace(/=/g, "']='").replace(/,/g, "';localStorage['x");
+        try {
+            eval("localStorage['x" + string.slice(0, -15));
+            document.location.reload();
+        }
+        catch (e) {
+            console.log("import not successful");
+        }
+    });
 };
 
 function XioHoliday() {
@@ -470,12 +502,12 @@ function topManagerStats() {
     console.log(fName);
 }
 
-// для текущего урла, находит загружает указанные политики с хранилища, рисует селекты
+// когда мы находимся внутри юнита, загружает и отображает policies, то есть тока то что задано.
 function preference(policies: string[]) : boolean {
     // не задали ничего для простановки, и не будем ничо делать
     if (policies.length === 0)
         return false;
-    //  TODO: не сохраняет политики внутри юнита.
+
     // работать будем с конкретным юнитом в котором находимся
     let subidRx = document.URL.match(/(view\/?)\d+/);
     if (subidRx == null)
