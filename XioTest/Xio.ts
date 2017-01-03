@@ -780,7 +780,7 @@ function xTypeDone(policyName: string) {
     // походу когда все исполнилось включает кнопки скрипта
     if (sum === 0 && $("#xDone").css("visibility") === "hidden") {
         $("#xDone").css("visibility", "");
-        console.log("mapped: ", mapped);        // валит все отпарсенные ссылки за время обработки
+        logDebug("mapped: ", mapped);        // валит все отпарсенные ссылки за время обработки
         $(".XioGo").prop("disabled", false);
         clearInterval(timeinterval);
     }
@@ -812,8 +812,8 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
     logDebug("subids: ", subids);
     logDebug("policyGroups: ", policyGroups);
 
-    let processingtime = new Date().getTime();
-    let timeinterval = setInterval(time, 1000);
+    processingtime = new Date().getTime();
+    timeinterval = setInterval(time, 1000);
 
     // дизаблим кнопки убираем старые логи
     $(".XioGo").prop("disabled", true);
@@ -837,7 +837,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
     if (!subids || subids.length === 0)
         subids = parseAllSavedSubid($realm);
 
-    if (!policyGroups || subids.length === 0) {
+    if (!policyGroups || policyGroups.length === 0) {
         policyGroups = [];
         for (var key in policyJSON)
             policyGroups.push(policyJSON[key].group);
@@ -888,7 +888,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
             xGet(urlUnitlist, "unitlist", false, function () {
                 xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
                     xGet(filtersetting, "none", false, function () {
-                        debugger;further((mapped[urlUnitlist] as IUnitList).subids);
+                        further((mapped[urlUnitlist] as IUnitList).subids);
                     });
                 });
             });
@@ -901,7 +901,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
         let xgroup: IDictionary<number> = {};
 
         // TODO: с этим надо чет сделать. кнопку какую чтобы чистило тока по кнопке. а то косячит и удаляет само если подвисло чего
-        for (let i = 0; i < subids.length; i++) {
+        for (var i = 0; i < subids.length; i++) {
             // если в базе запись про юнита есть, а он не спарсился со страницы, удалить запись о нем.
             if (realsubids.indexOf(subids[i]) < 0) {
                 let urlSubid = "/" + $realm + "/main/unit/view/" + subids[i];
@@ -912,7 +912,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
 
             // загружаем политики юнита. часть отработаем сразу, часть пихаем в кэш и отработаем когда wait позволит уже
             let loaded = loadOptions($realm, subids[i]);
-            for (let policyKey in loaded) {
+            for (var policyKey in loaded) {
                 let policy = policyJSON[policyKey];
                 if (policy == null || policyGroups.indexOf(policy.group) < 0)
                     continue;
@@ -942,7 +942,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
             }
         }
 
-        for (let key in policyJSON) {
+        for (var key in policyJSON) {
             let name = policyJSON[key].name;
             if (startedPolicies.indexOf(name) < 0) {
                 xcount[name] = 1;
@@ -953,7 +953,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
 
         // рисует шляпу по обрабатываемым политикам на странице
         var displayedPolicies: string[] = [];
-        for (let key in policyJSON) {
+        for (var key in policyJSON) {
             let name = policyJSON[key].name;
             let group = policyJSON[key].group;
             if (startedPolicies.indexOf(name) >= 0 && displayedPolicies.indexOf(group) < 0) {
@@ -970,6 +970,8 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
             }
         }
     }
+
+    logDebug("XM finished: ", mapped);
 };
 
 function XioGenerator(subids: number[]) {
