@@ -36,7 +36,8 @@
     <TypeScriptCompile Include="Header.ts" />
     <TypeScriptCompile Include="IDictionary.ts" />
     <TypeScriptCompile Include="IPolicyOptions.ts" />
-    <TypeScriptCompile Include="ManagementFuncs.ts" />
+    <TypeScriptCompile Include="CalcFunctions.ts" />
+    <TypeScriptCompile Include="PolicyFunctions.ts" />
     <TypeScriptCompile Include="PolicyJson.ts" />
     <TypeScriptCompile Include="Xio.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
