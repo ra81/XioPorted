@@ -45,7 +45,12 @@ function getFuncName(args: IArguments): string {
 }
 
 function logDebug(msg: string, ...args: any[]) {
-    if ($xioDebug)
+    if (!$xioDebug)
+        return;
+
+    if (args.length === 0)
+        console.log(msg);
+    else
         console.log(msg, args);
 }
 
@@ -593,8 +598,10 @@ function time() {
     $("#XioMinutes").text(Math.floor(minutes));
     $("#XioSeconds").text(Math.round((minutes - Math.floor(minutes)) * 60));
 }
-// TODO: конфликтует со штатной функцией. переименовать!!!
-function postMessage(html: string) {
+
+function postMessage0(html: string) {
+    // НЕ называть postMessage ибо конфликтует со штатными функциями
+
     $("#XMproblem").append("<div>" + html + "</div>");
 }
 
@@ -802,6 +809,9 @@ function xsupGo(subid: number, type: string) {
 function XioMaintenance(subids:number[], policyGroups:string[]) {
 
     console.log("XM!");
+    logDebug("subids: ", subids);
+    logDebug("policyGroups: ", policyGroups);
+
     let processingtime = new Date().getTime();
     let timeinterval = setInterval(time, 1000);
 
@@ -822,7 +832,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
     blackmail = [];
     equipfilter = [];
 
-    console.log(mapped);
+    logDebug("mapped: ", mapped);
 
     if (!subids || subids.length === 0)
         subids = parseAllSavedSubid($realm);
@@ -878,7 +888,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
             xGet(urlUnitlist, "unitlist", false, function () {
                 xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
                     xGet(filtersetting, "none", false, function () {
-                        further((mapped[urlUnitlist] as IUnitList).subids);
+                        debugger;further((mapped[urlUnitlist] as IUnitList).subids);
                     });
                 });
             });
@@ -895,7 +905,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
             // если в базе запись про юнита есть, а он не спарсился со страницы, удалить запись о нем.
             if (realsubids.indexOf(subids[i]) < 0) {
                 let urlSubid = "/" + $realm + "/main/unit/view/" + subids[i];
-                postMessage("Subdivision <a href=" + urlSubid + ">" + subids[i] + "</a> is missing from the company. Options have been erased from the Local Storage.");
+                postMessage0("Subdivision <a href=" + urlSubid + ">" + subids[i] + "</a> is missing from the company. Options have been erased from the Local Storage.");
                 removeOptions($realm, [subids[i]]);
                 continue;
             }
@@ -1006,7 +1016,7 @@ function XioGenerator(subids: number[]) {
 
 
                 let links = $(htmlmain).find(".tabu > li > a:gt(2)").map( (i, el) => $(el).attr("href") ).get() as any as string[];
-                logDebug(`links: ${links.join(" | ")}`);
+                logDebug("links: ", links);
 
                 getcount += links.length;
                 !--getcount && checkpreference();
@@ -1045,7 +1055,7 @@ function XioGenerator(subids: number[]) {
                 policies.push.apply(policies, prePages.concat(xPages));
             }
 
-            logDebug(`subid policies:${policies.join(", ")}`);
+            logDebug(`${subid} policies:${policies.join(", ")}`);
             let loaded = loadOptions($realm, subid); // {} если пусто
             logDebug(`loaded options:${dict2String(loaded)}`);
 
