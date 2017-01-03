@@ -55,18 +55,30 @@ function parseOptions(container: HTMLElement, policyDict: IDictionary<IPolicy>):
 }
 
 // формирует ключик для хранилища. сделано так чтобы в случае чего разом везде поменять и все.
-function makeStorageKey(realm: string, subid: string): string {
+function makeStorageKey(realm: string, subid: number): string {
+    if (realm == null)
+        throw new Error("realm должен быть задан");
+
+    if (subid == null)
+        throw new Error("subid должен быть задан");
+
     return "x" + realm + subid;
 }
 
 // загружаем из хранилища сразу все опции для данного юнита и реалма. выдаем стандартный словарь или {}
-function loadOptions(realm: string, subid: string): IDictionary<PolicyOptions> {
+function loadOptions(realm: string, subid: number): IDictionary<PolicyOptions> {
 
-    let storageKey = makeStorageKey(realm, subid);
-    let savedPolicyStrings: string[] = localStorage[storageKey] ? localStorage[storageKey].split(";") : [];
     let parsedDict: IDictionary<PolicyOptions> = {};
+    let storageKey = makeStorageKey(realm, subid);
+    let data = localStorage.getItem(storageKey);
+    if (data == null)
+        return parsedDict;
 
+    let savedPolicyStrings = data.split(";");
     for (var n = 0; n < savedPolicyStrings.length; n++) {
+        if (savedPolicyStrings[n].length < 3)  // всегда ps0 это минималка!!
+            throw new Error(`Неправильная запись политики в хранилище: ${savedPolicyStrings[n]}`);
+
         let key = savedPolicyStrings[n].substring(0, 2);
         let choices = savedPolicyStrings[n].substring(2).split("-").map((item, index, arr) => numberfy(item));
 
@@ -79,7 +91,7 @@ function loadOptions(realm: string, subid: string): IDictionary<PolicyOptions> {
 
 // записывает в хранилище все опции всех политик для указанного юнита в указанном реалме. 
 // подразумеваем что опции уже в save формате
-function storeOptions(realm: string, subid: string, options: IDictionary<PolicyOptions>): void {
+function storeOptions(realm: string, subid: number, options: IDictionary<PolicyOptions>): void {
 
     if (dictIsEmpty(options))
         throw new Error("Попытка записать в лок. хранилище пустой набор опций. Аларм.");
@@ -96,8 +108,24 @@ function storeOptions(realm: string, subid: string, options: IDictionary<PolicyO
     localStorage[storageKey] = newSaveString;
 }
 
+// удаляет заданные ключи. вернет числ реально удаленных элементов
+function removeOptions(realm: string, subids: number[]): number {
+
+    let counter = 0;
+    for (let i = 0; i < subids.length; i++) {
+        let key = makeStorageKey(realm, subids[i]);
+        if (localStorage.getItem(key) == null)
+            continue;
+
+        localStorage.removeItem(key);
+        counter++;
+    }
+
+    return counter;
+}
+
 // обновляет запись с политиками в хранилище. если чет делалось то вернет полный список опций юнита уже обновленный или {}
-function updateOptions(realm: string, subid: string, options: IDictionary<PolicyOptions>): IDictionary<PolicyOptions> {
+function updateOptions(realm: string, subid: number, options: IDictionary<PolicyOptions>): IDictionary<PolicyOptions> {
     if (dictIsEmpty(options))
         return {};
 
@@ -175,4 +203,30 @@ function setOptions(container: HTMLElement, options: PolicyOptions, showMode: bo
 function parseSubid(trList: HTMLElement[]): number[] {
     let rows = $(trList);
     return rows.find("td.unit_id").map((i, e) => numberfy( $(e).text() )).get() as any as number[];
+}
+
+// берет локальное хранилище и тащит оттуда все записи по юнитам. выделяет subid
+function parseAllSavedSubid(realm: string): number[] {
+
+    if (!realm || realm.length === 0)
+        throw new Error("realm должен быть задан.");
+
+    let subids: number[] = [];
+    let rx = new RegExp("x" + realm + "\\d+");
+    for (let key in localStorage) {
+        if (!rx.test(key))
+            continue;
+
+        let m = key.match(/\d+/);
+        if (m != null)
+            subids.push(numberfy(m[0]));
+    }
+
+    return subids;
+}
+
+// парсит id компании со страницы
+function getCompanyId() {
+    let m = $(".dashboard a").attr("href").match(/\d+/);
+    return numberfy(m == null ? "0" : m[0]);
 }

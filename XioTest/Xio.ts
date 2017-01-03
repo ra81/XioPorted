@@ -2,32 +2,31 @@
 var $ = jQuery = jQuery.noConflict(true);
 
 let $xioDebug = true;
-var ls = localStorage;
+//var ls = localStorage;
 let $realm = getRealm();
-var getUrls = [];
-var finUrls = [];
-var xcallback = [];
-var mapped = {};
-var xcount = {};
-var xmax = {};
-var typedone = [];
-var xwait = [];
+let getUrls:string[] = [];
+let finUrls: string[] = [];
+let xcallback: [string, () => void][] = []; // массив of tuple
+var mapped: IDictionary<IEmploees> = {};
+var xcount: IDictionary<number> = {};
+var xmax: IDictionary<number> = {};
+let typedone: string[] = [];
+let xwait: [string[], IAction0][] = [];
 var xequip = [];
 var fireequip = false;
-var servergetcount = 0;
+let servergetcount = 0;
 var serverpostcount = 0;
 var suppliercount = 0;
-var processingtime = 0;
-var timeinterval = 0;
+let processingtime = 0;
+let timeinterval = 0;
 //var mousedown = false;
 //var $tron: HTMLElement;
 var XMreload = false;
-var xsup = [];
-var xsupcheck = {};
-var urlUnitlist = "";
+var xsup: any = []; // TODO: как то гемор этот разгрести и типизировать
+let xsupcheck: IDictionary<boolean> = {};
+let urlUnitlist = "";
 var blackmail = [];
-let _m = $(".dashboard a").attr("href").match(/\d+/) as string[];
-var companyid = numberfy(_m ? _m[0] : "0");
+let companyid = getCompanyId();
 var equipfilter = [];
 
 function getRealm(): string {
@@ -38,13 +37,21 @@ function getRealm(): string {
     return r;
 }
 
-function logDebug(msg: string) {
-    if ($xioDebug)
-        console.log(msg);
+function getFuncName(args: IArguments): string {
+    // из аргументов функции вытаскивает само имя функции. для лога чисто
+
+    let items = args.callee.toString().split("(");
+    return items[0] ? items[0] + "()" : "";
 }
 
-// возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
+function logDebug(msg: string, ...args: any[]) {
+    if ($xioDebug)
+        console.log(msg, args);
+}
+
 function numberfy(variable: string): number {
+    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
+
     if (String(variable) === 'Не огр.' ||
         String(variable) === 'Unlim.' ||
         String(variable) === 'Не обм.' ||
@@ -58,6 +65,28 @@ function numberfy(variable: string): number {
         //return parseFloat(String(variable).replace(/[\s\$\%\©]/g, "")) || 0;
     }
 };
+
+function zipAndMin(napArr1: number[], napArr2: number[]) {
+    // адская функция. так и не понял нафиг она
+
+    if (napArr1.length > napArr2.length) {
+        return napArr1;
+    } else if (napArr2.length > napArr1.length) {
+        return napArr2;
+    } else {
+        var zipped = napArr1.map( (e, i) => [napArr1[i], napArr2[i]]);
+        var res = zipped.map(function (e, i) {
+            if (e[0] == 0) {
+                return e[1];
+            } else if (e[1] == 0) {
+                return e[0];
+            } else {
+                return Math.min(e[0], e[1]);
+            }
+        });
+        return res;
+    }
+}
 
 function buildingShortener() : void {
     $(document).ajaxSuccess(function (event, xhr, settings) {
@@ -108,14 +137,829 @@ function xpCookie(name: string): string | null {
     return null;
 }
 
-// из аргументов функции вытаскивает само имя функции. для лога чисто
-function getFuncName(args: IArguments) :string {
-    let items = args.callee.toString().split("(");
-    return items[0] ? items[0] + "()" : "";
+function map(html: any, url: string, page: string): boolean {
+
+    if (page === "ajax") {
+        mapped[url] = JSON.parse(html);
+        return false;
+    }
+    else if (page === "none") {
+        return false;
+    }
+    // TODO: запилить классы для каждого типа страницы. чтобы потом можно было с этим типизированно воркать
+    var $html = $(html);
+    if (page === "unitlist") {
+        mapped[url] = {
+            subids: $html.find(".unit-list-2014 td:nth-child(1)").map( (i, e) => numberfy($(e).text()) ).get() as any as number[],
+            type: $html.find(".unit-list-2014 td:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[1]; }).get() as any as string[]
+        }
+    }
+    else if (page === "sale") {
+        mapped[url] = {
+            form: $html.find("[name=storageForm]"),
+            policy: $html.find("select:even").map(function (i, e) { return $(e).find("[selected]").index(); }).get() as any as number[],
+            price: $html.find("input.money:even").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            incineratorMaxPrice: $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            outqual: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            outprime: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            stockqual: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            stockprime: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            product: $html.find(".grid a:not([onclick])").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            productId: $html.find(".grid a:not([onclick])").map(
+                function (i, e) {
+                    let m = $(e).attr("href").match(/\d+/);
+                    return numberfy(m == null ? "0": m[0]);
+                }).get() as any as number[],
+            region: $html.find(".officePlace a:eq(-2)").text(),
+            contractpage: !!$html.find(".tabsub").length,
+            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) })
+        }
+    }
+    else if (page === "salecontract") {
+        mapped[url] = {
+            category: $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) })
+        }
+    }
+    else if (page === "prodsupply") {
+        mapped[url] = $html.find(".inner_table").length ? {  //new interface
+            //isProd: !$html.find(".sel").next().attr("class"),
+            //parcel: $html.find(".quickchange").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            //price_mark_up: "",
+            //price_constraint_max: "",
+            //price_constraint_type: "",
+            //quality_constraint_min: "",
+            //required: $html.find(".list td:nth-child(3).inner_table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            //stock: $html.find(".list td:nth-child(4).inner_table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            //basequality: $html.find(".list td:nth-child(4).inner_table tr:nth-child(2) td:nth-child(2)[align]").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            //prodid: $html.find(".list tr:has([src='/img/supplier_add.gif']) > td:nth-child(1) a").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+/)[0]); }).get(),
+            //offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            //price: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(2) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            //quality: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(3) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            //available: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(4) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            //maximum: $html.find(".list td:has(.quicksave)").map(function (i, e) { return $(e).find("[style='color: red;']").length ? numberfy($(e).find("[style='color: red;']").text().match(/(\d|\s)+/)[0]) : Infinity; }).get(),
+            //reprice: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(2)").map(function (i, e) { return !!$(e).filter(".ordered_red, .ordered_green").length; }).get(),
+            //mainrow: $html.find(".list tr[onmouseover]").map(function (i, e) { return !!$(e).find("[alt='Select supplier']").length; }).get() as any as boolean[],
+            //nosupplier: $html.find(".list tr[onmouseover]").map(function (i, e) { return !$(e).find("[src='/img/smallX.gif']").length; }).get() as any as boolean[],
+            //img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
+        } : { //old interface
+                //isProd: !$html.find(".sel").next().attr("class"),
+                //parcel: $html.find("input[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                //price_mark_up: $html.find("select[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                //price_constraint_max: $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                //price_constraint_type: $html.find("select[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get() as any as string[],
+                //quality_constraint_min: $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                //required: $html.find(".list td:nth-child(2) table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                //stock: $html.find(".list td:nth-child(3) table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                //basequality: $html.find(".list td:nth-child(3) table tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                //prodid: $html.find(".list a:has(img)[title]").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+/)[0]); }).get(),
+                //offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                //price: $html.find("[id^=totalPrice] tr:nth-child(1) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                //quality: $html.find("[id^=totalPrice] tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                //available: $html.find("[id^=quantity] tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                //maximum: $html.find(".list td:has([type=type])").map(function (i, e) { return $(e).find("[style='color:red']").length ? numberfy($(e).find("[style='color:red']").text().match(/(\d|\s)+/)[0]) : Infinity; }).get(),
+                //reprice: $html.find("[id^=totalPrice] tr:nth-child(1)").map(function (i, e) { return !!$(e).filter("[style]").length; }).get() as any as boolean[],
+                //mainrow: $html.find(".list tr[id]").map(function (i, e) { return !/sub/.test($(e).attr("id")); }).get() as any as boolean[],
+                //nosupplier: $html.find(".list tr[id]").map(function (i, e) { return !$(e).find("[src='/img/smallX.gif']").length; }).get() as any as boolean[],
+                //img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
+            }
+    }
+    else if (page === "consume") {
+        mapped[url] = {
+            consump: zipAndMin(
+                $html.find(".list td:nth-last-child(1) div:nth-child(2)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get() as any as number[],
+                $html.find(".list td:nth-last-child(1) div:nth-child(1)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get() as any as number[]
+            ),
+            purch: $html.find('#mainContent > form > table.list > tbody > tr:last > td.nowrap').map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
+    }
+    else if (page === "storesupply") {
+        mapped[url] = {
+            parcel: $html.find("input:text[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            price_mark_up: $html.find("select[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            price_constraint_max: $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            price_constraint_type: $html.find("select[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get() as any as string[],
+            quality_constraint_min: $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            purchase: $html.find("td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            quantity: $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            sold: $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(5) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            price: $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            reprice: $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return !!$(e).find("div").length; }).get() as any as boolean[],
+            quality: $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            available: $html.find("td:nth-child(10) table:nth-child(1) tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            img: $html.find(".noborder td > img").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[]
+        }
+    }
+    else if (page === "tradehall") {
+        mapped[url] = {
+            stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get() as any as number[],
+            report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[],
+            quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            purch: $html.find("td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            price: $html.find(":text").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get() as any as string[],
+            share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            history: $html.find("a.popup").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[]
+        }
+    }
+    else if (page === "service") {
+        mapped[url] = {
+            price: $html.find("a.popup[href$='service_history']").map(function (i, e) { return numberfy($(e).text().split('(')[0].trim()); }).get() as any as number[],
+            history: $html.find("a.popup[href$='service_history']").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            incineratorPrice: $html.find("a.popup[href$='power_history']").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+
+            //not used
+            stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get() as any as number[],
+            report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[],
+            quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get() as any as string[],
+            share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
+    }
+    else if (page === "servicepricehistory") {
+        mapped[url] = {
+            price: $html.find(".list td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            quantity: $html.find(".list td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
+    }
+    else if (page === "retailreport") {
+        mapped[url] = {
+            marketsize: numberfy($html.find("b:eq(1)").text()),
+            localprice: numberfy($html.find(".grid .even td:eq(0)").text()),
+            localquality: numberfy($html.find(".grid .odd td:eq(0)").text()),
+            cityprice: numberfy($html.find(".grid .even td:eq(1)").text()),
+            cityquality: numberfy($html.find(".grid .odd td:eq(1)").text())
+        }
+    }
+    else if (page === "pricehistory") {
+        // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
+        // такие дни просто вылетают из списка.
+        // сегодняшний день ВСЕГДА есть в списке.
+        // если продаж сегодня не было, то в строке будут тока бренд 0 а остальное пусто.
+        // если сегодня продажи были, то там будут числа и данная строка запомнится как история продаж.
+        // причина по которой продаж не было пофиг. Не было товара, цена стояла 0 или стояла очень большая. Похер!
+
+        // numberfy возвращает 0, если была пустота или неадекват. Поэтому у нас всегда будет 1 число в массиве.
+        mapped[url] = {
+            quantity: $html.find(".list td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            price: $html.find(".list td:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
+    }
+    else if (page === "TM") {
+        mapped[url] = {
+            product: $html.find(".grid td:odd").map(function (i, e) { return $(e).clone().children().remove().end().text().trim(); }).get() as any as string[],
+            franchise: $html.find(".grid b").map(function (i, e) { return $(e).text(); }).get() as any as string[]
+        }
+    }
+    else if (page === "IP") {
+        mapped[url] = {
+            product: $html.find(".list td:nth-child(5n-3)").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            IP: $html.find(".list td:nth-child(5n)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
+    }
+    else if (page === "transport") {
+        mapped[url] = {
+            countryName: $html.find("select:eq(0) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            countryId: $html.find("select:eq(0) option").map(function (i, e) { return numberfy($(e).val().split("/")[1]); }).get() as any as number[],
+            regionName: $html.find("select:eq(1) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            regionId: $html.find("select:eq(1) option").map(function (i, e) { return numberfy($(e).val().split("/")[2]); }).get() as any as number[],
+            cityName: $html.find("select:eq(2) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            cityId: $html.find("select:eq(2) option").map(function (i, e) { return numberfy($(e).val().split("/")[3]); }).get() as any as number[]
+        }
+    }
+    else if (page === "CTIE") {
+        mapped[url] = {
+            product: $html.find(".list td:nth-child(3n-1)").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            profitTax: numberfy($html.find(".region_data td:eq(3)").text()),
+            CTIE: $html.find(".list td:nth-child(3n)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
+    }
+    else if (page === "main") {
+        mapped[url] = {
+            employees: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(0) td:eq(1)").text()),
+            salaryNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(2) td:eq(1)").text()),
+            salaryCity: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(3) td:eq(1)").text()),
+            skillNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(4) td:eq(1)").text()),
+            skillReq: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(5) td:eq(1)").text()),
+            equipNum: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(0) td:eq(1)").text()),
+            equipMax: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(1) td:eq(1)").text()),
+            equipQual: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(2) td:eq(1)").text()),
+            equipReq: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(3) td:eq(1)").text()),
+            equipWearBlack: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1)").text().split("(")[1]),
+            equipWearRed: $html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1) span").length === 1,
+            managerPic: $html.find(".unit_box:has(.fa-user) ul img").attr("src"),
+            qual: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(1) td:eq(1)").text()),
+            techLevel: numberfy($html.find(".unit_box:has(.fa-industry) tr:eq(3) td:eq(1)").text()),
+            maxEmployees: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(2) td:eq(1)").text()),
+            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0],
+            size: numberfy($html.find("#unitImage img").attr("src").split("_")[1]),
+            hasBooster: !$html.find("[src='/img/artefact/icons/color/production.gif']").length,
+            hasAgitation: !$html.find("[src='/img/artefact/icons/color/politics.gif']").length,
+            onHoliday: !!$html.find("[href$=unset]").length,
+            isStore: !!$html.find("[href$=trading_hall]").length,
+            departments: numberfy($html.find("tr:contains('Number of departments') td:eq(1)").text()),
+            visitors: numberfy($html.find("tr:contains('Number of visitors') td:eq(1)").text())
+        }
+    }
+    else if (page === "salary") {
+        mapped[url] = {
+            employees: numberfy($html.find("#quantity").val()),
+            form: $html.filter("form"),
+            salaryNow: numberfy($html.find("#salary").val()),
+            salaryCity: numberfy($html.find("tr:nth-child(3) > td").text().split("$")[1]),
+            skillNow: numberfy($html.find("#apprisedEmployeeLevel").text()),
+            skillCity: (() => {
+                let m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
+                return numberfy(m == null ? "0" : m[0]);
+            })(),
+            skillReq: (() => {
+                let m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
+                return numberfy(m == null ? "0" : m[0]);
+            })()
+        }
+    }
+    else if (page === "training") {
+        mapped[url] = {
+            form: $html.filter("form"),
+            salaryNow: numberfy($html.find(".list td:eq(8)").text()),
+            salaryCity: numberfy($html.find(".list td:eq(9)").text().split("$")[1]),
+            weekcost: numberfy($html.find("#educationCost").text()),
+            employees: numberfy($html.find("#unitEmployeesData_employees").val()),
+            skillNow: numberfy($html.find(".list span:eq(0)").text()),
+            skillCity: numberfy($html.find(".list span:eq(1)").text())
+        }
+    }
+    else if (page === "equipment") {
+        mapped[url] = {
+            qualNow: numberfy($html.find("#top_right_quality").text()),
+            qualReq: numberfy($html.find(".recommended_quality span:not([id])").text()),
+            equipNum: numberfy($html.find("#quantity_corner").text()),
+            equipMax: (() => {
+                let m = $html.find(".contract:eq(1)").text().split("(")[1].match(/(\d| )+/);
+                return numberfy(m == null ? "0" : m[0]);
+            })(),
+            equipPerc: numberfy($html.find("#wear").text()),
+            price: $html.find(".digits:contains($):odd:odd").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            qualOffer: $html.find(".digits:not(:contains($)):odd").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            available: $html.find(".digits:not(:contains($)):even").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            offer: $html.find(".choose span").map(function (i, e) { return numberfy($(e).attr("id")); }).get() as any as number[],
+            img: $html.find(".rightImg").attr("src"),
+            filtername: (() => {
+                let m = $html.find("[name=doFilterForm]").attr("action").match(/db.*?\//);
+                return numberfy(m == null ? "0" : m[0].slice(2, -1));
+            })(),
+        }
+    }
+    else if (page === "manager") {
+        mapped[url] = {
+            base: $html.find(".qual_item .mainValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            bonus: $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            pic: $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get() as any as number[]
+        }
+    }
+    else if (page === "tech") {
+        mapped[url] = {
+            price: $html.find("tr td.nowrap:nth-child(2)").map(function (i, e) { return $(e).text().trim(); }).get() as any as number[],
+            tech: $html.find("tr:has([src='/img/v.gif'])").index(),
+            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
+        }
+    }
+    else if (page === "products") {
+        mapped[url] = {
+            name: $html.find(".list td:nth-child(2n):has(a)").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            id: $html.find(".list td:nth-child(2n) a:nth-child(1)").map(
+                function (i, e) {
+                    let m = $(e).attr("href").match(/\d+/);
+                    return numberfy(m == null ? "0": m[0]);
+                }).get() as any as number[]
+        }
+    }
+    else if (page === "waresupply") {
+        mapped[url] = {
+            //form: $html.find("[name=supplyContractForm]"),
+            //contract: $html.find(".p_title").map(function (i, e) { return $(e).find("a:eq(1)").attr("href"); }).get() as any as string[],
+            //id: $html.find(".p_title").map(function (i, e) { return numberfy($(e).find("a:eq(1)").attr("href").match(/\d+$/)[0]); }).get() as any as string[],
+            //type: $html.find(".p_title").map(function (i, e) { return $(e).find("strong:eq(0)").text(); }).get() as any as string[],
+            //stock: $html.find(".p_title table").map(function (i, e) { return $(e).find("strong").length >= 2 ? numberfy($(e).find("strong:eq(0)").text()) : 0; }).get() as any as number[],
+            //shipments: $html.find(".p_title table").map(function (i, e) { return $(e).find("strong").length === 1 ? numberfy($(e).find("strong:eq(0)").text()) : numberfy($(e).find("strong:eq(2)").text()); }).get() as any as number[],
+            //parcel: $html.find("input:text[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            //price_mark_up: $html.find("input[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            //price_constraint_max: $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            //price_constraint_type: $html.find("input[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get() as any as string[],
+            //quality_constraint_min: $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            //product: $html.find("tr:has(input:text[name])").map(function (i, e) { return $(e).prevAll(".p_title:first").find("strong:eq(0)").text(); }).get() as any as string[],
+            //price: $html.find("tr:has(input) td:nth-child(4)").map(function (i, e) { return numberfy($(e).text().match(/(\d|\.|\s)+$/)); }).get() as any as number[],
+            //reprice: $html.find("tr:has(input) td:nth-child(4)").map(function (i, e) { return !!$(e).find("span").length; }).get() as any as string[],
+            //quality: $html.find("tr:has(input) td:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            //offer: $html.find("tr input:checkbox").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            //available: $html.find("tr:has(input) td:nth-child(9)").map(function (i, e) { return $(e).text().split(/\s[a-zA-Zа-яА-ЯёЁ]+\s/).reduce(function (a, b) { return Math.min(a, b.match(/\d+/) === null ? Infinity : numberfy(b.match(/(\d| )+/)[0])) }, Infinity) }).get() as any as number[],
+            //myself: $html.find("tr:has(input)[class]").map(function (i, e) { return !!$(e).find("strong").length; }).get() as any as string[],
+            //contractAdd: $html.find(".add_contract a:has(img)").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            //idAdd: $html.find(".add_contract a:has(img)").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+$/)[0]); }).get() as any as number[],
+            //typeAdd: $html.find(".add_contract img").map(function (i, e) { return $(e).attr("alt"); }).get()
+        }
+    }
+    else if (page === "contract") {
+        mapped[url] = {
+            //available: $html.find(".price_w_tooltip:nth-child(4)").map(function (i, e) { return numberfy($(e).find("i").remove().end().text()); }).get(),
+            //offer: $html.find(".unit-list-2014 tr[id]").map(function (i, e) { return numberfy($(e).attr("id").match(/\d+/)[0]); }).get(),
+            //price: $html.find(".price_w_tooltip:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //tm: $html.find(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return $(e).find("img").length ? $(e).find("img").attr("title") : ""; }).get(),
+            //company: $html.find("td:has(i):not([class])").map(function (i, e) { return $(e).find("b").text(); }).get(),
+            //myself: $html.find(".unit-list-2014 tr[id]").map(function (i, e) { return !!$(e).filter(".myself").length; }).get(),
+            //product: $html.find("img:eq(0)").attr("title")
+        }
+    }
+    else if (page === "research") {
+        mapped[url] = {
+            isFree: !$html.find(".cancel").length,
+            isHypothesis: !!$html.find("#selectIt").length,
+            isBusy: !!numberfy($html.find(".grid .progress_static_bar").text()),
+            hypId: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            curIndex: $html.find("tr:has([src='/img/v.gif'])").index() - 1,
+            chance: $html.find(".grid td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            time: $html.find(".grid td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            isAbsent: !!$html.find("b[style='color: red']").length,
+            isFactory: !!$html.find("span[style='COLOR: red']").length,
+            unittype: $html.find(":button:eq(2)").attr("onclick") && numberfy($html.find(":button:eq(2)").attr("onclick").split(",")[1]),
+            industry: $html.find(":button:eq(2)").attr("onclick") && numberfy($html.find(":button:eq(2)").attr("onclick").split("(")[1]),
+            level: numberfy($html.find(".list tr td[style]:eq(0)").text())
+        }
+    }
+    else if (page === "experimentalunit") {
+        mapped[url] = {
+            id: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[]
+        }
+    }
+    else if (page === "productreport") {
+        mapped[url] = {
+            //max: $html.find(".grid td.nowrap:nth-child(2)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get(),
+            //total: $html.find(".grid td.nowrap:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //available: $html.find(".grid td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //quality: $html.find(".grid td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //price: $html.find(".grid td.nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //subid: $html.find(".grid td:nth-child(1) td:nth-child(1) a").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+/)[0]); }).get()
+        }
+    }
+    else if (page === "financeitem") {
+        mapped[url] = {
+            energy: numberfy($html.find(".list tr:has(span[style]) td:eq(1)").text())
+        }
+    }
+    else if (page === "size") {
+        mapped[url] = {
+            //size: $html.find(".nowrap:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //rent: $html.find(".nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //id: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get()
+        }
+    }
+    else if (page === "waremain") {
+        mapped[url] = {
+            //size: numberfy($html.find(".infoblock td:eq(1)").text()),
+            //full: numberfy($html.find("[nowrap]:eq(0)").text()),
+            //product: $html.find(".grid td:nth-child(1)").map(function (i, e) { return $(e).text(); }).get(),
+            //stock: $html.find(".grid td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //shipments: $html.find(".grid td:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get()
+        }
+    }
+    else if (page === "ads") {
+        mapped[url] = {
+            //pop: numberfy($html.find("script").text().match(/params\['population'\] = \d+/)[0].substring(23)),
+            //budget: numberfy($html.find(":text:not([readonly])").val()),
+            //requiredBudget: numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split("$")[1])
+        }
+    }
+    else if (page === "employees") {
+        mapped[url] = {
+            id: $html.find(".list tr:gt(2) :checkbox").map(function (i, e) { return numberfy($(e).attr("id").substring(5)); }).get() as any as number[],
+            salaryWrk: $html.find(".list td:nth-child(7)").map(function (i, e) { return numberfy($(e).find("span").remove().end().text()); }).get() as any as number[],
+            salaryCity: $html.find(".list td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            skillWrk: $html.find(".list td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            skillCity: $html.find(".list td:nth-child(10)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            onHoliday: $html.find(".list td:nth-child(11)").map(function (i, e) { return !!$(e).find(".in-holiday").length; }).get() as any as boolean,
+            efficiency: $html.find(".list td:nth-child(11)").map(function (i, e) { return $(e).text().trim(); }).get() as any as string[]
+        };
+    }
+    else if (page === "promotion") {
+        mapped[url] = {
+            //id: $html.find(".grid tr[onmouseover] a").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+/)[0]); }).get(),
+            //buyers: $html.find(".grid .nowrap:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //delta: $html.find(".grid .nowrap:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get()
+        }
+    }
+    else if (page === "machines") {
+        mapped[url] = {
+            //id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get(),
+            //subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get(),
+            //type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get(),
+            //num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //perc: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //black: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get(),
+            //red: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get(),
+            //quality: $html.find("td:nth-child(6).nowrap").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //required: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get()
+        }
+    }
+    else if (page === "animals") {
+        mapped[url] = {
+            //id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get(),
+            //subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get(),
+            //type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get(),
+            //num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //perc: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            //black: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get(),
+            //red: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get()
+        }
+    }
+
+    return true;
 }
 
-function XioMaintenance(subidList:number[], policyNames:string[]) {
-    console.log(getFuncName(arguments));
+function time() {
+    // обновляет время на странице в логе выполнения
+
+    let time = new Date().getTime();
+    let minutes = (time - processingtime) / 1000 / 60;
+    $("#XioMinutes").text(Math.floor(minutes));
+    $("#XioSeconds").text(Math.round((minutes - Math.floor(minutes)) * 60));
+}
+// TODO: конфликтует со штатной функцией. переименовать!!!
+function postMessage(html: string) {
+    $("#XMproblem").append("<div>" + html + "</div>");
+}
+
+function xGet(url: string, page: string, force: boolean, callback: IAction0) {
+    // запрашивает урл. При успехе, обновляет время, увеличивает счетчик запросов, маппит урл, выполняет коллбэк и вызывает урлДан.
+    // при ошибке перезапрашивает через 3 секунды
+
+    if (getUrls.indexOf(url) < 0 || force) {
+
+        if (getUrls.indexOf(url) < 0)
+            getUrls.push(url);
+
+        $.ajax({
+            url: url,
+            type: "GET",
+
+            success: function (html, status, xhr) {
+                time();
+                servergetcount++;
+                $("#XioGetCalls").text(servergetcount);
+                $("#XioServerCalls").text(servergetcount + serverpostcount);
+                map(html, url, page);
+                callback();
+                xUrlDone(url);
+            },
+
+            error: function (this: any, xhr:any, status:any, error:any) {
+                time();
+                servergetcount++;
+                $("#XioGetCalls").text(servergetcount);
+                $("#XioServerCalls").text(servergetcount + serverpostcount);
+                //Resend ajax
+                var _this = this;
+                setTimeout(function () {
+                    $.ajax(_this);
+                }, 3000);
+            }
+        });
+    }
+    else {
+        xcallback.push([url, () => callback()]); // тут видимо this сохраняется. просто функцию вкатить будет ошибкой
+    }
+}
+
+function xPost(url: string, form: JQuery, callback: IAction1<any>) {
+    // отправляет данные на сервек.  Если успех то выполняет колбэк. иначе переотправляет через 3 секунды
+
+    $.ajax({
+        url: url,
+        data: form,
+        type: "POST",
+
+        success: function (html, status, xhr) {
+            time();
+            serverpostcount++;
+            $("#XioPostCalls").text(serverpostcount);
+            $("#XioServerCalls").text(servergetcount + serverpostcount);
+            callback(html);
+        },
+
+        error: function (this:any, xhr:any, status:any, error:any) {
+            time();
+            serverpostcount++;
+            $("#XioPostCalls").text(serverpostcount);
+            $("#XioServerCalls").text(servergetcount + serverpostcount);
+            //Resend ajax
+            let _this = this;
+            setTimeout(function () {
+                $.ajax(_this);
+            }, 3000);
+        }
+    });
+}
+
+function xContract(url: string, data:any, callback: IAction1<any>) {
+    // тоже самое что xPost тока формат данных другой. 
+
+    $.ajax({
+        url: url,
+        data: data,
+        type: "POST",
+        dataType: "JSON",
+
+        success: function (data, status, xhr) {
+            time();
+            serverpostcount++;
+            $("#XioPostCalls").text(serverpostcount);
+            $("#XioServerCalls").text(servergetcount + serverpostcount);
+            callback(data);
+        },
+
+        error: function (this: any, xhr: any, status: any, error: any) {
+            time();
+            serverpostcount++;
+            $("#XioPostCalls").text(serverpostcount);
+            $("#XioServerCalls").text(servergetcount + serverpostcount);
+            //Resend ajax
+            var _this = this;
+            setTimeout(function () {
+                $.ajax(_this);
+            }, 3000);
+        }
+    });
+}
+
+function xUrlDone(url: string) {
+    // добавляет ссылку в список, затем находит для нее коллбэк и выполняет его. удаляет колбэк для функции.
+
+    finUrls.push(url);
+    for (var i = 0; i < xcallback.length; i++) {
+        if (finUrls.indexOf(xcallback[i][0]) >= 0) {
+            xcallback[i][1]();
+            xcallback.splice(i, 1);
+            i--;
+        }
+    }
+}
+
+function xTypeDone(policyName: string) {
+    // если политика отработана полностью по всем юнитам, то помещает policy.name в typedone[]
+
+    // находим группу для указанного типа операции Для "priceRetail" group == Price
+    let group = "";
+    for (let key in policyJSON) {
+        if (policyJSON[key].name === policyName) {
+            group = policyJSON[key].group;
+            break;
+        }
+    }
+    if (group === "")
+        throw new Error(`не нашли группу для policyName:${policyName}`);
+
+    // Все имена политик с такой же группой выпишем в массив
+    let typeArray: string[] = [];
+    for (let key in policyJSON) {
+        let policy = policyJSON[key];
+        if (policy.group === group && typeArray.indexOf(policy.name) < 0)
+            typeArray.push(policy.name);
+    }
+
+    xcount[policyName]--;     // хз чего это
+
+    let groupcount = 0;
+    let maxcount = 0;
+    for (let i = 0; i < typeArray.length; i++) {
+        groupcount += xcount[typeArray[i]];
+        maxcount += xmax[typeArray[i]];
+    }
+
+    // похоже обновляем текст в окне лога исполнения
+    $("[id='x" + group + "']").text(maxcount - groupcount);
+    if (!xcount[policyName]) {
+        if (!groupcount) {
+            $("[id='x" + group + "done']").text("Done!");
+            $("[id='x" + group + "current']").text("");
+        }
+        typedone.push(policyName);
+
+        for (let i = 0; i < xwait.length; i++) {
+            let index = xwait[i][0].indexOf(policyName);
+            if (index >= 0) {
+                xwait[i][0].splice(index, 1);
+                if (xwait[i][0].length === 0) {
+                    xwait[i][1]();
+                    xwait.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+    }
+
+    var sum = 0;
+    for (var key in xcount)
+        sum += xcount[key];
+
+    // походу когда все исполнилось включает кнопки скрипта
+    if (sum === 0 && $("#xDone").css("visibility") === "hidden") {
+        $("#xDone").css("visibility", "");
+        console.log("mapped: ", mapped);        // валит все отпарсенные ссылки за время обработки
+        $(".XioGo").prop("disabled", false);
+        clearInterval(timeinterval);
+    }
+}
+
+function xsupGo(subid: number, type: string) {
+    // без понятия че тут делает эта херь
+
+    if (subid)
+        xsupcheck[subid] = false;
+
+    if (type)
+        xsupcheck[type] = false;
+
+    for (var i = 0; i < xsup.length; i++) {
+        if (!xsupcheck[xsup[i][0]] && !xsupcheck[xsup[i][1]]) {
+            xsupcheck[xsup[i][0]] = true;
+            xsupcheck[xsup[i][1]] = true;
+            xsup.splice(i, 1)[0][2]();
+            i--;
+        }
+    }
+}
+
+
+function XioMaintenance(subids:number[], policyGroups:string[]) {
+
+    console.log("XM!");
+    let processingtime = new Date().getTime();
+    let timeinterval = setInterval(time, 1000);
+
+    // дизаблим кнопки убираем старые логи
+    $(".XioGo").prop("disabled", true);
+    $(".XioProperty").remove();
+
+    // апдейтим глобальные переменные
+    getUrls = [];
+    finUrls = [];
+    xcallback = [];
+    xcount = {};
+    xmax = {};
+    mapped = {};
+    servergetcount = 0;
+    serverpostcount = 0;
+    suppliercount = 0;
+    blackmail = [];
+    equipfilter = [];
+
+    console.log(mapped);
+
+    if (!subids || subids.length === 0)
+        subids = parseAllSavedSubid($realm);
+
+    if (!policyGroups || subids.length === 0) {
+        policyGroups = [];
+        for (var key in policyJSON)
+            policyGroups.push(policyJSON[key].group);
+    }
+
+    // шляпа что рисуется сверху и показывает результаты
+    let tablestring = ""
+        + "<div id=XMtabletitle class=XioProperty style='font-size: 24px; color:gold; margin-bottom: 5px; margin-top: 15px;'>XS 12 Maintenance Log</div>"
+        + "<table id=XMtable class=XioProperty style='font-size: 18px; color:gold; border-spacing: 10px 0; margin-bottom: 18px'>"
+        + "<tr id=XSplit></tr>"
+        + "<tr>"
+        + "<td>New suppliers: </td>"
+        + "<td id=XioSuppliers>0</td>"
+        + "</tr>"
+        + "<tr>"
+        + "<td>Get calls: </td>"
+        + "<td id=XioGetCalls>0</td>"
+        + "</tr>"
+        + "<tr>"
+        + "<td>Post calls: </td>"
+        + "<td id=XioPostCalls>0</td>"
+        + "</tr>"
+        + "<tr>"
+        + "<td>Total server calls: </td>"
+        + "<td id=XioServerCalls>0</td>"
+        + "</tr>"
+        + "<tr>"
+        + "<td>Time: </td>"
+        + "<td id=XioMinutes>0</td>"
+        + "<td>min</td>"
+        + "<td id=XioSeconds>0</td>"
+        + "<td>sec</td>"
+        + "</tr>"
+        + "<tr>"
+        + "<td id=xDone colspan=4 style='visibility: hidden; color: lightgoldenrodyellow'>All Done!</td>"
+        + "</tr>"
+        + "</table>"
+        + "<div id=XMproblem class=XioProperty style='font-size: 18px; color:gold;'></div>";
+
+    $("div.metro_header").append(tablestring);
+
+    // вообще без понятия что это за херня, но походу парсит главную страницу юнитов.
+    // походу убираем фильтры по типам, ставим 20000 страниц и тока потом чето парсим
+    urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
+    let filtersetting = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
+    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/20000", "none", false, function () {
+        xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/type=0", "none", false, function () {
+            xGet(urlUnitlist, "unitlist", false, function () {
+                xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
+                    xGet(filtersetting, "none", false, function () {
+                        further(mapped[urlUnitlist].subids);
+                    });
+                });
+            });
+        })
+    });
+
+    function further(realsubids: number[]) {
+
+        let startedPolicies: string[] = [];
+        let xgroup: IDictionary<number> = {};
+
+        // TODO: с этим надо чет сделать. кнопку какую чтобы чистило тока по кнопке. а то косячит и удаляет само если подвисло чего
+        for (let i = 0; i < subids.length; i++) {
+            // если в базе запись про юнита есть, а он не спарсился со страницы, удалить запись о нем.
+            if (realsubids.indexOf(subids[i]) < 0) {
+                let urlSubid = "/" + $realm + "/main/unit/view/" + subids[i];
+                postMessage("Subdivision <a href=" + urlSubid + ">" + subids[i] + "</a> is missing from the company. Options have been erased from the Local Storage.");
+                removeOptions($realm, [subids[i]]);
+                continue;
+            }
+
+            // загружаем политики юнита. часть отработаем сразу, часть пихаем в кэш и отработаем когда wait позволит уже
+            let loaded = loadOptions($realm, subids[i]);
+            for (let policyKey in loaded) {
+                let policy = policyJSON[policyKey];
+                if (policy == null || policyGroups.indexOf(policy.group) < 0)
+                    continue;
+
+                if (startedPolicies.indexOf(policy.name) < 0)
+                    startedPolicies.push(policy.name)
+                
+                // такой хитровыебанный способ просто увеличить счетчик или инициализировать. 
+                xmax[policy.name] = ++xmax[policy.name] || 1;
+                xcount[policy.name] = ++xcount[policy.name] || 1;
+                xgroup[policy.group] = ++xgroup[policy.group] || 1;
+                policy.wait.slice()
+                // если данная политика не нуждается в ожидании других, фигачим на выполнение сразу
+                if (policy.wait.length === 0) {
+                    policy.func(policy.name, subids[i], loaded[policyKey].choices);
+                }
+                else {
+                    // хитрожопый способ привязать скоуп
+                    let f = (): IAction0 => {
+                        let _policy = policy;
+                        let _options = loaded[policyKey];
+                        let _subid = subids[i];
+                        return () => policy.func(_policy.name, _subid, _options.choices); // TODO: возможно тут надо еще this вязать
+                    }
+                    xwait.push([ policy.wait.slice(), f()]);
+                }
+            }
+        }
+
+        for (let key in policyJSON) {
+            let name = policyJSON[key].name;
+            if (startedPolicies.indexOf(name) < 0) {
+                xcount[name] = 1;
+                xmax[name] = 0;
+                xTypeDone(name);
+            }
+        }
+
+        // рисует шляпу по обрабатываемым политикам на странице
+        var displayedPolicies: string[] = [];
+        for (let key in policyJSON) {
+            let name = policyJSON[key].name;
+            let group = policyJSON[key].group;
+            if (startedPolicies.indexOf(name) >= 0 && displayedPolicies.indexOf(group) < 0) {
+                displayedPolicies.push(group);
+                $("#XSplit").before("<tr>"
+                    + "<td>" + group + "</td>"
+                    + "<td id='x" + group + "'>0</td>"
+                    + "<td>of</td>"
+                    + "<td>" + xgroup[group] + "</td>"
+                    + "<td id='x" + group + "done' style='color: lightgoldenrodyellow'></td>"
+                    + "<td id='x" + group + "current' style='color: lightgoldenrodyellow'></td>"
+                    + "</tr>"
+                );
+            }
+        }
+    }
 };
 
 function XioGenerator(subids: number[]) {
@@ -202,7 +1046,7 @@ function XioGenerator(subids: number[]) {
             }
 
             logDebug(`subid policies:${policies.join(", ")}`);
-            let loaded = loadOptions($realm, subid.toString()); // {} если пусто
+            let loaded = loadOptions($realm, subid); // {} если пусто
             logDebug(`loaded options:${dict2String(loaded)}`);
 
             // сначала проверим чтобы в опциях не было неположенных политик
@@ -229,7 +1073,7 @@ function XioGenerator(subids: number[]) {
                 refresh = true;
             }
 
-            storeOptions($realm, subid.toString(), loaded);
+            storeOptions($realm, subid, loaded);
         }
 
         if (refresh) {
@@ -286,11 +1130,47 @@ function XioImport() {
 };
 
 function XioHoliday() {
-    console.log(getFuncName(arguments));
-};
+    // выводит на страницу с юнитами инфу по эффективности рабов. берет со страницы управление - персонал.
 
-// переписать построение селектов и их инициализацию
+    var url = "/" + $realm + "/main/company/view/" + companyid + "/unit_list/employee/salary";
+
+    var getcount = 2;
+    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithHoliday/20000", "none", false, function () {
+        !--getcount && phase();
+    });
+
+    let m = $('table.unit-top > tbody > tr > td > a.u-s').first().attr('href').match(/\/class=(\d+)\//);
+    var nvClass = m == null ? 0 : numberfy(m[1]);
+    xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithHoliday/class=" + nvClass + "/type=0", "none", false, function () {
+        !--getcount && phase();
+    });
+
+    function phase() {
+        xGet(url, "employees", false, function () {
+            logDebug("XioHoliday: ", mapped);
+            let employees = mapped[url] as IEmploees;
+            // TODO: общую ффункцию запилить для парсинга и везде вставить!
+            let subids = $(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+            var $tds = $(".unit-list-2014 tr:gt(0) td:nth-child(2)");
+
+            // проставляет эффективность рабочих на страницу юнитов
+            for (var i = 0; i < employees.id.length; i++) {
+                var index = subids.indexOf(employees.id[i]);
+                if (index < 0)
+                    continue;
+
+                var eff = employees.efficiency[i];
+
+                var text = eff === "" ? "Holiday" : eff;
+                var color = text === "Holiday" ? "blue" : eff === "100.00 %" ? "green" : "red";
+                $tds.eq(index).append("<br><span style='color:" + color + ";'>" + text + "</span>");
+            }
+        });
+    }
+}
+
 function XioOverview() {
+    // TODO: переписать построение селектов и их инициализацию
 
     let unitsTable = $(".unit-list-2014");
 
@@ -349,7 +1229,7 @@ function XioOverview() {
         let subid = subids[i];
 
         // словарь поможет быстро найти нужную политику для группы
-        let unitOptions = loadOptions($realm, subid.toString()); // {} если не нашли опции
+        let unitOptions = loadOptions($realm, subid); // {} если не нашли опции
         let groupDict: IDictionary<string> = {};
         for (var key in unitOptions) {
             let policy = policyJSON[key];
@@ -454,7 +1334,7 @@ function XioOverview() {
             let select = $(e.target);
             let container = select.closest("td.XioContainer");
             let policyKey = container.attr("policy-key");
-            let subid = container.attr("unit-id");
+            let subid = numberfy(container.attr("unit-id"));
 
             // формируем новые данные для политики на основании выбранных опций
             let newOptions = parseOptions(container.get(0), policyJSON);
@@ -496,14 +1376,16 @@ function XioOverview() {
         });
 }
 
-// убрал содержимое, нафиг не нужно
 function topManagerStats() {
+    // убрал содержимое, нафиг не нужно
+
     let fName = arguments.callee.toString();
-    console.log(fName);
+    logDebug("отключена: ", fName);
 }
 
-// когда мы находимся внутри юнита, загружает и отображает policies, то есть тока то что задано.
 function preference(policies: string[]) : boolean {
+    // когда мы находимся внутри юнита, загружает и отображает policies, то есть тока то что задано.
+
     // не задали ничего для простановки, и не будем ничо делать
     if (policies.length === 0)
         return false;
@@ -540,7 +1422,7 @@ function preference(policies: string[]) : boolean {
     $("#XMOpt").html(htmlstring);
 
     // проставляем настройки политик
-    let parsedDict = loadOptions($realm, subid.toString());
+    let parsedDict = loadOptions($realm, subid);
     for (var i = 0; i < policies.length; i++) {
         let policyKey = policies[i];
         let policy = policyJSON[policyKey];
@@ -576,7 +1458,7 @@ function preference(policies: string[]) : boolean {
             let select = $(e.target);
             let container = select.closest("td.XioContainer");
             let policyKey = container.attr("policy-key");
-            let subid = container.attr("unit-id");
+            let subid = numberfy(container.attr("unit-id"));
 
             // формируем новые данные для политики на основании выбранных опций
             let newOptions = parseOptions(container.get(0), policyJSON);
@@ -591,9 +1473,10 @@ function preference(policies: string[]) : boolean {
     return true;
 }
 
-// по урлу страницы возвращает policyKey который к ней относится
-// переписано. можно оптимизировать запросы к дом.
 function preferencePages(html: JQuery, url: string): string[] {
+    // по урлу страницы возвращает policyKey который к ней относится
+    // TODO: можно оптимизировать запросы к дом.
+
 
     let $html = $(html);
 
@@ -738,66 +1621,6 @@ function preferencePages(html: JQuery, url: string): string[] {
     }
 }
 
-function salePrice() {
-    throw new Error("Not implemented");
-};
-function salePolicy() {
-    throw new Error("Not implemented");
-};
-function servicePrice() {
-    throw new Error("Not implemented");
-};
-function serviceWithoutStockPrice() {
-    throw new Error("Not implemented");
-};
-function incineratorPrice() {
-    throw new Error("Not implemented");
-};
-function retailPrice() {
-    throw new Error("Not implemented");
-};
-function prodSupply() {
-    throw new Error("Not implemented");
-};
-function storeSupply() {
-    throw new Error("Not implemented");
-};
-function wareSupply() {
-    throw new Error("Not implemented");
-};
-function advertisement() {
-    throw new Error("Not implemented");
-};
-function salary() {
-    throw new Error("Not implemented");
-};
-function holiday() {
-    throw new Error("Not implemented");
-};
-function training() {
-    throw new Error("Not implemented");
-};
-function equipment() {
-    throw new Error("Not implemented");
-};
-function technology() {
-    throw new Error("Not implemented");
-};
-function research() {
-    throw new Error("Not implemented");
-};
-function prodBooster() {
-    throw new Error("Not implemented");
-};
-function politicAgitation() {
-    throw new Error("Not implemented");
-};
-function wareSize() {
-    throw new Error("Not implemented");
-};
-
-
-
 // вообще не пойму нахер это надо. какой то атавизм
 //let XJSON: any;
 let xPrefPages: (jq: JQuery, url: string) => any[] = () => { return []};
@@ -811,8 +1634,9 @@ let xPrefPages: (jq: JQuery, url: string) => any[] = () => { return []};
 //    }
 //}
 
-// стартовая функция
+
 function XioScript() : boolean {
+    // стартовая функция
     //determines which functions to run;
 
     console.log("XioScript 12 is running!");

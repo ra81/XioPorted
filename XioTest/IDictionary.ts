@@ -11,7 +11,7 @@ function dictIsEmpty<T>(dict: IDictionary<T>): boolean {
     return Object.keys(dict).length === 0;
 }
 
-// словарь в виде одной строки через ;
+// словарь в виде одной строки через ,
 function dict2String<T>(dict: IDictionary<T>): string {
     if (dictIsEmpty(dict))
         return "";
@@ -20,5 +20,25 @@ function dict2String<T>(dict: IDictionary<T>): string {
     for (let key in dict)
         newItems.push(key + ":" + dict[key].toString());
 
-    return newItems.join(";");
+    return newItems.join(", ");
+}
+
+//type Action = () => void;
+interface IAction0 {
+    (): void;
+}
+
+interface IAction1<T> {
+    (arg: T): void;
+}
+
+
+interface IEmploees {
+    id: number[];
+    salaryWrk: number[];
+    salaryCity: number[];
+    skillWrk: number[];
+    skillCity: number[];
+    onHoliday: boolean;
+    efficiency: string[];
 }

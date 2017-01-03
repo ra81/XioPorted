@@ -3050,13 +3050,6 @@ interface JQuery {
     map(callback: (index: number, domElement: Element) => any): JQuery;
 
     /**
-     * Pass each element in the current matched set through a function, producing a new jQuery object containing the return values.
-     * 
-     * @param callback A function object that will be invoked for each element in the current set.
-     */
-    map(callback: (index: number, domElement: Element) => number): number[];
-
-    /**
      * Get the immediately following sibling of each element in the set of matched elements. If a selector is provided, it retrieves the next sibling only if it matches that selector.
      * 
      * @param selector A string containing a selector expression to match elements against.
