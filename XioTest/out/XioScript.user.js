@@ -806,290 +806,64 @@ function map(html, url, page) {
         };
     }
     else if (page === "sale") {
-        mapped[url] = {
-            form: $html.find("[name=storageForm]"),
-            policy: $html.find("select:even").map(function (i, e) { return $(e).find("[selected]").index(); }).get(),
-            price: $html.find("input.money:even").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            incineratorMaxPrice: $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfy($(e).text()); }).get(),
-            outqual: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            outprime: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            stockqual: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            stockprime: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            product: $html.find(".grid a:not([onclick])").map(function (i, e) { return $(e).text(); }).get(),
-            productId: $html.find(".grid a:not([onclick])").map(function (i, e) {
-                var m = $(e).attr("href").match(/\d+/);
-                return numberfy(m == null ? "0" : m[0]);
-            }).get(),
-            region: $html.find(".officePlace a:eq(-2)").text(),
-            contractpage: !!$html.find(".tabsub").length,
-            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e); })
-        };
     }
     else if (page === "salecontract") {
-        mapped[url] = {
-            category: $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get(),
-            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e); })
-        };
     }
     else if (page === "prodsupply") {
-        mapped[url] = $html.find(".inner_table").length ? {} : {};
     }
     else if (page === "consume") {
-        mapped[url] = {
-            consump: zipAndMin($html.find(".list td:nth-last-child(1) div:nth-child(2)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get(), $html.find(".list td:nth-last-child(1) div:nth-child(1)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get()),
-            purch: $html.find('#mainContent > form > table.list > tbody > tr:last > td.nowrap').map(function (i, e) { return numberfy($(e).text()); }).get()
-        };
     }
     else if (page === "storesupply") {
-        mapped[url] = {
-            parcel: $html.find("input:text[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            price_mark_up: $html.find("select[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            price_constraint_max: $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            price_constraint_type: $html.find("select[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get(),
-            quality_constraint_min: $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            purchase: $html.find("td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            quantity: $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            sold: $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(5) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            price: $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            reprice: $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return !!$(e).find("div").length; }).get(),
-            quality: $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            available: $html.find("td:nth-child(10) table:nth-child(1) tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            img: $html.find(".noborder td > img").map(function (i, e) { return $(e).attr("src"); }).get()
-        };
     }
     else if (page === "tradehall") {
-        mapped[url] = {
-            stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get(),
-            report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get(),
-            img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get(),
-            quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            purch: $html.find("td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            price: $html.find(":text").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get(),
-            share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            history: $html.find("a.popup").map(function (i, e) { return $(e).attr("href"); }).get()
-        };
     }
     else if (page === "service") {
-        mapped[url] = {
-            price: $html.find("a.popup[href$='service_history']").map(function (i, e) { return numberfy($(e).text().split('(')[0].trim()); }).get(),
-            history: $html.find("a.popup[href$='service_history']").map(function (i, e) { return $(e).attr("href"); }).get(),
-            incineratorPrice: $html.find("a.popup[href$='power_history']").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            //not used
-            stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get(),
-            report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get(),
-            img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get(),
-            quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get(),
-            share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get()
-        };
     }
     else if (page === "servicepricehistory") {
-        mapped[url] = {
-            price: $html.find(".list td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            quantity: $html.find(".list td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get()
-        };
     }
     else if (page === "retailreport") {
-        mapped[url] = {
-            marketsize: numberfy($html.find("b:eq(1)").text()),
-            localprice: numberfy($html.find(".grid .even td:eq(0)").text()),
-            localquality: numberfy($html.find(".grid .odd td:eq(0)").text()),
-            cityprice: numberfy($html.find(".grid .even td:eq(1)").text()),
-            cityquality: numberfy($html.find(".grid .odd td:eq(1)").text())
-        };
     }
     else if (page === "pricehistory") {
-        // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
-        // такие дни просто вылетают из списка.
-        // сегодняшний день ВСЕГДА есть в списке.
-        // если продаж сегодня не было, то в строке будут тока бренд 0 а остальное пусто.
-        // если сегодня продажи были, то там будут числа и данная строка запомнится как история продаж.
-        // причина по которой продаж не было пофиг. Не было товара, цена стояла 0 или стояла очень большая. Похер!
-        // numberfy возвращает 0, если была пустота или неадекват. Поэтому у нас всегда будет 1 число в массиве.
-        mapped[url] = {
-            quantity: $html.find(".list td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            price: $html.find(".list td:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get()
-        };
     }
     else if (page === "TM") {
-        mapped[url] = {
-            product: $html.find(".grid td:odd").map(function (i, e) { return $(e).clone().children().remove().end().text().trim(); }).get(),
-            franchise: $html.find(".grid b").map(function (i, e) { return $(e).text(); }).get()
-        };
     }
     else if (page === "IP") {
-        mapped[url] = {
-            product: $html.find(".list td:nth-child(5n-3)").map(function (i, e) { return $(e).text(); }).get(),
-            IP: $html.find(".list td:nth-child(5n)").map(function (i, e) { return numberfy($(e).text()); }).get()
-        };
     }
     else if (page === "transport") {
-        mapped[url] = {
-            countryName: $html.find("select:eq(0) option").map(function (i, e) { return $(e).text(); }).get(),
-            countryId: $html.find("select:eq(0) option").map(function (i, e) { return numberfy($(e).val().split("/")[1]); }).get(),
-            regionName: $html.find("select:eq(1) option").map(function (i, e) { return $(e).text(); }).get(),
-            regionId: $html.find("select:eq(1) option").map(function (i, e) { return numberfy($(e).val().split("/")[2]); }).get(),
-            cityName: $html.find("select:eq(2) option").map(function (i, e) { return $(e).text(); }).get(),
-            cityId: $html.find("select:eq(2) option").map(function (i, e) { return numberfy($(e).val().split("/")[3]); }).get()
-        };
     }
     else if (page === "CTIE") {
-        mapped[url] = {
-            product: $html.find(".list td:nth-child(3n-1)").map(function (i, e) { return $(e).text(); }).get(),
-            profitTax: numberfy($html.find(".region_data td:eq(3)").text()),
-            CTIE: $html.find(".list td:nth-child(3n)").map(function (i, e) { return numberfy($(e).text()); }).get()
-        };
     }
     else if (page === "main") {
-        mapped[url] = {
-            employees: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(0) td:eq(1)").text()),
-            salaryNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(2) td:eq(1)").text()),
-            salaryCity: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(3) td:eq(1)").text()),
-            skillNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(4) td:eq(1)").text()),
-            skillReq: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(5) td:eq(1)").text()),
-            equipNum: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(0) td:eq(1)").text()),
-            equipMax: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(1) td:eq(1)").text()),
-            equipQual: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(2) td:eq(1)").text()),
-            equipReq: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(3) td:eq(1)").text()),
-            equipWearBlack: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1)").text().split("(")[1]),
-            equipWearRed: $html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1) span").length === 1,
-            managerPic: $html.find(".unit_box:has(.fa-user) ul img").attr("src"),
-            qual: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(1) td:eq(1)").text()),
-            techLevel: numberfy($html.find(".unit_box:has(.fa-industry) tr:eq(3) td:eq(1)").text()),
-            maxEmployees: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(2) td:eq(1)").text()),
-            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0],
-            size: numberfy($html.find("#unitImage img").attr("src").split("_")[1]),
-            hasBooster: !$html.find("[src='/img/artefact/icons/color/production.gif']").length,
-            hasAgitation: !$html.find("[src='/img/artefact/icons/color/politics.gif']").length,
-            onHoliday: !!$html.find("[href$=unset]").length,
-            isStore: !!$html.find("[href$=trading_hall]").length,
-            departments: numberfy($html.find("tr:contains('Number of departments') td:eq(1)").text()),
-            visitors: numberfy($html.find("tr:contains('Number of visitors') td:eq(1)").text())
-        };
     }
     else if (page === "salary") {
-        mapped[url] = {
-            employees: numberfy($html.find("#quantity").val()),
-            form: $html.filter("form"),
-            salaryNow: numberfy($html.find("#salary").val()),
-            salaryCity: numberfy($html.find("tr:nth-child(3) > td").text().split("$")[1]),
-            skillNow: numberfy($html.find("#apprisedEmployeeLevel").text()),
-            skillCity: (function () {
-                var m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
-                return numberfy(m == null ? "0" : m[0]);
-            })(),
-            skillReq: (function () {
-                var m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
-                return numberfy(m == null ? "0" : m[0]);
-            })()
-        };
     }
     else if (page === "training") {
-        mapped[url] = {
-            form: $html.filter("form"),
-            salaryNow: numberfy($html.find(".list td:eq(8)").text()),
-            salaryCity: numberfy($html.find(".list td:eq(9)").text().split("$")[1]),
-            weekcost: numberfy($html.find("#educationCost").text()),
-            employees: numberfy($html.find("#unitEmployeesData_employees").val()),
-            skillNow: numberfy($html.find(".list span:eq(0)").text()),
-            skillCity: numberfy($html.find(".list span:eq(1)").text())
-        };
     }
     else if (page === "equipment") {
-        mapped[url] = {
-            qualNow: numberfy($html.find("#top_right_quality").text()),
-            qualReq: numberfy($html.find(".recommended_quality span:not([id])").text()),
-            equipNum: numberfy($html.find("#quantity_corner").text()),
-            equipMax: (function () {
-                var m = $html.find(".contract:eq(1)").text().split("(")[1].match(/(\d| )+/);
-                return numberfy(m == null ? "0" : m[0]);
-            })(),
-            equipPerc: numberfy($html.find("#wear").text()),
-            price: $html.find(".digits:contains($):odd:odd").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            qualOffer: $html.find(".digits:not(:contains($)):odd").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            available: $html.find(".digits:not(:contains($)):even").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            offer: $html.find(".choose span").map(function (i, e) { return numberfy($(e).attr("id")); }).get(),
-            img: $html.find(".rightImg").attr("src"),
-            filtername: (function () {
-                var m = $html.find("[name=doFilterForm]").attr("action").match(/db.*?\//);
-                return numberfy(m == null ? "0" : m[0].slice(2, -1));
-            })(),
-        };
     }
     else if (page === "manager") {
-        mapped[url] = {
-            base: $html.find(".qual_item .mainValue").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            bonus: $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            pic: $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get()
-        };
     }
     else if (page === "tech") {
-        mapped[url] = {
-            price: $html.find("tr td.nowrap:nth-child(2)").map(function (i, e) { return $(e).text().trim(); }).get(),
-            tech: $html.find("tr:has([src='/img/v.gif'])").index(),
-            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
-        };
     }
     else if (page === "products") {
-        mapped[url] = {
-            name: $html.find(".list td:nth-child(2n):has(a)").map(function (i, e) { return $(e).text(); }).get(),
-            id: $html.find(".list td:nth-child(2n) a:nth-child(1)").map(function (i, e) {
-                var m = $(e).attr("href").match(/\d+/);
-                return numberfy(m == null ? "0" : m[0]);
-            }).get()
-        };
     }
     else if (page === "waresupply") {
-        mapped[url] = {};
     }
     else if (page === "contract") {
-        mapped[url] = {};
     }
     else if (page === "research") {
-        mapped[url] = {
-            isFree: !$html.find(".cancel").length,
-            isHypothesis: !!$html.find("#selectIt").length,
-            isBusy: !!numberfy($html.find(".grid .progress_static_bar").text()),
-            hypId: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            curIndex: $html.find("tr:has([src='/img/v.gif'])").index() - 1,
-            chance: $html.find(".grid td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            time: $html.find(".grid td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            isAbsent: !!$html.find("b[style='color: red']").length,
-            isFactory: !!$html.find("span[style='COLOR: red']").length,
-            unittype: $html.find(":button:eq(2)").attr("onclick") && numberfy($html.find(":button:eq(2)").attr("onclick").split(",")[1]),
-            industry: $html.find(":button:eq(2)").attr("onclick") && numberfy($html.find(":button:eq(2)").attr("onclick").split("(")[1]),
-            level: numberfy($html.find(".list tr td[style]:eq(0)").text())
-        };
     }
     else if (page === "experimentalunit") {
-        mapped[url] = {
-            id: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get()
-        };
     }
     else if (page === "productreport") {
-        mapped[url] = {};
     }
     else if (page === "financeitem") {
-        mapped[url] = {
-            energy: numberfy($html.find(".list tr:has(span[style]) td:eq(1)").text())
-        };
     }
     else if (page === "size") {
-        mapped[url] = {};
     }
     else if (page === "waremain") {
-        mapped[url] = {};
     }
     else if (page === "ads") {
-        mapped[url] = {};
     }
     else if (page === "employees") {
         mapped[url] = {
@@ -1103,13 +877,10 @@ function map(html, url, page) {
         };
     }
     else if (page === "promotion") {
-        mapped[url] = {};
     }
     else if (page === "machines") {
-        mapped[url] = {};
     }
     else if (page === "animals") {
-        mapped[url] = {};
     }
     return true;
 }

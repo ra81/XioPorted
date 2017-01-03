@@ -42,3 +42,8 @@ interface IEmploees {
     onHoliday: boolean;
     efficiency: string[];
 }
+
+interface IUnitList {
+    subids: number[];
+    type: string[];
+}
