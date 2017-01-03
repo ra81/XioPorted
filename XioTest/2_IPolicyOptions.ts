@@ -83,9 +83,9 @@ function loadOptions(realm: string, subid: number): IDictionary<PolicyOptions> {
         let choices = savedPolicyStrings[n].substring(2).split("-").map((item, index, arr) => numberfy(item));
 
         parsedDict[key] = new PolicyOptions(key, choices);
-        logDebug(`parsed policy:${parsedDict[key].toString()}`);
     }
-    
+
+    logDebug(subid + " parsed policies: ", parsedDict);
     return parsedDict;
 }
 
@@ -103,8 +103,8 @@ function storeOptions(realm: string, subid: number, options: IDictionary<PolicyO
         newItems.push(options[keys[i]].toString());
 
     let newSaveString = newItems.join(";");
-    logDebug(`newSaveString:${newSaveString}`);
-
+    logDebug(subid + " newSaveString: ", newSaveString);
+    // TODO: а нафига так париться когда есть JSON.stringify и он сразу может объекты фигачить в хранилище. поработать с этим
     localStorage[storageKey] = newSaveString;
 }
 
@@ -130,12 +130,14 @@ function updateOptions(realm: string, subid: number, options: IDictionary<Policy
         return {};
 
     let loaded = loadOptions(realm, subid);     // будет {} если опций нет
-    logDebug(`oldOptions:${dict2String(loaded)}`);
+    logDebug(subid + " oldOptions: ", loaded);
     for (let key in options)
         loaded[key] = options[key];
 
-    logDebug(`newOptions:${dict2String(loaded)}`)
-    storeOptions(realm, subid, loaded);
+    logDebug(subid + " newOptions: ", loaded);
+    for (let key in options)
+        storeOptions(realm, subid, loaded);
+
     return loaded;
 }
 

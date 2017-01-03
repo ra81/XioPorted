@@ -33,12 +33,12 @@
     <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
-    <TypeScriptCompile Include="Header.ts" />
-    <TypeScriptCompile Include="IDictionary.ts" />
-    <TypeScriptCompile Include="IPolicyOptions.ts" />
-    <TypeScriptCompile Include="CalcFunctions.ts" />
-    <TypeScriptCompile Include="PolicyFunctions.ts" />
-    <TypeScriptCompile Include="PolicyJson.ts" />
+    <TypeScriptCompile Include="0_Header.ts" />
+    <TypeScriptCompile Include="1_IDictionary.ts" />
+    <TypeScriptCompile Include="2_IPolicyOptions.ts" />
+    <TypeScriptCompile Include="4__CalcFunctions.ts" />
+    <TypeScriptCompile Include="5_PolicyFunctions.ts" />
+    <TypeScriptCompile Include="3_PolicyJson.ts" />
     <TypeScriptCompile Include="Xio.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
     <TypeScriptCompile Include="Shops.ts" />
