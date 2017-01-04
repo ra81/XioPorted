@@ -1,56 +1,3 @@
-//
-// Сюда совать все функции для расчета чего либо. Чисто математика. Которая не лезет никуда в глобал и на страницу
-//
-function calcSalary(sn, sc, kn, kc, kr) {
-    // s = salary, k = skill, n = now, c = city, r = required
-    // из за ошибок округления double 8.62 станет вдруг 8.61. Добавим дельту это избавит.
-    kr = Math.floor(kr * 100 + 1e-10) / 100;
-    var calc = sn > sc ? kn - kc * Math.log(1 + sn / sc) / Math.log(2) : Math.pow(sc / sn, 2) * kn - kc;
-    return kr > (calc + kc) ? sc * (Math.pow(2, (kr - calc) / kc) - 1) : sc * Math.sqrt(kr / (kc + calc));
-}
-function calcEmployees(skill, factor, manager) {
-    return Math.pow(5, 1 + skill) * Math.pow(7, 1 - skill) * factor * Math.pow(manager, 2);
-}
-function calcSkill(employees, factor, manager) {
-    return -Math.log(employees / (35 * factor * Math.pow(manager, 2))) / Math.log(7 / 5);
-}
-function calcEquip(skill) {
-    return Math.pow(skill, 1.5);
-}
-function calcTechLevel(manager) {
-    return Math.pow(manager * 156.25, 1 / 3);
-}
-function calcTopTech(tech) {
-    return Math.pow(tech, 3) / 156.25;
-}
-function calcAllEmployees(factor, manager) {
-    return 25 * factor * manager * (manager + 3);
-}
-function calcTop1(empl, qual, factor) {
-    return Math.pow(5, 1 / 2 * (-1 - qual)) * Math.pow(7, 1 / 2 * (-1 + qual)) * Math.sqrt(empl / factor);
-}
-function calcTop3(empl, factor) {
-    return (-15 * factor + Math.sqrt(225 * factor * factor + 4 * factor * empl)) / (10 * factor);
-}
-function calcEfficiency(employees, allEmployees, manager, factor1, factor3, qualification, techLevel) {
-    var effi = [];
-    effi[0] = 100;
-    effi[1] = manager / calcTop1(employees, qualification, factor1) * calcAllEmployees(factor3, manager) / allEmployees * 100;
-    effi[2] = manager / calcTop1(employees, qualification, factor1) * 6 / 5 * 100;
-    effi[3] = calcAllEmployees(factor3, manager) / allEmployees * 6 / 5 * 100;
-    effi[4] = manager / calcTopTech(techLevel) * calcAllEmployees(factor3, manager) / allEmployees * 100;
-    effi[5] = manager / calcTopTech(techLevel) * 6 / 5 * 100;
-    logDebug("calcEfficiency: ", effi);
-    return (Math.round(Math.min.apply(null, effi) * 10) / 10).toFixed(2) + "%";
-}
-function calcOverflowTop1(allEmployees, factor3, manager) {
-    logDebug("calcOverflowTop1: ", calcAllEmployees(factor3, manager) / allEmployees);
-    return Math.max(Math.min(6 / 5, calcAllEmployees(factor3, manager) / allEmployees), 5 / 6);
-}
-function calcOverflowTop3(employees, qualification, techLevel, factor1, manager) {
-    logDebug("calcOverflowTop3: ", manager / calcTopTech(techLevel), manager / calcTop1(employees, qualification, factor1));
-    return Math.max(Math.min(6 / 5, manager / calcTopTech(techLevel), manager / calcTop1(employees, qualification, factor1)), 5 / 6);
-}
 // ==UserScript==
 // @name           XioScript
 // @namespace      https://github.com/XiozZe/XioScript
@@ -63,271 +10,7 @@ function calcOverflowTop3(employees, qualification, techLevel, factor1, manager)
 // ==/UserScript==
 // включены опции стриктНулл.
 // запрет неявных Эни, ретурнов, this
-var version = "12.0.84";
-// проверяет есть ли ключи в словаре
-function dictIsEmpty(dict) {
-    return Object.keys(dict).length === 0;
-}
-// словарь в виде одной строки через ,
-function dict2String(dict) {
-    if (dictIsEmpty(dict))
-        return "";
-    var newItems = [];
-    for (var key in dict)
-        newItems.push(key + ":" + dict[key].toString());
-    return newItems.join(", ");
-}
-// настройки одной политики для одного юнита
-var PolicyOptions = (function () {
-    function PolicyOptions(key, choices) {
-        var _this = this;
-        // конвертит в стандартную строку для хранения вида pp0-1-0.  Метод this безопасен
-        this.toString = function () {
-            return _this.key + _this.choices.join("-");
-        };
-        this.key = key;
-        this.choices = choices;
-    }
-    //  из строки хранения вида pp0-1-0 собирает объект.
-    PolicyOptions.fromString = function (str) {
-        if (str.length < 3)
-            throw new Error("str:" + str + " \u0434\u043E\u043B\u0436\u043D\u0430 \u0438\u043C\u0435\u0442\u044C \u0434\u043B\u0438\u043D\u0443 \u043E\u0442 3 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432.");
-        var key = str.substring(0, 2);
-        var choices = str.substring(2).split("-").map(function (item, index, arr) { return numberfy(item); });
-        return new PolicyOptions(key, choices);
-    };
-    return PolicyOptions;
-}());
-// берет контейнер селектов и собирает данные с аттрибутами data-name, data-choice и value
-// сразу их нормализуя в save формат
-function parseOptions(container, policyDict) {
-    var td = $(container);
-    var selects = td.find("select.XioChoice");
-    if (selects.length === 0)
-        throw new Error("Нельзя ничего спарсить если нет элементов.");
-    var opts = [];
-    var policyKey = td.attr("policy-key");
-    var policy = policyDict[policyKey];
-    for (var i = 0; i < selects.length; i++) {
-        var el = selects.eq(i);
-        var optionNumber = numberfy(el.attr("option-number")); // даже если аттрибута нет, нумерификация вернет 0 жопа.
-        var optionValueIndex = parseInt(el.val()); // NaN будет если хуня в значении
-        if (isNaN(optionValueIndex))
-            throw new Error("Элементы в поле value должны содержать численное значение опции.");
-        opts[optionNumber] = optionValueIndex;
-    }
-    opts = show2Save(policy, opts); // переводим из отображаемой в сохраняемую нотацию
-    var newPolicyStr = policyKey + opts.join("-");
-    return PolicyOptions.fromString(newPolicyStr);
-}
-// формирует ключик для хранилища. сделано так чтобы в случае чего разом везде поменять и все.
-function makeStorageKey(realm, subid) {
-    if (realm == null)
-        throw new Error("realm должен быть задан");
-    if (subid == null)
-        throw new Error("subid должен быть задан");
-    return "x" + realm + subid;
-}
-// загружаем из хранилища сразу все опции для данного юнита и реалма. выдаем стандартный словарь или {}
-function loadOptions(realm, subid) {
-    var parsedDict = {};
-    var storageKey = makeStorageKey(realm, subid);
-    var data = localStorage.getItem(storageKey);
-    if (data == null)
-        return parsedDict;
-    var savedPolicyStrings = data.split(";");
-    for (var n = 0; n < savedPolicyStrings.length; n++) {
-        if (savedPolicyStrings[n].length < 3)
-            throw new Error("\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430\u044F \u0437\u0430\u043F\u0438\u0441\u044C \u043F\u043E\u043B\u0438\u0442\u0438\u043A\u0438 \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435: " + savedPolicyStrings[n]);
-        var key = savedPolicyStrings[n].substring(0, 2);
-        var choices = savedPolicyStrings[n].substring(2).split("-").map(function (item, index, arr) { return numberfy(item); });
-        parsedDict[key] = new PolicyOptions(key, choices);
-        logDebug("parsed policy:" + parsedDict[key].toString());
-    }
-    return parsedDict;
-}
-// записывает в хранилище все опции всех политик для указанного юнита в указанном реалме. 
-// подразумеваем что опции уже в save формате
-function storeOptions(realm, subid, options) {
-    if (dictIsEmpty(options))
-        throw new Error("Попытка записать в лок. хранилище пустой набор опций. Аларм.");
-    var storageKey = makeStorageKey(realm, subid);
-    var newItems = [];
-    var keys = Object.keys(options).sort(); // сортирнем ключики
-    for (var i = 0; i < keys.length; i++)
-        newItems.push(options[keys[i]].toString());
-    var newSaveString = newItems.join(";");
-    logDebug("newSaveString:" + newSaveString);
-    localStorage[storageKey] = newSaveString;
-}
-// удаляет заданные ключи. вернет числ реально удаленных элементов
-function removeOptions(realm, subids) {
-    var counter = 0;
-    for (var i = 0; i < subids.length; i++) {
-        var key = makeStorageKey(realm, subids[i]);
-        if (localStorage.getItem(key) == null)
-            continue;
-        localStorage.removeItem(key);
-        counter++;
-    }
-    return counter;
-}
-// обновляет запись с политиками в хранилище. если чет делалось то вернет полный список опций юнита уже обновленный или {}
-function updateOptions(realm, subid, options) {
-    if (dictIsEmpty(options))
-        return {};
-    var loaded = loadOptions(realm, subid); // будет {} если опций нет
-    logDebug("oldOptions:" + dict2String(loaded));
-    for (var key in options)
-        loaded[key] = options[key];
-    logDebug("newOptions:" + dict2String(loaded));
-    storeOptions(realm, subid, loaded);
-    return loaded;
-}
-// формирует готовый контейнер с опциями который можно тупо вставлять куда надо
-function buildContainerHtml(subid, policyKey, policy, empty) {
-    if (policy == null)
-        throw new Error("policy должен быть задан.");
-    if (empty)
-        return "<td policy-group=" + policy.group + " class='XioContainer XioEmpty'></td>";
-    // если не пустой надо сделать
-    if (subid == null || subid.length === 0)
-        throw new Error("subid должен быть задан.");
-    if (policyKey == null || policyKey.length === 0)
-        throw new Error("policyKey должен быть задан.");
-    var uniqueId = subid + "-" + policyKey;
-    var htmlstring = "<td unit-id=" + subid + " policy-group=" + policy.group + " policy-key=" + policyKey + " id=" + uniqueId + " class=XioContainer>\n                         " + buildOptionsHtml(policy) + "\n                       </td>";
-    return htmlstring;
-}
-function buildOptionsHtml(policy) {
-    // в каждую строку юнита добавляем селекты для выбора политик. пока без установки значений.
-    var htmlstring = "";
-    for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
-        if (optionNumber >= 1)
-            htmlstring += "<br>";
-        htmlstring += "<select option-number=" + optionNumber + " class=XioChoice>";
-        for (var ind = 0; ind < policy.order[optionNumber].length; ind++) {
-            var optionValue = policy.order[optionNumber][ind];
-            htmlstring += "<option value=" + ind + ">" + optionValue + "</option>";
-        }
-        htmlstring += "</select>";
-    }
-    return htmlstring;
-}
-// опции в режиме отображения подаем
-function setOptions(container, options, showMode, policy) {
-    if (options == null)
-        throw new Error("options должны быть заданы.");
-    var $selects = $(container).find("select.XioChoice");
-    var showChoices = showMode ? options.choices : save2Show(policy, options.choices);
-    // проставляем теперь значения для этих селектов
-    for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++)
-        $selects.filter("[option-number=" + optionNumber + "]").val(Math.max(showChoices[optionNumber], 0));
-}
-// в будущем будут фильтры, эта шняга понадобится. да и пусть будет централизованно
-function parseSubid(trList) {
-    var rows = $(trList);
-    return rows.find("td.unit_id").map(function (i, e) { return numberfy($(e).text()); }).get();
-}
-// берет локальное хранилище и тащит оттуда все записи по юнитам. выделяет subid
-function parseAllSavedSubid(realm) {
-    if (!realm || realm.length === 0)
-        throw new Error("realm должен быть задан.");
-    var subids = [];
-    var rx = new RegExp("x" + realm + "\\d+");
-    for (var key in localStorage) {
-        if (!rx.test(key))
-            continue;
-        var m = key.match(/\d+/);
-        if (m != null)
-            subids.push(numberfy(m[0]));
-    }
-    return subids;
-}
-// парсит id компании со страницы
-function getCompanyId() {
-    var m = $(".dashboard a").attr("href").match(/\d+/);
-    return numberfy(m == null ? "0" : m[0]);
-}
-//
-// сюда кладем все функции которые собсна выполняют политики
-//
-function salePrice(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function salePolicy(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function servicePrice(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function serviceWithoutStockPrice(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function incineratorPrice(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function retailPrice(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function prodSupply(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function storeSupply(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function wareSupply(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function advertisement(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function salary(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function holiday(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function training(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function equipment(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function technology(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function research(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function prodBooster(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function politicAgitation(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
-function wareSize(policyName, subid, choices) {
-    var fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-}
+var version = "12.1.1";
 // из сохраненных значений опций, получаем отображаемые значения
 function save2Show(policy, choices) {
     if (policy == null)
@@ -548,124 +231,6 @@ var policyJSON = {
         wait: []
     }
 };
-//namespace Shops {
-//    export class TradingHall {
-//        name: string[];
-//        price: number[];
-//        quality: number[];
-//        purch: number[];
-//        cityprice: number[];
-//        cityquality: number[];
-//        deliver: number[];
-//        stock: number[];
-//        share: number[];
-//        report: string[];       // ссыли на розничные отчеты для всех товаров магаз
-//        history: string[];      // ссыли на отчет по продажам
-//        img: string[];          // ссыли на картинку товара
-//    }
-//    export class SalesHistory {
-//        price: number[];
-//        quantity: number[];
-//    }
-//    export class RetailReport {
-//        marketsize: number;
-//        localprice: number;
-//        localquality: number;
-//        cityprice: number;
-//        cityquality: number;
-//    }
-//    function market6Ex(url: string, i: number): number {
-//        //debugger;
-//        // в расчетах предполагаем, что парсер нам гарантирует 0 или число, если элемент есть в массиве.
-//        // не паримся с undefined
-//        var unit = mapped[url] as Shops.TradingHall;
-//        if (!unit) {
-//            postMessage(`Subdivision <a href=${url}>${subid}</a> has unit == null`);
-//            return 0;
-//        }
-//        //console.log(unit);
-//        var salesHistory = mapped[unit.history[i]] as Shops.SalesHistory; // {price:[], quantity:[]}
-//        if (!salesHistory) {
-//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory == null`);
-//            return 0;
-//        }
-//        // в истории продаж всегда должна быть хотя бы одна строка. Пусть с 0, но должна быть
-//        if (salesHistory.price.length < 1) {
-//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory.price.length < 1`);
-//            return 0;
-//        }
-//        // мое качество сегодня и цена стоящая в окне цены, кач и цена локальных магазов сегодня
-//        var myQuality = unit.quality[i];
-//        var myPrice = unit.price[i];
-//        var cityPrice = unit.cityprice[i];
-//        var cityQuality = unit.cityquality[i];
-//        // продажи сегодня и цена для тех продаж.
-//        var priceOld = salesHistory.price[0];
-//        var saleOld = salesHistory.quantity[0];
-//        var priceOlder = salesHistory.price[1] || 0; // более старых цен может и не быть вовсе если продаж раньше не было
-//        var saleOlder = salesHistory.quantity[1] || 0;
-//        // закупка и склад сегодня
-//        var deliver = unit.deliver[i];
-//        var stock = unit.stock[i];
-//        // доля рынка которую занимаем сегодня. если продаж не было то будет 0
-//        var share = unit.share[i];
-//        // если продаж вообще не было, история будет содержать 1 стру с нулями.
-//        var isNewProduct = Math.max.apply(null, salesHistory.price) === 0;
-//        var stockNotSold = stock > deliver;
-//        let price = 0;
-//        if (isNewProduct) {
-//            //debugger;
-//            // если продукт новый, и склад был, но явно продаж не было, ТО
-//            // если цена проставлена, снижаем ее. Иначе считаем базовую
-//            // если товара не было, то оставляем ту цену что вписана, либо ставим базовую. Вдруг я руками вписал сам.
-//            if (stockNotSold) {
-//                //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                if (myPrice === 0)
-//                    calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                else
-//                    postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
-//            } else
-//                price = myPrice > 0 ? myPrice : calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//        }
-//        // если на складе пусто, нужно все равно менять цену если продажи были.
-//        // просто потому что на след раз когда на складе будет товар но не будет продаж, мы долю рынка не увидим.
-//        if (!isNewProduct) {
-//            if (saleOld === 0) {
-//                // Если товар был и не продавался Что то не так, снижаем цену резко на 5%
-//                // если saleOld === 0, то всегда и priceOld будет 0. Так уж работает
-//                // пробуем взять ту цену что стоит сейчас и снизить ее, если цены нет, то ставим базовую
-//                if (stockNotSold) {
-//                    //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                    // TODO: как то подумать чтобы если продаж не было не снижать от установленной а привязаться к прошлым продажам если кач подходит
-//                    if (myPrice === 0)
-//                        calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
-//                    else
-//                        postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
-//                }
-//                // если продаж не было и товара не было, то фигли менять что либо. Стоит как есть.
-//            }
-//            if (saleOld > 0) {
-//                // рынок не занят и не все продаем? Снижаем цену. Если продали все то цену чуть повысим
-//                if (share < 4.5)
-//                    price = stockNotSold ? priceOld * (1 - 0.03) : priceOld * (1 + 0.01);
-//                // рынок занят и продали не все? Цену чуть снижаем. Если все продаем то повышаем цену, иначе продаваться будет больше
-//                if (share > 4.5 && share < 6)
-//                    price = stockNotSold ? priceOld * (1 - 0.01) : priceOld * (1 + 0.03);
-//                if (share > 6 && share < 7.5)
-//                    price = stockNotSold ? priceOld * (1 + 0.01) : priceOld * (1 + 0.03);
-//                if (share > 7.5)
-//                    price = stockNotSold ? priceOld * (1 + 0.03) : priceOld * (1 + 0.05);
-//            }
-//        }
-//        // если цена уже минимальна а продажи 0, алармить об этом
-//        return price;
-//    }
-//    function calcBaseRetailPrice(myQuality: number, localPrice: number, localQuality: number): number {
-//        if (myQuality === 0 || localPrice === 0 || localQuality === 0)
-//            throw new Error("Аргументы должны быть > 0!");
-//        return Math.max(localPrice * (1 + Math.log(myQuality / localQuality)), 0, 4);
-//    }
-//} 
 var $ = jQuery = jQuery.noConflict(true);
 var $xioDebug = true;
 //var ls = localStorage;
@@ -673,7 +238,7 @@ var $realm = getRealm();
 var getUrls = [];
 var finUrls = [];
 var xcallback = []; // массив of tuple
-var mapped = {};
+var $mapped = {};
 var xcount = {};
 var xmax = {};
 var typedone = [];
@@ -710,7 +275,11 @@ function logDebug(msg) {
     for (var _i = 1; _i < arguments.length; _i++) {
         args[_i - 1] = arguments[_i];
     }
-    if ($xioDebug)
+    if (!$xioDebug)
+        return;
+    if (args.length === 0)
+        console.log(msg);
+    else
         console.log(msg, args);
 }
 function numberfy(variable) {
@@ -791,7 +360,7 @@ function xpCookie(name) {
 }
 function map(html, url, page) {
     if (page === "ajax") {
-        mapped[url] = JSON.parse(html);
+        $mapped[url] = JSON.parse(html);
         return false;
     }
     else if (page === "none") {
@@ -800,7 +369,7 @@ function map(html, url, page) {
     // TODO: запилить классы для каждого типа страницы. чтобы потом можно было с этим типизированно воркать
     var $html = $(html);
     if (page === "unitlist") {
-        mapped[url] = {
+        $mapped[url] = {
             subids: $html.find(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get(),
             type: $html.find(".unit-list-2014 td:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[1]; }).get()
         };
@@ -836,12 +405,51 @@ function map(html, url, page) {
     else if (page === "main") {
     }
     else if (page === "salary") {
+        $mapped[url] = {
+            employees: numberfy($html.find("#quantity").val()),
+            form: $html.filter("form"),
+            salaryNow: numberfy($html.find("#salary").val()),
+            salaryCity: numberfy($html.find("tr:nth-child(3) > td").text().split("$")[1]),
+            skillNow: numberfy($html.find("#apprisedEmployeeLevel").text()),
+            skillCity: (function () {
+                var m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
+                return numberfy(m == null ? "0" : m[0]);
+            })(),
+            skillReq: (function () {
+                var m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
+                return numberfy(m == null ? "0" : m[0]);
+            })()
+        };
     }
     else if (page === "training") {
     }
     else if (page === "equipment") {
+        $mapped[url] = {
+            qualNow: numberfy($html.find("#top_right_quality").text()),
+            qualReq: numberfy($html.find(".recommended_quality span:not([id])").text()),
+            equipNum: numberfy($html.find("#quantity_corner").text()),
+            equipMax: (function () {
+                var m = $html.find(".contract:eq(1)").text().split("(")[1].match(/(\d| )+/);
+                return numberfy(m == null ? "0" : m[0]);
+            })(),
+            equipPerc: numberfy($html.find("#wear").text()),
+            price: $html.find(".digits:contains($):odd:odd").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            qualOffer: $html.find(".digits:not(:contains($)):odd").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            available: $html.find(".digits:not(:contains($)):even").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            offer: $html.find(".choose span").map(function (i, e) { return numberfy($(e).attr("id")); }).get(),
+            img: $html.find(".rightImg").attr("src"),
+            filtername: (function () {
+                var m = $html.find("[name=doFilterForm]").attr("action").match(/db.*?\//);
+                return m == null ? "" : m[0].slice(2, -1);
+            })()
+        };
     }
     else if (page === "manager") {
+        $mapped[url] = {
+            base: $html.find(".qual_item .mainValue").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            bonus: $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            pic: $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get()
+        };
     }
     else if (page === "tech") {
     }
@@ -864,9 +472,17 @@ function map(html, url, page) {
     else if (page === "waremain") {
     }
     else if (page === "ads") {
+        $mapped[url] = {
+            pop: (function () {
+                var m = $html.find("script").text().match(/params\['population'\] = \d+/);
+                return numberfy(m == null ? "0" : m[0].substring(23));
+            })(),
+            budget: numberfy($html.find(":text:not([readonly])").val()),
+            requiredBudget: numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split("$")[1])
+        };
     }
     else if (page === "employees") {
-        mapped[url] = {
+        $mapped[url] = {
             id: $html.find(".list tr:gt(2) :checkbox").map(function (i, e) { return numberfy($(e).attr("id").substring(5)); }).get(),
             salaryWrk: $html.find(".list td:nth-child(7)").map(function (i, e) { return numberfy($(e).find("span").remove().end().text()); }).get(),
             salaryCity: $html.find(".list td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get(),
@@ -879,8 +495,28 @@ function map(html, url, page) {
     else if (page === "promotion") {
     }
     else if (page === "machines") {
+        $mapped[url] = {
+            id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get(),
+            subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get(),
+            type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get(),
+            num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            perc: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            black: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get(),
+            red: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get(),
+            quality: $html.find("td:nth-child(6).nowrap").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            required: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get()
+        };
     }
     else if (page === "animals") {
+        $mapped[url] = {
+            id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get(),
+            subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get(),
+            type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get(),
+            num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            perc: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get(),
+            black: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get(),
+            red: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get()
+        };
     }
     return true;
 }
@@ -891,12 +527,13 @@ function time() {
     $("#XioMinutes").text(Math.floor(minutes));
     $("#XioSeconds").text(Math.round((minutes - Math.floor(minutes)) * 60));
 }
-// TODO: конфликтует со штатной функцией. переименовать!!!
-function postMessage(html) {
+function postMessage0(html) {
+    // НЕ называть postMessage ибо конфликтует со штатными функциями
     $("#XMproblem").append("<div>" + html + "</div>");
 }
 function xGet(url, page, force, callback) {
-    // запрашивает урл. При успехе, обновляет время, увеличивает счетчик запросов, маппит урл, выполняет коллбэк и вызывает урлДан.
+    // запрашивает урл если он не запрашивался еще. либо если указан флаг форсировки
+    // При успехе, обновляет время, увеличивает счетчик запросов, маппит урл, выполняет коллбэк и вызывает урлДан.
     // при ошибке перезапрашивает через 3 секунды
     if (getUrls.indexOf(url) < 0 || force) {
         if (getUrls.indexOf(url) < 0)
@@ -1046,7 +683,7 @@ function xTypeDone(policyName) {
     // походу когда все исполнилось включает кнопки скрипта
     if (sum === 0 && $("#xDone").css("visibility") === "hidden") {
         $("#xDone").css("visibility", "");
-        console.log("mapped: ", mapped); // валит все отпарсенные ссылки за время обработки
+        logDebug("mapped: ", $mapped); // валит все отпарсенные ссылки за время обработки
         $(".XioGo").prop("disabled", false);
         clearInterval(timeinterval);
     }
@@ -1068,8 +705,10 @@ function xsupGo(subid, type) {
 }
 function XioMaintenance(subids, policyGroups) {
     console.log("XM!");
-    var processingtime = new Date().getTime();
-    var timeinterval = setInterval(time, 1000);
+    logDebug("subids: ", subids);
+    logDebug("policyGroups: ", policyGroups);
+    processingtime = new Date().getTime();
+    timeinterval = setInterval(time, 1000);
     // дизаблим кнопки убираем старые логи
     $(".XioGo").prop("disabled", true);
     $(".XioProperty").remove();
@@ -1079,16 +718,16 @@ function XioMaintenance(subids, policyGroups) {
     xcallback = [];
     xcount = {};
     xmax = {};
-    mapped = {};
+    $mapped = {};
     servergetcount = 0;
     serverpostcount = 0;
     suppliercount = 0;
     blackmail = [];
     equipfilter = [];
-    console.log(mapped);
+    logDebug("mapped: ", $mapped);
     if (!subids || subids.length === 0)
         subids = parseAllSavedSubid($realm);
-    if (!policyGroups || subids.length === 0) {
+    if (!policyGroups || policyGroups.length === 0) {
         policyGroups = [];
         for (var key in policyJSON)
             policyGroups.push(policyJSON[key].group);
@@ -1136,7 +775,7 @@ function XioMaintenance(subids, policyGroups) {
             xGet(urlUnitlist, "unitlist", false, function () {
                 xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
                     xGet(filtersetting, "none", false, function () {
-                        further(mapped[urlUnitlist].subids);
+                        further($mapped[urlUnitlist].subids);
                     });
                 });
             });
@@ -1146,17 +785,17 @@ function XioMaintenance(subids, policyGroups) {
         var startedPolicies = [];
         var xgroup = {};
         // TODO: с этим надо чет сделать. кнопку какую чтобы чистило тока по кнопке. а то косячит и удаляет само если подвисло чего
-        var _loop_1 = function(i) {
+        var _loop_1 = function() {
             // если в базе запись про юнита есть, а он не спарсился со страницы, удалить запись о нем.
             if (realsubids.indexOf(subids[i]) < 0) {
                 var urlSubid = "/" + $realm + "/main/unit/view/" + subids[i];
-                postMessage("Subdivision <a href=" + urlSubid + ">" + subids[i] + "</a> is missing from the company. Options have been erased from the Local Storage.");
+                postMessage0("Subdivision <a href=" + urlSubid + ">" + subids[i] + "</a> is missing from the company. Options have been erased from the Local Storage.");
                 removeOptions($realm, [subids[i]]);
                 return "continue";
             }
             // загружаем политики юнита. часть отработаем сразу, часть пихаем в кэш и отработаем когда wait позволит уже
             var loaded = loadOptions($realm, subids[i]);
-            var _loop_2 = function(policyKey) {
+            var _loop_2 = function() {
                 var policy = policyJSON[policyKey];
                 if (policy == null || policyGroups.indexOf(policy.group) < 0)
                     return "continue";
@@ -1182,15 +821,16 @@ function XioMaintenance(subids, policyGroups) {
                     xwait.push([policy.wait.slice(), f()]);
                 }
             };
-            for (var policyKey in loaded) {
-                _loop_2(policyKey);
+            for (policyKey in loaded) {
+                _loop_2();
             }
         };
+        var policyKey;
         for (var i = 0; i < subids.length; i++) {
-            _loop_1(i);
+            _loop_1();
         }
-        for (var key_3 in policyJSON) {
-            var name_1 = policyJSON[key_3].name;
+        for (var key in policyJSON) {
+            var name_1 = policyJSON[key].name;
             if (startedPolicies.indexOf(name_1) < 0) {
                 xcount[name_1] = 1;
                 xmax[name_1] = 0;
@@ -1199,9 +839,9 @@ function XioMaintenance(subids, policyGroups) {
         }
         // рисует шляпу по обрабатываемым политикам на странице
         var displayedPolicies = [];
-        for (var key_4 in policyJSON) {
-            var name_2 = policyJSON[key_4].name;
-            var group = policyJSON[key_4].group;
+        for (var key in policyJSON) {
+            var name_2 = policyJSON[key].name;
+            var group = policyJSON[key].group;
             if (startedPolicies.indexOf(name_2) >= 0 && displayedPolicies.indexOf(group) < 0) {
                 displayedPolicies.push(group);
                 $("#XSplit").before("<tr>"
@@ -1215,6 +855,7 @@ function XioMaintenance(subids, policyGroups) {
             }
         }
     }
+    logDebug("XM finished: ", $mapped);
 }
 ;
 function XioGenerator(subids) {
@@ -1249,7 +890,7 @@ function XioGenerator(subids) {
                     url: url
                 });
                 var links = $(htmlmain).find(".tabu > li > a:gt(2)").map(function (i, el) { return $(el).attr("href"); }).get();
-                logDebug("links: " + links.join(" | "));
+                logDebug("links: ", links);
                 getcount += links.length;
                 !--getcount && checkpreference();
                 for (var i = 0; i < links.length; i++) {
@@ -1279,7 +920,7 @@ function XioGenerator(subids) {
                 var xPages = xPrefPages(data[subid][i].html, data[subid][i].url);
                 policies.push.apply(policies, prePages.concat(xPages));
             }
-            logDebug("subid policies:" + policies.join(", "));
+            logDebug(subid + " policies:" + policies.join(", "));
             var loaded = loadOptions($realm, subid); // {} если пусто
             logDebug("loaded options:" + dict2String(loaded));
             // сначала проверим чтобы в опциях не было неположенных политик
@@ -1362,8 +1003,8 @@ function XioHoliday() {
     });
     function phase() {
         xGet(url, "employees", false, function () {
-            logDebug("XioHoliday: ", mapped);
-            var employees = mapped[url];
+            logDebug("XioHoliday: ", $mapped);
+            var employees = $mapped[url];
             // TODO: общую ффункцию запилить для парсинга и везде вставить!
             var subids = $(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get();
             var $tds = $(".unit-list-2014 tr:gt(0) td:nth-child(2)");
@@ -1804,4 +1445,936 @@ function XioScript() {
 // запуск вешаем на событие
 $(document).ready(function () { return XioScript(); });
 //document.onreadystatechange(new ProgressEvent("XioLoad")); 
+// проверяет есть ли ключи в словаре
+function dictIsEmpty(dict) {
+    return Object.keys(dict).length === 0;
+}
+// словарь в виде одной строки через ,
+function dict2String(dict) {
+    if (dictIsEmpty(dict))
+        return "";
+    var newItems = [];
+    for (var key in dict)
+        newItems.push(key + ":" + dict[key].toString());
+    return newItems.join(", ");
+}
+// настройки одной политики для одного юнита
+var PolicyOptions = (function () {
+    function PolicyOptions(key, choices) {
+        var _this = this;
+        // конвертит в стандартную строку для хранения вида pp0-1-0.  Метод this безопасен
+        this.toString = function () {
+            return _this.key + _this.choices.join("-");
+        };
+        this.key = key;
+        this.choices = choices;
+    }
+    //  из строки хранения вида pp0-1-0 собирает объект.
+    PolicyOptions.fromString = function (str) {
+        if (str.length < 3)
+            throw new Error("str:" + str + " \u0434\u043E\u043B\u0436\u043D\u0430 \u0438\u043C\u0435\u0442\u044C \u0434\u043B\u0438\u043D\u0443 \u043E\u0442 3 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432.");
+        var key = str.substring(0, 2);
+        var choices = str.substring(2).split("-").map(function (item, index, arr) { return numberfy(item); });
+        return new PolicyOptions(key, choices);
+    };
+    return PolicyOptions;
+}());
+// берет контейнер селектов и собирает данные с аттрибутами data-name, data-choice и value
+// сразу их нормализуя в save формат
+function parseOptions(container, policyDict) {
+    var td = $(container);
+    var selects = td.find("select.XioChoice");
+    if (selects.length === 0)
+        throw new Error("Нельзя ничего спарсить если нет элементов.");
+    var opts = [];
+    var policyKey = td.attr("policy-key");
+    var policy = policyDict[policyKey];
+    for (var i = 0; i < selects.length; i++) {
+        var el = selects.eq(i);
+        var optionNumber = numberfy(el.attr("option-number")); // даже если аттрибута нет, нумерификация вернет 0 жопа.
+        var optionValueIndex = parseInt(el.val()); // NaN будет если хуня в значении
+        if (isNaN(optionValueIndex))
+            throw new Error("Элементы в поле value должны содержать численное значение опции.");
+        opts[optionNumber] = optionValueIndex;
+    }
+    opts = show2Save(policy, opts); // переводим из отображаемой в сохраняемую нотацию
+    var newPolicyStr = policyKey + opts.join("-");
+    return PolicyOptions.fromString(newPolicyStr);
+}
+// формирует ключик для хранилища. сделано так чтобы в случае чего разом везде поменять и все.
+function makeStorageKey(realm, subid) {
+    if (realm == null)
+        throw new Error("realm должен быть задан");
+    if (subid == null)
+        throw new Error("subid должен быть задан");
+    return "x" + realm + subid;
+}
+// загружаем из хранилища сразу все опции для данного юнита и реалма. выдаем стандартный словарь или {}
+function loadOptions(realm, subid) {
+    var parsedDict = {};
+    var storageKey = makeStorageKey(realm, subid);
+    var data = localStorage.getItem(storageKey);
+    if (data == null)
+        return parsedDict;
+    var savedPolicyStrings = data.split(";");
+    for (var n = 0; n < savedPolicyStrings.length; n++) {
+        if (savedPolicyStrings[n].length < 3)
+            throw new Error("\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430\u044F \u0437\u0430\u043F\u0438\u0441\u044C \u043F\u043E\u043B\u0438\u0442\u0438\u043A\u0438 \u0432 \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0435: " + savedPolicyStrings[n]);
+        var key = savedPolicyStrings[n].substring(0, 2);
+        var choices = savedPolicyStrings[n].substring(2).split("-").map(function (item, index, arr) { return numberfy(item); });
+        parsedDict[key] = new PolicyOptions(key, choices);
+    }
+    logDebug(subid + " parsed policies: ", parsedDict);
+    return parsedDict;
+}
+// записывает в хранилище все опции всех политик для указанного юнита в указанном реалме. 
+// подразумеваем что опции уже в save формате
+function storeOptions(realm, subid, options) {
+    if (dictIsEmpty(options))
+        throw new Error("Попытка записать в лок. хранилище пустой набор опций. Аларм.");
+    var storageKey = makeStorageKey(realm, subid);
+    var newItems = [];
+    var keys = Object.keys(options).sort(); // сортирнем ключики
+    for (var i = 0; i < keys.length; i++)
+        newItems.push(options[keys[i]].toString());
+    var newSaveString = newItems.join(";");
+    logDebug(subid + " newSaveString: ", newSaveString);
+    // TODO: а нафига так париться когда есть JSON.stringify и он сразу может объекты фигачить в хранилище. поработать с этим
+    localStorage[storageKey] = newSaveString;
+}
+// удаляет заданные ключи. вернет числ реально удаленных элементов
+function removeOptions(realm, subids) {
+    var counter = 0;
+    for (var i = 0; i < subids.length; i++) {
+        var key = makeStorageKey(realm, subids[i]);
+        if (localStorage.getItem(key) == null)
+            continue;
+        localStorage.removeItem(key);
+        counter++;
+    }
+    return counter;
+}
+// обновляет запись с политиками в хранилище. если чет делалось то вернет полный список опций юнита уже обновленный или {}
+function updateOptions(realm, subid, options) {
+    if (dictIsEmpty(options))
+        return {};
+    var loaded = loadOptions(realm, subid); // будет {} если опций нет
+    logDebug(subid + " oldOptions: ", loaded);
+    for (var key in options)
+        loaded[key] = options[key];
+    logDebug(subid + " newOptions: ", loaded);
+    for (var key in options)
+        storeOptions(realm, subid, loaded);
+    return loaded;
+}
+// формирует готовый контейнер с опциями который можно тупо вставлять куда надо
+function buildContainerHtml(subid, policyKey, policy, empty) {
+    if (policy == null)
+        throw new Error("policy должен быть задан.");
+    if (empty)
+        return "<td policy-group=" + policy.group + " class='XioContainer XioEmpty'></td>";
+    // если не пустой надо сделать
+    if (subid == null || subid.length === 0)
+        throw new Error("subid должен быть задан.");
+    if (policyKey == null || policyKey.length === 0)
+        throw new Error("policyKey должен быть задан.");
+    var uniqueId = subid + "-" + policyKey;
+    var htmlstring = "<td unit-id=" + subid + " policy-group=" + policy.group + " policy-key=" + policyKey + " id=" + uniqueId + " class=XioContainer>\n                         " + buildOptionsHtml(policy) + "\n                       </td>";
+    return htmlstring;
+}
+function buildOptionsHtml(policy) {
+    // в каждую строку юнита добавляем селекты для выбора политик. пока без установки значений.
+    var htmlstring = "";
+    for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++) {
+        if (optionNumber >= 1)
+            htmlstring += "<br>";
+        htmlstring += "<select option-number=" + optionNumber + " class=XioChoice>";
+        for (var ind = 0; ind < policy.order[optionNumber].length; ind++) {
+            var optionValue = policy.order[optionNumber][ind];
+            htmlstring += "<option value=" + ind + ">" + optionValue + "</option>";
+        }
+        htmlstring += "</select>";
+    }
+    return htmlstring;
+}
+// опции в режиме отображения подаем
+function setOptions(container, options, showMode, policy) {
+    if (options == null)
+        throw new Error("options должны быть заданы.");
+    var $selects = $(container).find("select.XioChoice");
+    var showChoices = showMode ? options.choices : save2Show(policy, options.choices);
+    // проставляем теперь значения для этих селектов
+    for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++)
+        $selects.filter("[option-number=" + optionNumber + "]").val(Math.max(showChoices[optionNumber], 0));
+}
+// в будущем будут фильтры, эта шняга понадобится. да и пусть будет централизованно
+function parseSubid(trList) {
+    var rows = $(trList);
+    return rows.find("td.unit_id").map(function (i, e) { return numberfy($(e).text()); }).get();
+}
+// берет локальное хранилище и тащит оттуда все записи по юнитам. выделяет subid
+function parseAllSavedSubid(realm) {
+    if (!realm || realm.length === 0)
+        throw new Error("realm должен быть задан.");
+    var subids = [];
+    var rx = new RegExp("x" + realm + "\\d+");
+    for (var key in localStorage) {
+        if (!rx.test(key))
+            continue;
+        var m = key.match(/\d+/);
+        if (m != null)
+            subids.push(numberfy(m[0]));
+    }
+    return subids;
+}
+// парсит id компании со страницы
+function getCompanyId() {
+    var m = $(".dashboard a").attr("href").match(/\d+/);
+    return numberfy(m == null ? "0" : m[0]);
+}
+//
+// Сюда совать все функции для расчета чего либо. Чисто математика. Которая не лезет никуда в глобал и на страницу
+//
+function calcSalary(sn, sc, kn, kc, kr) {
+    // s = salary, k = skill, n = now, c = city, r = required
+    // из за ошибок округления double 8.62 станет вдруг 8.61. Добавим дельту это избавит.
+    kr = Math.floor(kr * 100 + 1e-10) / 100;
+    var calc = sn > sc ? kn - kc * Math.log(1 + sn / sc) / Math.log(2) : Math.pow(sc / sn, 2) * kn - kc;
+    return kr > (calc + kc) ? sc * (Math.pow(2, (kr - calc) / kc) - 1) : sc * Math.sqrt(kr / (kc + calc));
+}
+function calcEmployees(skill, factor, manager) {
+    return Math.pow(5, 1 + skill) * Math.pow(7, 1 - skill) * factor * Math.pow(manager, 2);
+}
+function calcSkill(employees, factor, manager) {
+    return -Math.log(employees / (35 * factor * Math.pow(manager, 2))) / Math.log(7 / 5);
+}
+function calcEquip(skill) {
+    return Math.pow(skill, 1.5);
+}
+function calcTechLevel(manager) {
+    return Math.pow(manager * 156.25, 1 / 3);
+}
+function calcTopTech(tech) {
+    return Math.pow(tech, 3) / 156.25;
+}
+function calcAllEmployees(factor, manager) {
+    return 25 * factor * manager * (manager + 3);
+}
+function calcTop1(empl, qual, factor) {
+    return Math.pow(5, 1 / 2 * (-1 - qual)) * Math.pow(7, 1 / 2 * (-1 + qual)) * Math.sqrt(empl / factor);
+}
+function calcTop3(empl, factor) {
+    return (-15 * factor + Math.sqrt(225 * factor * factor + 4 * factor * empl)) / (10 * factor);
+}
+function calcEfficiency(employees, allEmployees, manager, factor1, factor3, qualification, techLevel) {
+    var effi = [];
+    effi[0] = 100;
+    effi[1] = manager / calcTop1(employees, qualification, factor1) * calcAllEmployees(factor3, manager) / allEmployees * 100;
+    effi[2] = manager / calcTop1(employees, qualification, factor1) * 6 / 5 * 100;
+    effi[3] = calcAllEmployees(factor3, manager) / allEmployees * 6 / 5 * 100;
+    effi[4] = manager / calcTopTech(techLevel) * calcAllEmployees(factor3, manager) / allEmployees * 100;
+    effi[5] = manager / calcTopTech(techLevel) * 6 / 5 * 100;
+    logDebug("calcEfficiency: ", effi);
+    return (Math.round(Math.min.apply(null, effi) * 10) / 10).toFixed(2) + "%";
+}
+function calcOverflowTop1(allEmployees, factor3, manager) {
+    logDebug("calcOverflowTop1: ", calcAllEmployees(factor3, manager) / allEmployees);
+    return Math.max(Math.min(6 / 5, calcAllEmployees(factor3, manager) / allEmployees), 5 / 6);
+}
+function calcOverflowTop3(employees, qualification, techLevel, factor1, manager) {
+    logDebug("calcOverflowTop3: ", manager / calcTopTech(techLevel), manager / calcTop1(employees, qualification, factor1));
+    return Math.max(Math.min(6 / 5, manager / calcTopTech(techLevel), manager / calcTop1(employees, qualification, factor1)), 5 / 6);
+}
+//
+// сюда кладем все функции которые собсна выполняют политики
+//
+function advertisement(policyName, subid, choices) {
+    var url = "/" + $realm + "/main/unit/view/" + subid + "/virtasement";
+    var urlFame = "/" + $realm + "/ajax/unit/virtasement/" + subid + "/fame";
+    var urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
+    var pccost = 0;
+    var getcount = 0;
+    if (choices[0] >= 3 && choices[0] <= 9) {
+        getcount++;
+        xGet(urlManager, "manager", false, function () {
+            !--getcount && post();
+        });
+    }
+    if (choices[0] >= 4 && choices[0] <= 9) {
+        getcount++;
+        xPost(urlFame, "moneyCost=0&type%5B0%5D=2264", function (data) {
+            pccost = numberfy(JSON.parse(data).contactCost);
+            !--getcount && post();
+        });
+    }
+    if (choices[0] >= 4) {
+        getcount++;
+        xGet(url, "ads", false, function () { return !--getcount && post(); });
+    }
+    if (choices[0] <= 2)
+        post();
+    function post() {
+        $("[id='x" + "Ads" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+        var data = "";
+        var budget = 0;
+        var top = $mapped[urlManager];
+        var ads = $mapped[url];
+        if (choices[0] === 1) {
+            data = "cancel=Stop+advertising";
+        }
+        else if (choices[0] === 2) {
+            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=0";
+        }
+        else if (choices[0] === 3) {
+            var managerIndex = top.pic.indexOf("/img/qualification/advert.png");
+            var manager = top.base[managerIndex] + top.bonus[managerIndex];
+            budget = 200010 * Math.pow(manager, 1.4);
+            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
+        }
+        else if (choices[0] >= 4 && choices[0] <= 9) {
+            var managerIndex = top.pic.indexOf("/img/qualification/advert.png");
+            var manager = top.base[managerIndex] + top.bonus[managerIndex];
+            var multiplier = [1, 2, 5, 10, 20, 50];
+            budget = Math.round(ads.pop * pccost * multiplier[choices[0] - 4]);
+            var maxbudget = Math.floor(200010 * Math.pow(manager, 1.4));
+            budget = Math.min(budget, maxbudget);
+            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
+        }
+        else if (choices[0] === 10) {
+            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + ads.requiredBudget;
+        }
+        if (choices[0] <= 3 || budget !== ads.budget)
+            xPost(url, data, function () { return xTypeDone(policyName); });
+        else
+            xTypeDone(policyName);
+    }
+}
+function equipment(policyName, subid, choices) {
+    var url = "/" + $realm + "/window/unit/equipment/" + subid;
+    var urlMain = "/" + $realm + "/main/unit/view/" + subid;
+    var urlSalary = "/" + $realm + "/window/unit/employees/engage/" + subid;
+    var urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
+    var urlEquipment = "/" + $realm + "/main/company/view/" + companyid + "/unit_list/equipment";
+    var urlAnimals = "/" + $realm + "/main/company/view/" + companyid + "/unit_list/animals";
+    var getcount = 0;
+    var equip = {};
+    getcount += 4;
+    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithEquipment/20000", "none", false, function () {
+        !--getcount && phase();
+    });
+    xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithEquipment/class=0/type=0", "none", false, function () {
+        !--getcount && phase();
+    });
+    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithAnimals/20000", "none", false, function () {
+        !--getcount && phase();
+    });
+    xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithAnimals/class=0/type=0", "none", false, function () {
+        !--getcount && phase();
+    });
+    function phase() {
+        $("[id='x" + "Equipment" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+        getcount += 2;
+        xGet(urlEquipment, "machines", false, function () {
+            !--getcount && phase2();
+        });
+        xGet(urlAnimals, "animals", false, function () {
+            !--getcount && phase2();
+        });
+    }
+    function phase2() {
+        $("[id='x" + "Equipment" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+        var machines = $mapped[urlEquipment];
+        var animals = $mapped[urlAnimals];
+        for (var i = 0; i < machines.subid.length; i++) {
+            if (machines.subid[i] === subid) {
+                for (var key in machines) {
+                    equip[key] = machines[key][i];
+                }
+                break;
+            }
+        }
+        for (var i = 0; i < animals.subid.length; i++) {
+            if (animals.subid[i] === subid) {
+                for (var key in animals) {
+                    equip[key] = animals[key][i];
+                }
+                equip.perc = 100 - animals.perc[i];
+                break;
+            }
+        }
+        // console.log('phase2 equip.black = ' + equip.black);
+        if (equip.black > 0
+            || choices[1] === 1 && equip.red > 0
+            || choices[1] === 2 && equip.perc >= 1
+            || choices[0] === 1 && equip.required > equip.quality) {
+            getcount++;
+            xsup.push([subid, equip.id,
+                (function () {
+                    xGet(url, "equipment", true, function () {
+                        var equipment = $mapped[url];
+                        if (equipfilter.indexOf(equipment.filtername) === -1) {
+                            equipfilter.push(equipment.filtername);
+                            getcount += 3;
+                            xGet("/" + $realm + "/window/common/util/setpaging/db" + equipment.filtername + "/equipmentSupplierListByUnit/40000", "none", false, function () {
+                                !(--getcount - 1) && xsupGo(subid, equip.id);
+                            });
+                            var data = "total_price%5Bfrom%5D=&total_price%5Bto%5D=&quality%5Bfrom%5D=&quality%5Bto%5D=&quantity%5Bisset%5D=1&quantity%5Bfrom%5D=1&total_price%5Bfrom%5D=0&total_price%5Bto%5D=0&total_price_isset=0&quality%5Bfrom%5D=0&quality%5Bto%5D=0&quality_isset=0&quantity_isset=1";
+                            xPost("/" + $realm + "/window/common/util/setfiltering/db" + equipment.filtername + "/equipmentSupplierListByUnit", data, function () {
+                                !(--getcount - 1) && xsupGo(subid, equip.id);
+                            });
+                            xGet("/" + $realm + "/window/common/util/setfiltering/db" + equipment.filtername + "/equipmentSupplierListByUnit/supplierType=all", "none", false, function () {
+                                !(--getcount - 1) && xsupGo(subid, equip.id);
+                            });
+                            xsup.push([subid, equip.id, (function () {
+                                    xGet(url, "equipment", true, function () {
+                                        !--getcount && post();
+                                    });
+                                })]);
+                        }
+                        else {
+                            !--getcount && post();
+                        }
+                    });
+                })
+            ]);
+            xsupGo();
+            if (choices[0] === 2) {
+                getcount += 2;
+                xGet(urlSalary, "salary", false, function () {
+                    !--getcount && post();
+                });
+                xGet(urlManager, "manager", false, function () {
+                    !--getcount && post();
+                });
+            }
+        }
+        else {
+            xTypeDone(policyName);
+        }
+    }
+    function post() {
+        $("[id='x" + "Equipment" + "current']").html('<a href="/' + realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+        var equipWear = 0;
+        // console.log('choices[1] = ' + choices[1]);
+        // console.log('equip.black = ' + equip.black);
+        // console.log('equip.red = ' + equip.red);
+        // console.log('equip.perc = ' + equip.perc);
+        // console.log('equip.required = ' + equip.required);
+        // console.log('equip.quality = ' + equip.quality);
+        // console.log('equip.type = ' + equip.type);
+        if (equip.required < equip.quality * 0.9) {
+            equip.required = equip.quality;
+        }
+        if (choices[1] === 0) {
+            equipWear = equip.black;
+        }
+        else if (choices[1] === 1) {
+            equipWear = equip.black + equip.red;
+        }
+        else if (choices[1] === 2) {
+            equipWear = equip.perc >= 1;
+        }
+        var change = [];
+        if (choices[0] === 1) {
+            var offer = {
+                low: [],
+                high: [],
+                inc: []
+            };
+            var qualReq = (equip.required || 0) + 0.005;
+            var qualNow = equip.quality - 0.005;
+            // console.log('qualReq = ' + qualReq);
+            // console.log('qualNow = ' + qualNow);
+            for (var i = 0; i < mapped[url].offer.length; i++) {
+                var data = {
+                    PQR: mapped[url].price[i] / mapped[url].qualOffer[i],
+                    quality: mapped[url].qualOffer[i],
+                    available: mapped[url].available[i],
+                    buy: 0,
+                    offer: mapped[url].offer[i],
+                    index: i
+                };
+                // console.log('data.quality = ' + data.quality );
+                if (data.quality < qualReq) {
+                    offer.low.push(data);
+                }
+                else {
+                    offer.high.push(data);
+                }
+            }
+            for (var key in offer) {
+                offer[key].sort(function (a, b) {
+                    return a.PQR - b.PQR;
+                });
+            }
+            var l = 0;
+            var h = 0;
+            var qualEst = 0;
+            var qualNew = qualNow;
+            // console.log('offer.low.length = ' + offer.low.length);
+            // console.log('offer.high.length = ' + offer.high.length);
+            while (equipWear > 0 && h < offer.high.length) {
+                // console.log('l = ' + l);
+                // console.log('h = ' + h);
+                if (offer.low[l] && offer.low[l].length > l && offer.low[l].available - offer.low[l].buy === 0) {
+                    l++;
+                    // console.log('continue l');
+                    continue;
+                }
+                if (offer.high[h] && offer.high[h].length > h && offer.high[h].available - offer.high[h].buy === 0) {
+                    h++;
+                    // console.log('continue h');
+                    continue;
+                }
+                // console.log(subid, l, offer.low[l].available - offer.low[l].buy, offer.low[l]);
+                // console.log(subid, h, offer.high[h].available - offer.high[h].buy, offer.high[h]);
+                qualEst = qualNew;
+                l < offer.low.length && offer.low[l].buy++;
+                for (var key in offer) {
+                    for (var i = 0; i < offer[key].length; i++) {
+                        if (offer[key][i].buy) {
+                            qualEst = ((equip.num - offer[key][i].buy) * qualEst + offer[key][i].buy * offer[key][i].quality) / equip.num;
+                        }
+                    }
+                }
+                l < offer.low.length && offer.low[l].buy--;
+                if (l < offer.low.length && qualEst > qualReq && offer.low[l].PQR < offer.high[h].PQR) {
+                    offer.low[l].buy++;
+                }
+                else {
+                    offer.high[h].buy++;
+                }
+                equipWear--;
+            }
+            for (var key in offer) {
+                for (var i = 0; i < offer[key].length; i++) {
+                    if (offer[key][i].buy) {
+                        change.push({
+                            op: "repair",
+                            offer: offer[key][i].offer,
+                            amount: offer[key][i].buy
+                        });
+                        qualNew = ((equip.num - offer[key][i].buy) * qualNew + offer[key][i].buy * offer[key][i].quality) / equip.num;
+                    }
+                }
+            }
+            for (var i = 0; i < mapped[url].offer.length; i++) {
+                var data = {
+                    PQR: mapped[url].price[i] / (mapped[url].qualOffer[i] - qualReq),
+                    quality: mapped[url].qualOffer[i] - 0.005,
+                    available: mapped[url].available[i],
+                    buy: 0,
+                    offer: mapped[url].offer[i],
+                    index: i
+                };
+                if (data.quality > qualReq) {
+                    offer.inc.push(data);
+                }
+            }
+            offer.inc.sort(function (a, b) {
+                return a.PQR - b.PQR;
+            });
+            var n = 0;
+            qualEst = 0;
+            var torepair = 0;
+            for (var i = 0; i < offer.inc.length; i++) {
+                if (offer.inc[i].buy) {
+                    torepair += offer.inc[i].buy;
+                    qualEst += offer.inc[i].buy * offer.inc[i].quality;
+                }
+            }
+            qualEst = (qualEst + (equip.num - torepair) * qualNow) / equip.num;
+            while (qualEst < qualReq && n < offer.inc.length) {
+                if (offer.inc[n] && offer.inc[n].length > n && offer.inc[n].available - offer.inc[n].buy === 0) {
+                    n++;
+                    continue;
+                }
+                offer.inc[n].buy++;
+                qualEst = 0;
+                torepair = 0;
+                for (var i = 0; i < offer.inc.length; i++) {
+                    if (offer.inc[i].buy) {
+                        torepair += offer.inc[i].buy;
+                        qualEst += offer.inc[i].buy * offer.inc[i].quality;
+                    }
+                }
+                qualEst = (qualEst + (equip.num - torepair) * qualNow) / equip.num;
+            }
+            if (torepair) {
+                change.push({
+                    op: "terminate",
+                    amount: torepair
+                });
+            }
+            for (var i = 0; i < offer.inc.length; i++) {
+                if (offer.inc[i].buy) {
+                    change.push({
+                        op: "buy",
+                        offer: offer.inc[i].offer,
+                        amount: offer.inc[i].buy
+                    });
+                }
+            }
+            if (equipWear > 0 && (h < offer.high.length || n < offer.inc.length)) {
+                postMessage("No equipment on the market with a quality higher than required. Could not repair subdivision <a href=" + url + ">" + subid + "</a>");
+            }
+        }
+        else if (choices[0] === 2 && equipWear !== 0) {
+            var managerIndex = mapped[urlManager].pic.indexOf(subType[equip.type][2]);
+            var equipMax = calcEquip(calcSkill(mapped[urlSalary].employees, subType[equip.type][0], mapped[urlManager].base[managerIndex] + mapped[urlManager].bonus[managerIndex]));
+            var offer = {
+                low: [],
+                mid: [],
+                high: []
+            };
+            var qualNow = equip.quality + 0.005;
+            for (var i = 0; i < mapped[url].offer.length; i++) {
+                var data = {
+                    PQR: mapped[url].price[i] / mapped[url].qualOffer[i],
+                    quality: mapped[url].qualOffer[i] + 0.005,
+                    available: mapped[url].available[i],
+                    buy: 0,
+                    offer: mapped[url].offer[i],
+                    index: i
+                };
+                if (data.quality < qualNow) {
+                    offer.low.push(data);
+                }
+                else if (data.quality < equipMax) {
+                    offer.mid.push(data);
+                }
+                else {
+                    offer.high.push(data);
+                }
+            }
+            for (var key in offer) {
+                offer[key].sort(function (a, b) {
+                    return a.PQR - b.PQR;
+                });
+            }
+            var l = 0;
+            var m = 0;
+            var h = 0;
+            var qualEst = 0;
+            var qualNew = qualNow;
+            while (equipWear > 0 && l + m < offer.low.length + offer.mid.length && m + h < offer.mid.length + offer.high.length) {
+                if (offer.low[l] && offer.low[l].length > l && offer.low[l].available - offer.low[l].buy === 0) {
+                    l++;
+                    continue;
+                }
+                if (offer.mid[m] && offer.mid[m].length > m && offer.mid[m].available - offer.mid[m].buy === 0) {
+                    m++;
+                    continue;
+                }
+                if (offer.high[h] && offer.high[h].length > h && offer.high[h].available - offer.high[h].buy === 0) {
+                    h++;
+                    continue;
+                }
+                qualEst = qualNew;
+                h < offer.high.length && offer.high[h].buy++;
+                for (var key in offer) {
+                    for (var i = 0; i < offer[key].length; i++) {
+                        if (offer[key][i].buy) {
+                            qualEst = ((equip.num - offer[key][i].buy) * qualEst + offer[key][i].buy * offer[key][i].quality) / equip.num;
+                        }
+                    }
+                }
+                h < offer.high.length && offer.high[h].buy--;
+                if (h < offer.high.length && qualEst < equipMax && (m === offer.mid.length || offer.high[h].PQR < offer.mid[m].PQR)) {
+                    offer.high[h].buy++;
+                }
+                else if (l < offer.low.length && qualEst > equipMax && (m === offer.mid.length || offer.low[l].PQR < offer.mid[m].PQR)) {
+                    offer.low[l].buy++;
+                }
+                else {
+                    offer.mid[m].buy++;
+                }
+                equipWear--;
+            }
+            for (var key in offer) {
+                for (var i = 0; i < offer[key].length; i++) {
+                    if (offer[key][i].buy) {
+                        change.push({
+                            op: "repair",
+                            offer: offer[key][i].offer,
+                            amount: offer[key][i].buy
+                        });
+                        qualNew = ((equip.num - offer[key][i].buy) * qualNew + offer[key][i].buy * offer[key][i].quality) / equip.num;
+                    }
+                }
+            }
+            if (equipWear > 0 && l + m < offer.low.length + offer.mid.length) {
+                postMessage("No equipment on the market with a quality lower than the maximum quality defined by the Top1. Could not repair subdivision <a href=" + url + ">" + subid + "</a>");
+            }
+            else if (equipWear > 0 && m + h < offer.mid.length + offer.high.length) {
+                postMessage("No equipment on the market with a quality higher than the current quality. Could not repair subdivision <a href=" + url + ">" + subid + "</a>");
+            }
+        }
+        else if (choices[0] === 3 && equipWear !== 0) {
+            var offer = [];
+            for (var i = 0; i < mapped[url].offer.length; i++) {
+                offer.push({
+                    price: mapped[url].price[i],
+                    quality: mapped[url].qualOffer[i],
+                    available: mapped[url].available[i],
+                    offer: mapped[url].offer[i],
+                    index: i
+                });
+            }
+            offer.sort(function (a, b) {
+                return a.price - b.price;
+            });
+            var i = 0;
+            while (equipWear > 0 && i < offer.length) {
+                var tobuy = 0;
+                if (offer[i].quality === 2.00) {
+                    tobuy = Math.min(equipWear, offer[i].available);
+                    equipWear -= tobuy;
+                    change.push({
+                        op: "repair",
+                        offer: offer[i].offer,
+                        amount: tobuy
+                    });
+                }
+                i++;
+            }
+            if (i === offer.length) {
+                postMessage("No equipment on the market with a quality of 2.00. Could not repair subdivision <a href=" + url + ">" + subid + "</a>");
+            }
+        }
+        var equipcount = change.length;
+        change.length && console.log(subid, change);
+        for (var i = 0; i < change.length; i++) {
+            xequip.push((function (i) {
+                xContract("/" + realm + "/ajax/unit/supply/equipment", {
+                    'operation': change[i].op,
+                    'offer': change[i].offer,
+                    'unit': subid,
+                    'supplier': change[i].offer,
+                    'amount': change[i].amount
+                }, function (data) {
+                    if (xequip.length) {
+                        xequip.shift()();
+                    }
+                    else {
+                        fireequip = false;
+                    }
+                    !--equipcount && xTypeDone(type);
+                    !equipcount && xsupGo(subid, equip.id);
+                });
+            }.bind(this, i)));
+        }
+        if (xequip.length && !fireequip) {
+            fireequip = true;
+            xequip.shift()();
+        }
+        else if (equipcount === 0) {
+            xTypeDone(type);
+            xsupGo(subid, equip.id);
+        }
+    }
+}
+function salePrice(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function salePolicy(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function servicePrice(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function serviceWithoutStockPrice(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function incineratorPrice(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function retailPrice(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function prodSupply(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function storeSupply(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function wareSupply(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function salary(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function holiday(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function training(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function technology(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function research(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function prodBooster(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function politicAgitation(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+function wareSize(policyName, subid, choices) {
+    var fn = getFuncName(arguments);
+    logDebug("started: ", fn);
+    xTypeDone(policyName);
+}
+//namespace Shops {
+//    export class TradingHall {
+//        name: string[];
+//        price: number[];
+//        quality: number[];
+//        purch: number[];
+//        cityprice: number[];
+//        cityquality: number[];
+//        deliver: number[];
+//        stock: number[];
+//        share: number[];
+//        report: string[];       // ссыли на розничные отчеты для всех товаров магаз
+//        history: string[];      // ссыли на отчет по продажам
+//        img: string[];          // ссыли на картинку товара
+//    }
+//    export class SalesHistory {
+//        price: number[];
+//        quantity: number[];
+//    }
+//    export class RetailReport {
+//        marketsize: number;
+//        localprice: number;
+//        localquality: number;
+//        cityprice: number;
+//        cityquality: number;
+//    }
+//    function market6Ex(url: string, i: number): number {
+//        //debugger;
+//        // в расчетах предполагаем, что парсер нам гарантирует 0 или число, если элемент есть в массиве.
+//        // не паримся с undefined
+//        var unit = mapped[url] as Shops.TradingHall;
+//        if (!unit) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has unit == null`);
+//            return 0;
+//        }
+//        //console.log(unit);
+//        var salesHistory = mapped[unit.history[i]] as Shops.SalesHistory; // {price:[], quantity:[]}
+//        if (!salesHistory) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory == null`);
+//            return 0;
+//        }
+//        // в истории продаж всегда должна быть хотя бы одна строка. Пусть с 0, но должна быть
+//        if (salesHistory.price.length < 1) {
+//            postMessage(`Subdivision <a href=${url}>${subid}</a> has salesHistory.price.length < 1`);
+//            return 0;
+//        }
+//        // мое качество сегодня и цена стоящая в окне цены, кач и цена локальных магазов сегодня
+//        var myQuality = unit.quality[i];
+//        var myPrice = unit.price[i];
+//        var cityPrice = unit.cityprice[i];
+//        var cityQuality = unit.cityquality[i];
+//        // продажи сегодня и цена для тех продаж.
+//        var priceOld = salesHistory.price[0];
+//        var saleOld = salesHistory.quantity[0];
+//        var priceOlder = salesHistory.price[1] || 0; // более старых цен может и не быть вовсе если продаж раньше не было
+//        var saleOlder = salesHistory.quantity[1] || 0;
+//        // закупка и склад сегодня
+//        var deliver = unit.deliver[i];
+//        var stock = unit.stock[i];
+//        // доля рынка которую занимаем сегодня. если продаж не было то будет 0
+//        var share = unit.share[i];
+//        // если продаж вообще не было, история будет содержать 1 стру с нулями.
+//        var isNewProduct = Math.max.apply(null, salesHistory.price) === 0;
+//        var stockNotSold = stock > deliver;
+//        let price = 0;
+//        if (isNewProduct) {
+//            //debugger;
+//            // если продукт новый, и склад был, но явно продаж не было, ТО
+//            // если цена проставлена, снижаем ее. Иначе считаем базовую
+//            // если товара не было, то оставляем ту цену что вписана, либо ставим базовую. Вдруг я руками вписал сам.
+//            if (stockNotSold) {
+//                //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                if (myPrice === 0)
+//                    calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                else
+//                    postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
+//            } else
+//                price = myPrice > 0 ? myPrice : calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//        }
+//        // если на складе пусто, нужно все равно менять цену если продажи были.
+//        // просто потому что на след раз когда на складе будет товар но не будет продаж, мы долю рынка не увидим.
+//        if (!isNewProduct) {
+//            if (saleOld === 0) {
+//                // Если товар был и не продавался Что то не так, снижаем цену резко на 5%
+//                // если saleOld === 0, то всегда и priceOld будет 0. Так уж работает
+//                // пробуем взять ту цену что стоит сейчас и снизить ее, если цены нет, то ставим базовую
+//                if (stockNotSold) {
+//                    //price = myPrice > 0 ? myPrice * (1 - 0.05) : this.calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                    // TODO: как то подумать чтобы если продаж не было не снижать от установленной а привязаться к прошлым продажам если кач подходит
+//                    if (myPrice === 0)
+//                        calcBaseRetailPrice(myQuality, cityPrice, cityQuality);
+//                    else
+//                        postMessage(`Subdivision <a href=${url}>${subid}</a> has 0 sales for <img src=${unit.img[i]}></img> with Price:${myPrice}. Correct prices!`);
+//                }
+//                // если продаж не было и товара не было, то фигли менять что либо. Стоит как есть.
+//            }
+//            if (saleOld > 0) {
+//                // рынок не занят и не все продаем? Снижаем цену. Если продали все то цену чуть повысим
+//                if (share < 4.5)
+//                    price = stockNotSold ? priceOld * (1 - 0.03) : priceOld * (1 + 0.01);
+//                // рынок занят и продали не все? Цену чуть снижаем. Если все продаем то повышаем цену, иначе продаваться будет больше
+//                if (share > 4.5 && share < 6)
+//                    price = stockNotSold ? priceOld * (1 - 0.01) : priceOld * (1 + 0.03);
+//                if (share > 6 && share < 7.5)
+//                    price = stockNotSold ? priceOld * (1 + 0.01) : priceOld * (1 + 0.03);
+//                if (share > 7.5)
+//                    price = stockNotSold ? priceOld * (1 + 0.03) : priceOld * (1 + 0.05);
+//            }
+//        }
+//        // если цена уже минимальна а продажи 0, алармить об этом
+//        return price;
+//    }
+//    function calcBaseRetailPrice(myQuality: number, localPrice: number, localQuality: number): number {
+//        if (myQuality === 0 || localPrice === 0 || localQuality === 0)
+//            throw new Error("Аргументы должны быть > 0!");
+//        return Math.max(localPrice * (1 + Math.log(myQuality / localQuality)), 0, 4);
+//    }
+//} 
 //# sourceMappingURL=XioScript.user.js.map

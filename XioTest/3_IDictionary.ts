@@ -47,3 +47,61 @@ interface IUnitList {
     subids: number[];
     type: string[];
 }
+
+interface ITopManager {
+    base: number[];
+    bonus: number[];
+    pic: string[];
+}
+
+interface IAds {
+    pop: number;
+    budget: number;
+    requiredBudget: number;
+}
+
+interface IMachines {
+    id: number[];
+    subid: number[];
+    type: string[];
+    num: number[];
+    perc: number[];
+    black: number[];
+    red: number[];
+    quality: number[];
+    required: number[];
+}
+
+interface IAnimals {
+    id: number[];
+    subid: number[];
+    type: string[];
+    num: number[];
+    perc: number[];
+    black: number[];
+    red: number[];
+}
+
+interface IEquipment {
+    qualNow: number;
+    qualReq: number;
+    equipNum: number;
+    equipMax: number;
+    equipPerc: number;
+    price: number[];
+    qualOffer: number[];
+    available: number[];
+    offer: number[];
+    img: string[];
+    filtername: string;
+}
+
+interface ISalary {
+    employees: number;
+    form: JQuery;
+    salaryNow: number;
+    salaryCity: number;
+    skillNow: number;
+    skillCity: number;
+    skillReq: number;
+}

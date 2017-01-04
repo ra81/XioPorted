@@ -7,7 +7,7 @@ let $realm = getRealm();
 let getUrls:string[] = [];
 let finUrls: string[] = [];
 let xcallback: [string, () => void][] = []; // массив of tuple
-var mapped: IDictionary<IEmploees | IUnitList> = {};
+let $mapped: IDictionary<IEmploees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary> = {};
 var xcount: IDictionary<number> = {};
 var xmax: IDictionary<number> = {};
 let typedone: string[] = [];
@@ -27,7 +27,7 @@ let xsupcheck: IDictionary<boolean> = {};
 let urlUnitlist = "";
 var blackmail = [];
 let companyid = getCompanyId();
-var equipfilter = [];
+let equipfilter: string[] = [];
 
 function getRealm(): string {
     let r = xpCookie('last_realm');
@@ -145,7 +145,7 @@ function xpCookie(name: string): string | null {
 function map(html: any, url: string, page: string): boolean {
 
     if (page === "ajax") {
-        mapped[url] = JSON.parse(html);
+        $mapped[url] = JSON.parse(html);
         return false;
     }
     else if (page === "none") {
@@ -154,7 +154,7 @@ function map(html: any, url: string, page: string): boolean {
     // TODO: запилить классы для каждого типа страницы. чтобы потом можно было с этим типизированно воркать
     var $html = $(html);
     if (page === "unitlist") {
-        mapped[url] = {
+        $mapped[url] = {
             subids: $html.find(".unit-list-2014 td:nth-child(1)").map( (i, e) => numberfy($(e).text()) ).get() as any as number[],
             type: $html.find(".unit-list-2014 td:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[1]; }).get() as any as string[]
         }
@@ -376,21 +376,21 @@ function map(html: any, url: string, page: string): boolean {
         //}
     }
     else if (page === "salary") {
-        //mapped[url] = {
-        //    employees: numberfy($html.find("#quantity").val()),
-        //    form: $html.filter("form"),
-        //    salaryNow: numberfy($html.find("#salary").val()),
-        //    salaryCity: numberfy($html.find("tr:nth-child(3) > td").text().split("$")[1]),
-        //    skillNow: numberfy($html.find("#apprisedEmployeeLevel").text()),
-        //    skillCity: (() => {
-        //        let m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
-        //        return numberfy(m == null ? "0" : m[0]);
-        //    })(),
-        //    skillReq: (() => {
-        //        let m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
-        //        return numberfy(m == null ? "0" : m[0]);
-        //    })()
-        //}
+        $mapped[url] = {
+            employees: numberfy($html.find("#quantity").val()),
+            form: $html.filter("form"),
+            salaryNow: numberfy($html.find("#salary").val()),
+            salaryCity: numberfy($html.find("tr:nth-child(3) > td").text().split("$")[1]),
+            skillNow: numberfy($html.find("#apprisedEmployeeLevel").text()),
+            skillCity: (() => {
+                let m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
+                return numberfy(m == null ? "0" : m[0]);
+            })(),
+            skillReq: (() => {
+                let m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
+                return numberfy(m == null ? "0" : m[0]);
+            })()
+        }
     }
     else if (page === "training") {
         //mapped[url] = {
@@ -404,32 +404,32 @@ function map(html: any, url: string, page: string): boolean {
         //}
     }
     else if (page === "equipment") {
-        //mapped[url] = {
-        //    qualNow: numberfy($html.find("#top_right_quality").text()),
-        //    qualReq: numberfy($html.find(".recommended_quality span:not([id])").text()),
-        //    equipNum: numberfy($html.find("#quantity_corner").text()),
-        //    equipMax: (() => {
-        //        let m = $html.find(".contract:eq(1)").text().split("(")[1].match(/(\d| )+/);
-        //        return numberfy(m == null ? "0" : m[0]);
-        //    })(),
-        //    equipPerc: numberfy($html.find("#wear").text()),
-        //    price: $html.find(".digits:contains($):odd:odd").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    qualOffer: $html.find(".digits:not(:contains($)):odd").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    available: $html.find(".digits:not(:contains($)):even").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    offer: $html.find(".choose span").map(function (i, e) { return numberfy($(e).attr("id")); }).get() as any as number[],
-        //    img: $html.find(".rightImg").attr("src"),
-        //    filtername: (() => {
-        //        let m = $html.find("[name=doFilterForm]").attr("action").match(/db.*?\//);
-        //        return numberfy(m == null ? "0" : m[0].slice(2, -1));
-        //    })(),
-        //}
+        $mapped[url] = {
+            qualNow: numberfy($html.find("#top_right_quality").text()),
+            qualReq: numberfy($html.find(".recommended_quality span:not([id])").text()),
+            equipNum: numberfy($html.find("#quantity_corner").text()),
+            equipMax: (() => {
+                let m = $html.find(".contract:eq(1)").text().split("(")[1].match(/(\d| )+/);
+                return numberfy(m == null ? "0" : m[0]);
+            })(),
+            equipPerc: numberfy($html.find("#wear").text()),
+            price: $html.find(".digits:contains($):odd:odd").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            qualOffer: $html.find(".digits:not(:contains($)):odd").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            available: $html.find(".digits:not(:contains($)):even").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            offer: $html.find(".choose span").map(function (i, e) { return numberfy($(e).attr("id")); }).get() as any as number[],
+            img: $html.find(".rightImg").attr("src") as any as string[],
+            filtername: (() => {
+                let m = $html.find("[name=doFilterForm]").attr("action").match(/db.*?\//);
+                return m == null ? "" : m[0].slice(2, -1);
+            })()
+        }
     }
     else if (page === "manager") {
-        //mapped[url] = {
-        //    base: $html.find(".qual_item .mainValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    bonus: $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    pic: $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get() as any as number[]
-        //}
+        $mapped[url] = {
+            base: $html.find(".qual_item .mainValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            bonus: $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            pic: $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[]
+        }
     }
     else if (page === "tech") {
         //mapped[url] = {
@@ -538,14 +538,17 @@ function map(html: any, url: string, page: string): boolean {
         //}
     }
     else if (page === "ads") {
-        //mapped[url] = {
-        //    pop: numberfy($html.find("script").text().match(/params\['population'\] = \d+/)[0].substring(23)),
-        //    budget: numberfy($html.find(":text:not([readonly])").val()),
-        //    requiredBudget: numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split("$")[1])
-        //}
+        $mapped[url] = {
+            pop: (() => {
+                let m = $html.find("script").text().match(/params\['population'\] = \d+/);
+                return numberfy(m == null ? "0" : m[0].substring(23));
+            })(),
+            budget: numberfy($html.find(":text:not([readonly])").val()),
+            requiredBudget: numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split("$")[1])
+        }
     }
     else if (page === "employees") {
-        mapped[url] = {
+        $mapped[url] = {
             id: $html.find(".list tr:gt(2) :checkbox").map(function (i, e) { return numberfy($(e).attr("id").substring(5)); }).get() as any as number[],
             salaryWrk: $html.find(".list td:nth-child(7)").map(function (i, e) { return numberfy($(e).find("span").remove().end().text()); }).get() as any as number[],
             salaryCity: $html.find(".list td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
@@ -563,28 +566,28 @@ function map(html: any, url: string, page: string): boolean {
         //}
     }
     else if (page === "machines") {
-        //mapped[url] = {
-        //    id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get(),
-        //    subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get(),
-        //    type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get(),
-        //    num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    perc: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    black: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get(),
-        //    red: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get(),
-        //    quality: $html.find("td:nth-child(6).nowrap").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    required: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get()
-        //}
+        $mapped[url] = {
+            id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get() as any as number[],
+            type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get()as any as string[],
+            num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            perc: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            black: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get() as any as number[],
+            red: $html.find("td:nth-child(8)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get() as any as number[],
+            quality: $html.find("td:nth-child(6).nowrap").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            required: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
     }
     else if (page === "animals") {
-        //mapped[url] = {
-        //    id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get(),
-        //    subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get(),
-        //    type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get(),
-        //    num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    perc: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    black: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get(),
-        //    red: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get()
-        //}
+        $mapped[url] = {
+            id: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            subid: $html.find(":checkbox[name]").map(function (i, e) { return numberfy($(e).attr("id").split("_")[1]); }).get() as any as number[],
+            type: $html.find(".list td[class]:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[2]; }).get() as any as string[],
+            num: $html.find(".list td[class]:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            perc: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            black: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("(")[1]); }).get() as any as number[],
+            red: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text().split("+")[1]); }).get() as any as number[]
+        }
     }
 
     return true;
@@ -606,7 +609,8 @@ function postMessage0(html: string) {
 }
 
 function xGet(url: string, page: string, force: boolean, callback: IAction0) {
-    // запрашивает урл. При успехе, обновляет время, увеличивает счетчик запросов, маппит урл, выполняет коллбэк и вызывает урлДан.
+    // запрашивает урл если он не запрашивался еще. либо если указан флаг форсировки
+    // При успехе, обновляет время, увеличивает счетчик запросов, маппит урл, выполняет коллбэк и вызывает урлДан.
     // при ошибке перезапрашивает через 3 секунды
 
     if (getUrls.indexOf(url) < 0 || force) {
@@ -646,7 +650,7 @@ function xGet(url: string, page: string, force: boolean, callback: IAction0) {
     }
 }
 
-function xPost(url: string, form: JQuery, callback: IAction1<any>) {
+function xPost(url: string, form: any, callback: IAction1<any>) {
     // отправляет данные на сервек.  Если успех то выполняет колбэк. иначе переотправляет через 3 секунды
 
     $.ajax({
@@ -780,13 +784,13 @@ function xTypeDone(policyName: string) {
     // походу когда все исполнилось включает кнопки скрипта
     if (sum === 0 && $("#xDone").css("visibility") === "hidden") {
         $("#xDone").css("visibility", "");
-        logDebug("mapped: ", mapped);        // валит все отпарсенные ссылки за время обработки
+        logDebug("mapped: ", $mapped);        // валит все отпарсенные ссылки за время обработки
         $(".XioGo").prop("disabled", false);
         clearInterval(timeinterval);
     }
 }
 
-function xsupGo(subid: number, type: string) {
+function xsupGo(subid?: number, type?: string) {
     // без понятия че тут делает эта херь
 
     if (subid)
@@ -825,14 +829,14 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
     xcallback = [];
     xcount = {};
     xmax = {};
-    mapped = {};
+    $mapped = {};
     servergetcount = 0;
     serverpostcount = 0;
     suppliercount = 0;
     blackmail = [];
     equipfilter = [];
 
-    logDebug("mapped: ", mapped);
+    logDebug("mapped: ", $mapped);
 
     if (!subids || subids.length === 0)
         subids = parseAllSavedSubid($realm);
@@ -888,7 +892,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
             xGet(urlUnitlist, "unitlist", false, function () {
                 xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
                     xGet(filtersetting, "none", false, function () {
-                        further((mapped[urlUnitlist] as IUnitList).subids);
+                        further(($mapped[urlUnitlist] as IUnitList).subids);
                     });
                 });
             });
@@ -971,7 +975,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
         }
     }
 
-    logDebug("XM finished: ", mapped);
+    logDebug("XM finished: ", $mapped);
 };
 
 function XioGenerator(subids: number[]) {
@@ -1159,8 +1163,8 @@ function XioHoliday() {
 
     function phase() {
         xGet(url, "employees", false, function () {
-            logDebug("XioHoliday: ", mapped);
-            let employees = mapped[url] as IEmploees;
+            logDebug("XioHoliday: ", $mapped);
+            let employees = $mapped[url] as IEmploees;
             // TODO: общую ффункцию запилить для парсинга и везде вставить!
             let subids = $(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
             var $tds = $(".unit-list-2014 tr:gt(0) td:nth-child(2)");

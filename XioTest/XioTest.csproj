@@ -34,12 +34,12 @@
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Include="0_Header.ts" />
-    <TypeScriptCompile Include="1_IDictionary.ts" />
-    <TypeScriptCompile Include="2_IPolicyOptions.ts" />
-    <TypeScriptCompile Include="4__CalcFunctions.ts" />
-    <TypeScriptCompile Include="5_PolicyFunctions.ts" />
-    <TypeScriptCompile Include="3_PolicyJson.ts" />
-    <TypeScriptCompile Include="Xio.ts" />
+    <TypeScriptCompile Include="1_PolicyJson.ts" />
+    <TypeScriptCompile Include="2_Xio.ts" />
+    <TypeScriptCompile Include="3_IDictionary.ts" />
+    <TypeScriptCompile Include="4_IPolicyOptions.ts" />
+    <TypeScriptCompile Include="5_CalcFunctions.ts" />
+    <TypeScriptCompile Include="6_PolicyFunctions.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
     <TypeScriptCompile Include="Shops.ts" />
   </ItemGroup>
