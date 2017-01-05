@@ -32,14 +32,42 @@ interface IAction1<T> {
     (arg: T): void;
 }
 
+// алиас для группы типов.
+type MappedPage = IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistory | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
 
-interface IEmploees {
+interface IMain {
+    employees: number;
+    salaryNow: number;
+    salaryCity: number;
+    skillNow: number;
+    skillReq: number;
+    equipNum: number;
+    equipMax: number;
+    equipQual: number;
+    equipReq: number;
+    equipWearBlack: number;
+    equipWearRed: boolean;
+    managerPic: string;
+    qual: number;
+    techLevel: number;
+    maxEmployees: number;
+    img: string;
+    size: number;
+    hasBooster: boolean;
+    hasAgitation: boolean;
+    onHoliday: boolean;
+    isStore: boolean;
+    departments: number;
+    visitors: number;
+}
+
+interface IEmployees {
     id: number[];
     salaryWrk: number[];
     salaryCity: number[];
     skillWrk: number[];
     skillCity: number[];
-    onHoliday: boolean;
+    onHoliday: boolean[];
     efficiency: string[];
 }
 
@@ -104,4 +132,158 @@ interface ISalary {
     skillNow: number;
     skillCity: number;
     skillReq: number;
+}
+
+interface ITradeHall {
+    stock: number[];
+    deliver: number[];
+    report: string[];
+    img: string[];
+    quality: number[];
+    purch: number[];
+    price: number[];
+    name: string[];
+    share: number[];
+    cityprice: number[];
+    cityquality: number[];
+    history: string[];
+}
+
+interface IProdSupply {
+    isProd: boolean;
+    parcel: number[];
+    price_mark_up: number[];
+    price_constraint_max: number[];
+    price_constraint_type: string[];
+    quality_constraint_min: number[];
+    required: number[];
+    stock: number[];
+    basequality: number[];
+    prodid: number[];
+    offer: number[];
+    price: number[];
+    quality: number[];
+    available: number[];
+    maximum: number[];
+    reprice: boolean[];
+    mainrow: boolean[];
+    nosupplier: boolean[];
+    img: string;
+}
+
+interface IService {
+    price: number[];
+    history: string[];
+    incineratorPrice: number[];
+
+    //not used
+    stock: number[];
+    deliver: number[];
+    report: string[];
+    img: string[];
+    quality: number[];
+    name: string[];
+    share: number[];
+    cityprice: number[];
+    cityquality: number[];
+}
+
+interface ISale {
+    form: JQuery;
+    policy: number[];
+    price: number[];
+    incineratorMaxPrice: number[];
+    outqual: number[];
+    outprime: number[];
+    stockqual: number[];
+    stockprime: number[];
+    product: string[];
+    productId: number[];
+    region: string;
+    contractpage: boolean;
+    contractprice: number[];
+}
+
+interface IAjax {
+    [key: string]: { symbol: string, size: string, initial_cost: string, ttl: string, cost_per_turn: string };
+}
+
+interface IFinanceItem {
+    energy: number;
+}
+
+interface IConsume {
+    consump: number[];
+    purch: number[];
+}
+
+interface IResearch {
+    isFree: boolean;
+    isHypothesis: boolean;
+    isBusy: boolean;
+    hypId: number[];
+    curIndex: number;
+    chance: number[];
+    time: number[];
+    isAbsent: boolean;
+    isFactory: boolean;
+    unittype: number;
+    industry: number;
+    level: number;
+}
+
+interface IExperimentalUnit {
+    id: number[];
+}
+
+interface IPriceHistory {
+    quantity: number[];
+    price: number[];
+}
+
+interface IRetailReport {
+    marketsize: number;
+    localprice: number;
+    localquality: number;
+    cityprice: number;
+    cityquality: number;
+}
+
+interface ITm {
+    product: string[];
+    franchise: string[];
+}
+
+interface IIp {
+    product: string[];
+    IP: number[];
+}
+
+interface ITransport {
+    countryName: string[];
+    countryId: number[];
+    regionName: string[];
+    regionId: number[];
+    cityName: string[];
+    cityId: number[];
+}
+
+interface ICtie {
+    product: string[];
+    profitTax: number;
+    CTIE: number[];
+}
+
+interface ISaleContract {
+    category: string[];
+    contractprice: number[];
+}
+
+interface IProductReport {
+    max: number[];
+    total: number[];
+    available: number[];
+    quality: number[];
+    price: number[];
+    subid: number[];
 }

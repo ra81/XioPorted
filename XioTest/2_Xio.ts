@@ -7,7 +7,7 @@ let $realm = getRealm();
 let getUrls:string[] = [];
 let finUrls: string[] = [];
 let xcallback: [string, () => void][] = []; // массив of tuple
-let $mapped: IDictionary<IEmploees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary> = {};
+let $mapped: IDictionary<MappedPage> = {};
 var xcount: IDictionary<number> = {};
 var xmax: IDictionary<number> = {};
 let typedone: string[] = [];
@@ -28,6 +28,29 @@ let urlUnitlist = "";
 var blackmail = [];
 let companyid = getCompanyId();
 let equipfilter: string[] = [];
+let subType: IDictionary<[number, number, string]> = {
+    mine: [8, 8, "/img/qualification/mining.png"],
+    power: [6, 6, "/img/qualification/power.png"],
+    workshop: [4, 4, "/img/qualification/manufacture.png"],
+    sawmill: [4, 4, "/img/qualification/manufacture.png"],
+    farm: [1.6, 1.6, "/img/qualification/farming.png"],
+    orchard: [1.2, 1.2, "/img/qualification/farming.png"],
+    medicine: [1, 1, "/img/qualification/medicine.png"],
+    fishingbase: [1, 1, "/img/qualification/fishing.png"],
+    animalfarm: [0.6, 0.6, "/img/qualification/animal.png"],
+    lab: [0.4, 0.4, "/img/qualification/research.png"],
+    mill: [0.4, 4, "/img/qualification/manufacture.png"],
+    restaurant: [0.4, 0.4, "/img/qualification/restaurant.png"],
+    shop: [0.4, 0.4, "/img/qualification/trade.png"],
+    repair: [0.2, 0.2, "/img/qualification/car.png"],
+    fuel: [0.2, 0.2, "/img/qualification/car.png"],
+    service: [0.12, 0.12, "/img/qualification/service.png"],
+    service_light: [0.12, 0.12, "/img/qualification/service.png"],
+    office: [0.08, 0.08, "/img/qualification/management.png"],
+    it: [0.08, 0.08, "/img/qualification/it.png"],
+    educational: [0.12, 0.12, "/img/qualification/educational.png"]
+};
+
 
 function getRealm(): string {
     let r = xpCookie('last_realm');
@@ -160,83 +183,100 @@ function map(html: any, url: string, page: string): boolean {
         }
     }
     else if (page === "sale") {
-        //mapped[url] = {
-        //    form: $html.find("[name=storageForm]"),
-        //    policy: $html.find("select:even").map(function (i, e) { return $(e).find("[selected]").index(); }).get() as any as number[],
-        //    price: $html.find("input.money:even").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //    incineratorMaxPrice: $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    outqual: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    outprime: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    stockqual: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    stockprime: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    product: $html.find(".grid a:not([onclick])").map(function (i, e) { return $(e).text(); }).get() as any as string[],
-        //    productId: $html.find(".grid a:not([onclick])").map(
-        //        function (i, e) {
-        //            let m = $(e).attr("href").match(/\d+/);
-        //            return numberfy(m == null ? "0": m[0]);
-        //        }).get() as any as number[],
-        //    region: $html.find(".officePlace a:eq(-2)").text(),
-        //    contractpage: !!$html.find(".tabsub").length,
-        //    contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) })
-        //}
+        $mapped[url] = {
+            form: $html.find("[name=storageForm]"),
+            policy: $html.find("select:even").map(function (i, e) { return $(e).find("[selected]").index(); }).get() as any as number[],
+            price: $html.find("input.money:even").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            incineratorMaxPrice: $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            outqual: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            outprime: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            stockqual: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            stockprime: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            product: $html.find(".grid a:not([onclick])").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            productId: $html.find(".grid a:not([onclick])").map(
+                function (i, e) {
+                    let m = $(e).attr("href").match(/\d+/);
+                    return numberfy(m  ? m[0]: "0");
+                }).get() as any as number[],
+            region: $html.find(".officePlace a:eq(-2)").text(),
+            contractpage: !!$html.find(".tabsub").length,
+            // ["Мука", "$0.78", "$0.78"] вот такая хуйня выпадает.
+            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? numberfy(e.slice(13, -1)) : numberfy(e) }) as any as number[]
+        }
     }
     else if (page === "salecontract") {
-        //mapped[url] = {
-        //    category: $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
-        //    contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) })
-        //}
+        $mapped[url] = {
+            category: $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? numberfy(e.slice(13, -1)) : numberfy(e) })
+        }
     }
     else if (page === "prodsupply") {
-        //mapped[url] = $html.find(".inner_table").length ? {  //new interface
-        //    isProd: !$html.find(".sel").next().attr("class"),
-        //    parcel: $html.find(".quickchange").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //    price_mark_up: "",
-        //    price_constraint_max: "",
-        //    price_constraint_type: "",
-        //    quality_constraint_min: "",
-        //    required: $html.find(".list td:nth-child(3).inner_table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    stock: $html.find(".list td:nth-child(4).inner_table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    basequality: $html.find(".list td:nth-child(4).inner_table tr:nth-child(2) td:nth-child(2)[align]").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    prodid: $html.find(".list tr:has([src='/img/supplier_add.gif']) > td:nth-child(1) a").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+/)[0]); }).get(),
-        //    offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //    price: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(2) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    quality: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(3) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    available: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(4) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    maximum: $html.find(".list td:has(.quicksave)").map(function (i, e) { return $(e).find("[style='color: red;']").length ? numberfy($(e).find("[style='color: red;']").text().match(/(\d|\s)+/)[0]) : Infinity; }).get(),
-        //    reprice: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(2)").map(function (i, e) { return !!$(e).filter(".ordered_red, .ordered_green").length; }).get(),
-        //    mainrow: $html.find(".list tr[onmouseover]").map(function (i, e) { return !!$(e).find("[alt='Select supplier']").length; }).get() as any as boolean[],
-        //    nosupplier: $html.find(".list tr[onmouseover]").map(function (i, e) { return !$(e).find("[src='/img/smallX.gif']").length; }).get() as any as boolean[],
-        //    img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
-        //} : { //old interface
-        //        isProd: !$html.find(".sel").next().attr("class"),
-        //        parcel: $html.find("input[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //        price_mark_up: $html.find("select[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //        price_constraint_max: $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //        price_constraint_type: $html.find("select[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get() as any as string[],
-        //        quality_constraint_min: $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //        required: $html.find(".list td:nth-child(2) table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //        stock: $html.find(".list td:nth-child(3) table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //        basequality: $html.find(".list td:nth-child(3) table tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //        prodid: $html.find(".list a:has(img)[title]").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+/)[0]); }).get(),
-        //        offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //        price: $html.find("[id^=totalPrice] tr:nth-child(1) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //        quality: $html.find("[id^=totalPrice] tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //        available: $html.find("[id^=quantity] tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //        maximum: $html.find(".list td:has([type=type])").map(function (i, e) { return $(e).find("[style='color:red']").length ? numberfy($(e).find("[style='color:red']").text().match(/(\d|\s)+/)[0]) : Infinity; }).get(),
-        //        reprice: $html.find("[id^=totalPrice] tr:nth-child(1)").map(function (i, e) { return !!$(e).filter("[style]").length; }).get() as any as boolean[],
-        //        mainrow: $html.find(".list tr[id]").map(function (i, e) { return !/sub/.test($(e).attr("id")); }).get() as any as boolean[],
-        //        nosupplier: $html.find(".list tr[id]").map(function (i, e) { return !$(e).find("[src='/img/smallX.gif']").length; }).get() as any as boolean[],
-        //        img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
-        //    }
+        $mapped[url] = $html.find(".inner_table").length ? {  //new interface
+            isProd: !$html.find(".sel").next().attr("class"),
+            parcel: $html.find(".quickchange").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            price_mark_up: [],
+            price_constraint_max: [],
+            price_constraint_type: [],
+            quality_constraint_min: [],
+            required: $html.find(".list td:nth-child(3).inner_table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            stock: $html.find(".list td:nth-child(4).inner_table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            basequality: $html.find(".list td:nth-child(4).inner_table tr:nth-child(2) td:nth-child(2)[align]").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            prodid: $html.find(".list tr:has([src='/img/supplier_add.gif']) > td:nth-child(1) a").map(
+                function (i, e) {
+                    let m = $(e).attr("href").match(/\d+/);
+                    return numberfy(m ? m[0] : "0");
+                }).get() as any as number[],
+            offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            price: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(2) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            quality: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(3) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            available: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(4) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            maximum: $html.find(".list td:has(.quicksave)").map(
+                function (i, e) {
+                    let m = $(e).find("[style='color: red;']").text().match(/(\d|\s)+/);
+                    return $(e).find("[style='color: red;']").length ? numberfy(m ? m[0] : "0") : Infinity;
+                }).get() as any as number[],
+            reprice: $html.find(".list tr[onmouseover] table:has(a) tr:nth-child(2)").map(function (i, e) { return !!$(e).filter(".ordered_red, .ordered_green").length; }).get() as any as boolean[],
+            mainrow: $html.find(".list tr[onmouseover]").map(function (i, e) { return !!$(e).find("[alt='Select supplier']").length; }).get() as any as boolean[],
+            nosupplier: $html.find(".list tr[onmouseover]").map(function (i, e) { return !$(e).find("[src='/img/smallX.gif']").length; }).get() as any as boolean[],
+            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
+        } : { //old interface
+                isProd: !$html.find(".sel").next().attr("class"),
+                parcel: $html.find("input[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                price_mark_up: $html.find("select[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                price_constraint_max: $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                price_constraint_type: $html.find("select[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get() as any as string[],
+                quality_constraint_min: $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                required: $html.find(".list td:nth-child(2) table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                stock: $html.find(".list td:nth-child(3) table tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                basequality: $html.find(".list td:nth-child(3) table tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                prodid: $html.find(".list a:has(img)[title]").map(
+                    function (i, e) {
+                        let m = $(e).attr("href").match(/\d+/);
+                        return numberfy(m ? m[0] : "0");
+                }).get() as any as number[],
+                offer: $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+                price: $html.find("[id^=totalPrice] tr:nth-child(1) td:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                quality: $html.find("[id^=totalPrice] tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                available: $html.find("[id^=quantity] tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+                maximum: $html.find(".list td:has([type=type])").map(
+                    function (i, e) {
+                        let m = $(e).find("[style='color:red']").text().match(/(\d|\s)+/);
+                        return $(e).find("[style='color:red']").length ? numberfy(m ? m[0] : "0") : Infinity;
+                    }).get() as any as number[],
+                reprice: $html.find("[id^=totalPrice] tr:nth-child(1)").map(function (i, e) { return !!$(e).filter("[style]").length; }).get() as any as boolean[],
+                mainrow: $html.find(".list tr[id]").map(function (i, e) { return !/sub/.test($(e).attr("id")); }).get() as any as boolean[],
+                nosupplier: $html.find(".list tr[id]").map(function (i, e) { return !$(e).find("[src='/img/smallX.gif']").length; }).get() as any as boolean[],
+                img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0]
+            }
     }
     else if (page === "consume") {
-        //mapped[url] = {
-        //    consump: zipAndMin(
-        //        $html.find(".list td:nth-last-child(1) div:nth-child(2)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get() as any as number[],
-        //        $html.find(".list td:nth-last-child(1) div:nth-child(1)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get() as any as number[]
-        //    ),
-        //    purch: $html.find('#mainContent > form > table.list > tbody > tr:last > td.nowrap').map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
-        //}
+        $mapped[url] = {
+            consump: zipAndMin(
+                $html.find(".list td:nth-last-child(1) div:nth-child(2)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get() as any as number[],
+                $html.find(".list td:nth-last-child(1) div:nth-child(1)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get() as any as number[]
+            ),
+            purch: $html.find('#mainContent > form > table.list > tbody > tr:last > td.nowrap').map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
     }
     else if (page === "storesupply") {
         //mapped[url] = {
@@ -257,38 +297,38 @@ function map(html: any, url: string, page: string): boolean {
         //}
     }
     else if (page === "tradehall") {
-        //mapped[url] = {
-        //    stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get() as any as number[],
-        //    report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
-        //    img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[],
-        //    quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    purch: $html.find("td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    price: $html.find(":text").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //    name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get() as any as string[],
-        //    share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    history: $html.find("a.popup").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[]
-        //}
+        $mapped[url] = {
+            stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get() as any as number[],
+            report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[],
+            quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            purch: $html.find("td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            price: $html.find(":text").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get() as any as string[],
+            share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            history: $html.find("a.popup").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[]
+        }
     }
     else if (page === "service") {
-        //mapped[url] = {
-        //    price: $html.find("a.popup[href$='service_history']").map(function (i, e) { return numberfy($(e).text().split('(')[0].trim()); }).get() as any as number[],
-        //    history: $html.find("a.popup[href$='service_history']").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
-        //    incineratorPrice: $html.find("a.popup[href$='power_history']").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+        $mapped[url] = {
+            price: $html.find("a.popup[href$='service_history']").map(function (i, e) { return numberfy($(e).text().split('(')[0].trim()); }).get() as any as number[],
+            history: $html.find("a.popup[href$='service_history']").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            incineratorPrice: $html.find("a.popup[href$='power_history']").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
 
-        //    //not used
-        //    stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get() as any as number[],
-        //    report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
-        //    img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[],
-        //    quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get() as any as string[],
-        //    share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
-        //}
+            //not used
+            stock: $html.find(".nowrap:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            deliver: $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get() as any as number[],
+            report: $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
+            img: $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[],
+            quality: $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            name: $html.find(":text").map(function (i, e) { return $(e).attr("name"); }).get() as any as string[],
+            share: $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityprice: $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            cityquality: $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
     }
     else if (page === "servicepricehistory") {
         //mapped[url] = {
@@ -297,13 +337,13 @@ function map(html: any, url: string, page: string): boolean {
         //}
     }
     else if (page === "retailreport") {
-        //mapped[url] = {
-        //    marketsize: numberfy($html.find("b:eq(1)").text()),
-        //    localprice: numberfy($html.find(".grid .even td:eq(0)").text()),
-        //    localquality: numberfy($html.find(".grid .odd td:eq(0)").text()),
-        //    cityprice: numberfy($html.find(".grid .even td:eq(1)").text()),
-        //    cityquality: numberfy($html.find(".grid .odd td:eq(1)").text())
-        //}
+        $mapped[url] = {
+            marketsize: numberfy($html.find("b:eq(1)").text()),
+            localprice: numberfy($html.find(".grid .even td:eq(0)").text()),
+            localquality: numberfy($html.find(".grid .odd td:eq(0)").text()),
+            cityprice: numberfy($html.find(".grid .even td:eq(1)").text()),
+            cityquality: numberfy($html.find(".grid .odd td:eq(1)").text())
+        }
     }
     else if (page === "pricehistory") {
         // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
@@ -314,66 +354,66 @@ function map(html: any, url: string, page: string): boolean {
         // причина по которой продаж не было пофиг. Не было товара, цена стояла 0 или стояла очень большая. Похер!
 
         // numberfy возвращает 0, если была пустота или неадекват. Поэтому у нас всегда будет 1 число в массиве.
-        //mapped[url] = {
-        //    quantity: $html.find(".list td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    price: $html.find(".list td:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
-        //}
+        $mapped[url] = {
+            quantity: $html.find(".list td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            price: $html.find(".list td:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
     }
     else if (page === "TM") {
-        //mapped[url] = {
-        //    product: $html.find(".grid td:odd").map(function (i, e) { return $(e).clone().children().remove().end().text().trim(); }).get() as any as string[],
-        //    franchise: $html.find(".grid b").map(function (i, e) { return $(e).text(); }).get() as any as string[]
-        //}
+        $mapped[url] = {
+            product: $html.find(".grid td:odd").map(function (i, e) { return $(e).clone().children().remove().end().text().trim(); }).get() as any as string[],
+            franchise: $html.find(".grid b").map(function (i, e) { return $(e).text(); }).get() as any as string[]
+        }
     }
     else if (page === "IP") {
-        //mapped[url] = {
-        //    product: $html.find(".list td:nth-child(5n-3)").map(function (i, e) { return $(e).text(); }).get() as any as string[],
-        //    IP: $html.find(".list td:nth-child(5n)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
-        //}
+        $mapped[url] = {
+            product: $html.find(".list td:nth-child(5n-3)").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            IP: $html.find(".list td:nth-child(5n)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
     }
     else if (page === "transport") {
-        //mapped[url] = {
-        //    countryName: $html.find("select:eq(0) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
-        //    countryId: $html.find("select:eq(0) option").map(function (i, e) { return numberfy($(e).val().split("/")[1]); }).get() as any as number[],
-        //    regionName: $html.find("select:eq(1) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
-        //    regionId: $html.find("select:eq(1) option").map(function (i, e) { return numberfy($(e).val().split("/")[2]); }).get() as any as number[],
-        //    cityName: $html.find("select:eq(2) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
-        //    cityId: $html.find("select:eq(2) option").map(function (i, e) { return numberfy($(e).val().split("/")[3]); }).get() as any as number[]
-        //}
+        $mapped[url] = {
+            countryName: $html.find("select:eq(0) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            countryId: $html.find("select:eq(0) option").map(function (i, e) { return numberfy($(e).val().split("/")[1]); }).get() as any as number[],
+            regionName: $html.find("select:eq(1) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            regionId: $html.find("select:eq(1) option").map(function (i, e) { return numberfy($(e).val().split("/")[2]); }).get() as any as number[],
+            cityName: $html.find("select:eq(2) option").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            cityId: $html.find("select:eq(2) option").map(function (i, e) { return numberfy($(e).val().split("/")[3]); }).get() as any as number[]
+        }
     }
     else if (page === "CTIE") {
-        //mapped[url] = {
-        //    product: $html.find(".list td:nth-child(3n-1)").map(function (i, e) { return $(e).text(); }).get() as any as string[],
-        //    profitTax: numberfy($html.find(".region_data td:eq(3)").text()),
-        //    CTIE: $html.find(".list td:nth-child(3n)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
-        //}
+        $mapped[url] = {
+            product: $html.find(".list td:nth-child(3n-1)").map(function (i, e) { return $(e).text(); }).get() as any as string[],
+            profitTax: numberfy($html.find(".region_data td:eq(3)").text()),
+            CTIE: $html.find(".list td:nth-child(3n)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[]
+        }
     }
     else if (page === "main") {
-        //mapped[url] = {
-        //    employees: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(0) td:eq(1)").text()),
-        //    salaryNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(2) td:eq(1)").text()),
-        //    salaryCity: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(3) td:eq(1)").text()),
-        //    skillNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(4) td:eq(1)").text()),
-        //    skillReq: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(5) td:eq(1)").text()),
-        //    equipNum: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(0) td:eq(1)").text()),
-        //    equipMax: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(1) td:eq(1)").text()),
-        //    equipQual: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(2) td:eq(1)").text()),
-        //    equipReq: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(3) td:eq(1)").text()),
-        //    equipWearBlack: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1)").text().split("(")[1]),
-        //    equipWearRed: $html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1) span").length === 1,
-        //    managerPic: $html.find(".unit_box:has(.fa-user) ul img").attr("src"),
-        //    qual: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(1) td:eq(1)").text()),
-        //    techLevel: numberfy($html.find(".unit_box:has(.fa-industry) tr:eq(3) td:eq(1)").text()),
-        //    maxEmployees: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(2) td:eq(1)").text()),
-        //    img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0],
-        //    size: numberfy($html.find("#unitImage img").attr("src").split("_")[1]),
-        //    hasBooster: !$html.find("[src='/img/artefact/icons/color/production.gif']").length,
-        //    hasAgitation: !$html.find("[src='/img/artefact/icons/color/politics.gif']").length,
-        //    onHoliday: !!$html.find("[href$=unset]").length,
-        //    isStore: !!$html.find("[href$=trading_hall]").length,
-        //    departments: numberfy($html.find("tr:contains('Number of departments') td:eq(1)").text()),
-        //    visitors: numberfy($html.find("tr:contains('Number of visitors') td:eq(1)").text())
-        //}
+        $mapped[url] = {
+            employees: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(0) td:eq(1)").text()),
+            salaryNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(2) td:eq(1)").text()),
+            salaryCity: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(3) td:eq(1)").text()),
+            skillNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(4) td:eq(1)").text()),
+            skillReq: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(5) td:eq(1)").text()),
+            equipNum: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(0) td:eq(1)").text()),
+            equipMax: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(1) td:eq(1)").text()),
+            equipQual: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(2) td:eq(1)").text()),
+            equipReq: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(3) td:eq(1)").text()),
+            equipWearBlack: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1)").text().split("(")[1]),
+            equipWearRed: $html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1) span").length === 1,
+            managerPic: $html.find(".unit_box:has(.fa-user) ul img").attr("src"),
+            qual: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(1) td:eq(1)").text()),
+            techLevel: numberfy($html.find(".unit_box:has(.fa-industry) tr:eq(3) td:eq(1)").text()),
+            maxEmployees: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(2) td:eq(1)").text()),
+            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0],
+            size: numberfy($html.find("#unitImage img").attr("src").split("_")[1]),
+            hasBooster: !$html.find("[src='/img/artefact/icons/color/production.gif']").length,
+            hasAgitation: !$html.find("[src='/img/artefact/icons/color/politics.gif']").length,
+            onHoliday: !!$html.find("[href$=unset]").length,
+            isStore: !!$html.find("[href$=trading_hall]").length,
+            departments: numberfy($html.find("tr:contains('Number of departments') td:eq(1)").text()),
+            visitors: numberfy($html.find("tr:contains('Number of visitors') td:eq(1)").text())
+        }
     }
     else if (page === "salary") {
         $mapped[url] = {
@@ -486,40 +526,44 @@ function map(html: any, url: string, page: string): boolean {
         //}
     }
     else if (page === "research") {
-        //mapped[url] = {
-        //    isFree: !$html.find(".cancel").length,
-        //    isHypothesis: !!$html.find("#selectIt").length,
-        //    isBusy: !!numberfy($html.find(".grid .progress_static_bar").text()),
-        //    hypId: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-        //    curIndex: $html.find("tr:has([src='/img/v.gif'])").index() - 1,
-        //    chance: $html.find(".grid td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    time: $html.find(".grid td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-        //    isAbsent: !!$html.find("b[style='color: red']").length,
-        //    isFactory: !!$html.find("span[style='COLOR: red']").length,
-        //    unittype: $html.find(":button:eq(2)").attr("onclick") && numberfy($html.find(":button:eq(2)").attr("onclick").split(",")[1]),
-        //    industry: $html.find(":button:eq(2)").attr("onclick") && numberfy($html.find(":button:eq(2)").attr("onclick").split("(")[1]),
-        //    level: numberfy($html.find(".list tr td[style]:eq(0)").text())
-        //}
+        $mapped[url] = {
+            isFree: !$html.find(".cancel").length,
+            isHypothesis: !!$html.find("#selectIt").length,
+            isBusy: !!numberfy($html.find(".grid .progress_static_bar").text()),
+            hypId: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
+            curIndex: $html.find("tr:has([src='/img/v.gif'])").index() - 1,
+            chance: $html.find(".grid td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            time: $html.find(".grid td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            isAbsent: !!$html.find("b[style='color: red']").length,
+            isFactory: !!$html.find("span[style='COLOR: red']").length,
+            unittype: $html.find(":button:eq(2)").attr("onclick") ? numberfy($html.find(":button:eq(2)").attr("onclick").split(",")[1]) : 0,
+            industry: $html.find(":button:eq(2)").attr("onclick") ? numberfy($html.find(":button:eq(2)").attr("onclick").split("(")[1]) : 0,
+            level: numberfy($html.find(".list tr td[style]:eq(0)").text())
+        }
     }
     else if (page === "experimentalunit") {
-        //mapped[url] = {
-        //    id: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[]
-        //}
+        $mapped[url] = {
+            id: $html.find(":radio").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[]
+        }
     }
     else if (page === "productreport") {
-        //mapped[url] = {
-        //    //max: $html.find(".grid td.nowrap:nth-child(2)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get(),
-        //    //total: $html.find(".grid td.nowrap:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    //available: $html.find(".grid td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    //quality: $html.find(".grid td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    //price: $html.find(".grid td.nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-        //    //subid: $html.find(".grid td:nth-child(1) td:nth-child(1) a").map(function (i, e) { return numberfy($(e).attr("href").match(/\d+/)[0]); }).get()
-        //}
+        $mapped[url] = {
+            max: $html.find(".grid td.nowrap:nth-child(2)").map(function (i, e) { return numberfy($(e).text().split(":")[1]); }).get() as any as number[],
+            total: $html.find(".grid td.nowrap:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            available: $html.find(".grid td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            quality: $html.find(".grid td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            price: $html.find(".grid td.nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
+            subid: $html.find(".grid td:nth-child(1) td:nth-child(1) a").map(
+                function (i, e) {
+                    let m = $(e).attr("href").match(/\d+/);
+                    return numberfy(m ? m[0] : "0");
+                }).get() as any as number[]
+        }
     }
     else if (page === "financeitem") {
-        //mapped[url] = {
-        //    energy: numberfy($html.find(".list tr:has(span[style]) td:eq(1)").text())
-        //}
+        $mapped[url] = {
+            energy: numberfy($html.find(".list tr:has(span[style]) td:eq(1)").text())
+        }
     }
     else if (page === "size") {
         //mapped[url] = {
@@ -554,7 +598,7 @@ function map(html: any, url: string, page: string): boolean {
             salaryCity: $html.find(".list td:nth-child(8)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
             skillWrk: $html.find(".list td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
             skillCity: $html.find(".list td:nth-child(10)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            onHoliday: $html.find(".list td:nth-child(11)").map(function (i, e) { return !!$(e).find(".in-holiday").length; }).get() as any as boolean,
+            onHoliday: $html.find(".list td:nth-child(11)").map(function (i, e) { return !!$(e).find(".in-holiday").length; }).get() as any as boolean[],
             efficiency: $html.find(".list td:nth-child(11)").map(function (i, e) { return $(e).text().trim(); }).get() as any as string[]
         };
     }
@@ -1164,7 +1208,7 @@ function XioHoliday() {
     function phase() {
         xGet(url, "employees", false, function () {
             logDebug("XioHoliday: ", $mapped);
-            let employees = $mapped[url] as IEmploees;
+            let employees = $mapped[url] as IEmployees;
             // TODO: общую ффункцию запилить для парсинга и везде вставить!
             let subids = $(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
             var $tds = $(".unit-list-2014 tr:gt(0) td:nth-child(2)");
