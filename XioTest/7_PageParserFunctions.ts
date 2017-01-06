@@ -241,8 +241,8 @@ function parseAds(html: any, url: string): IAds {
         // ["не менее ©110.25  в неделю для ТВ-рекламы"] здесь может быть и $110.25
         // данный бюжет тоже может быть 0 если известность 0
         let _requiredBudget = numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split(/[$©]/g)[1]);
-        if (_celebrity > 0 && _requiredBudget === 0)
-            throw new Error("required budget can't be 0 for celebrity" + _celebrity);
+        //if (_celebrity > 0 && _requiredBudget === 0)  такое может быть при хреновой известности
+        //    throw new Error("required budget can't be 0 for celebrity" + _celebrity);
 
         return {
             celebrity: _celebrity,
