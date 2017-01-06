@@ -878,6 +878,9 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
 
     logDebug("mapped: ", $mapped);
 
+    // если нам надо отработать 1 юнит, нах грузить все юниты ниже по коду???
+    let oneUnit = subids && subids.length === 1;
+
     if (!subids || subids.length === 0)
         subids = parseAllSavedSubid($realm);
 
@@ -926,19 +929,22 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
     // вообще без понятия что это за херня, но походу парсит главную страницу юнитов.
     // походу убираем фильтры по типам, ставим 20000 страниц и тока потом чето парсим
     // TODO: зачем парсим все если работаем чисто с юнита???? Мне сложно понять
-    urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
-    let filtersetting = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
-    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/20000", "none", false, function () {
-        xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/type=0", "none", false, function () {
-            xGet(urlUnitlist, "unitlist", false, function () {
-                xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
-                    xGet(filtersetting, "none", false, function () {
-                        further(($mapped[urlUnitlist] as IUnitList).subids);
+    if (!oneUnit) {
+        urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
+        let filtersetting = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
+        xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/20000", "none", false, function () {
+            xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/type=0", "none", false, function () {
+                xGet(urlUnitlist, "unitlist", false, function () {
+                    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
+                        xGet(filtersetting, "none", false, function () {
+                            further(($mapped[urlUnitlist] as IUnitList).subids);
+                        });
                     });
                 });
-            });
-        })
-    });
+            })
+        });
+    } else
+        further(subids);
 
     function further(realsubids: number[]) {
 
