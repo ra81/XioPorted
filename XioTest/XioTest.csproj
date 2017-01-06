@@ -41,7 +41,7 @@
     <TypeScriptCompile Include="5_CalcFunctions.ts" />
     <TypeScriptCompile Include="6_PolicyFunctions.ts" />
     <TypeScriptCompile Include="7_PageParserFunctions.ts" />
-    <TypeScriptCompile Include="Exceptions.ts" />
+    <TypeScriptCompile Include="8_Exceptions.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
     <TypeScriptCompile Include="Shops.ts" />
   </ItemGroup>
