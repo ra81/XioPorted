@@ -83,6 +83,7 @@ interface ITopManager {
 }
 
 interface IAds {
+    celebrity: number;
     pop: number;
     budget: number;
     requiredBudget: number;
@@ -201,9 +202,7 @@ interface ISale {
     productId: number[];
     region: string;
     contractpage: boolean;
-    // TODO: проверить это поле
-    // ["Мука", "$0.78", "$0.78"]
-    contractprice: [string, number, number];
+    contractprice: string|number[];
 }
 
 interface IAjax {
@@ -276,11 +275,9 @@ interface ICtie {
     CTIE: number[];
 }
 
-// TODO: проверить ВСЕ поля.
 interface ISaleContract {
     category: string[];
-    // ["Мука", "$0.78", "$0.78"]
-    contractprice: [string, number, number];
+    contractprice: string|number[];
 }
 
 interface IProductReport {

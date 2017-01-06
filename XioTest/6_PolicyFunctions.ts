@@ -6,30 +6,46 @@ function advertisement(policyName: string, subid: number, choices: number[]) {
     let url = "/" + $realm + "/main/unit/view/" + subid + "/virtasement";
     let urlFame = "/" + $realm + "/ajax/unit/virtasement/" + subid + "/fame";
     let urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
+    //["-", "Zero", "Min TV", "Max", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Req"]
 
-    let pccost = 0;
+    let pccost = 0;     // цена 1 контакта
     let getcount = 0;
+
+    // ["Max", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50"]
     if (choices[0] >= 3 && choices[0] <= 9) {
         getcount++;
-        xGet(urlManager, "manager", false, function () {
-            !--getcount && post();
-        });
+        xGet(urlManager, "manager", false, () => !--getcount && post());
     }
 
+    // ["Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50"]
     if (choices[0] >= 4 && choices[0] <= 9) {
         getcount++;
-        xPost(urlFame, "moneyCost=0&type%5B0%5D=2264", function (data) {
+        // чтобы послать запрос используем moneyCost=20000&type%5B0%5D=2260
+        // подаем сумму и ID рекламы. Если сумма 0, то вернет по минимальной цене инфу.
+        // Интернет = 2260, Печать, Наружка, Радио, Тв = 2264. Можно запросить любые данные ответ приходит такой
+        /*
+        contactCost: "2.07253886010363" - цена контакта
+        contactCount: "965"             - число контактов за данную сумму.
+        minCost: "2000"                 - минималка для данного вида рекламы
+        population: "2258018"           - население города общее
+        productivity: "1"               - эффективность рекламы
+        totalCost: "2000"               - конечная стоимость рекламы. Обычно или минималка или то что мы послали
+        */
+        // TODO: как сказала djerri рекламу держать все время нехорошо. Надо ее снимать и ставить минималку на поддержание
+        // принцип 2 дня реклмы, и 3 дня поддержание и все. 
+        xPost(urlFame, "moneyCost=0&type%5B0%5D=2264", (data) => {
             pccost = numberfy(JSON.parse(data).contactCost);
             !--getcount && post();
         });
     }
 
+    //["Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Req"]
     if (choices[0] >= 4) {
         getcount++;
-        xGet(url, "ads", false,
-            () => !--getcount && post());
+        xGet(url, "ads", false, () => !--getcount && post());
     }
 
+    //["-", "Zero", "Min TV"]
     if (choices[0] <= 2)
         post();
 
@@ -37,44 +53,57 @@ function advertisement(policyName: string, subid: number, choices: number[]) {
     function post() {
         $("[id='x" + "Ads" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
 
-        var data = "";
-        var budget = 0;
-        let top = $mapped[urlManager] as ITopManager;
-        let ads = $mapped[url] as IAds;
+        let _ads = $mapped[url] as IAds;
 
-        if (choices[0] === 1) {
-            data = "cancel=Stop+advertising";
-        }
-        else if (choices[0] === 2) {
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=0";
-        }
-        else if (choices[0] === 3) {
-            var managerIndex = top.pic.indexOf("/img/qualification/advert.png");
-            var manager = top.base[managerIndex] + top.bonus[managerIndex];
-            budget = 200010 * Math.pow(manager, 1.4);
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
-        }
-        else if (choices[0] >= 4 && choices[0] <= 9) {
-            var managerIndex = top.pic.indexOf("/img/qualification/advert.png");
-            var manager = top.base[managerIndex] + top.bonus[managerIndex];
-            var multiplier = [1, 2, 5, 10, 20, 50];
-            budget = Math.round(ads.pop * pccost * multiplier[choices[0] - 4]);
-            var maxbudget = Math.floor(200010 * Math.pow(manager, 1.4));
-            budget = Math.min(budget, maxbudget);
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
-        }
-        else if (choices[0] === 10) {
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + ads.requiredBudget;
+        let data = "";
+        let budget = 0;
+        switch (choices[0]) {
+            case 1: // Zero
+                data = "cancel=Stop+advertising";
+                break;
+
+            case 2: // Min TV
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=0";
+                break;
+
+            case 3: // Max
+                var _top = $mapped[urlManager] as ITopManager;
+                var qualIndex = _top.pic.indexOf(subType["advertisement"][2]);
+                var topQual = _top.base[qualIndex] + _top.bonus[qualIndex];
+
+                budget = 200010 * Math.pow(topQual, 1.4);
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
+                break;
+
+            case 4: // "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50"
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+            case 9:
+                var _top = $mapped[urlManager] as ITopManager;
+                var qualIndex = _top.pic.indexOf(subType["advertisement"][2]);
+                var topQual = _top.base[qualIndex] + _top.bonus[qualIndex];
+
+                let multiplier = [1, 2, 5, 10, 20, 50];
+                budget = Math.round(_ads.pop * pccost * multiplier[choices[0] - 4]);
+                let maxbudget = Math.floor(200010 * Math.pow(topQual, 1.4));
+                budget = Math.min(budget, maxbudget);
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
+                break;
+                // TODO: если например требуемый бюджет 0, тупит и ставит минималку по ТВ. 
+            case 10: // "Req"
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + _ads.requiredBudget;
         }
 
-        if (choices[0] <= 3 || budget !== ads.budget)
+        // ставим рекламу
+        if (choices[0] <= 3 || budget !== _ads.budget)
             xPost(url, data, () => xTypeDone(policyName));
         else
             xTypeDone(policyName);
     }
 }
 
-// TODO: доделать
 function equipment(policyName: string, subid: number, choices: number[]) {
 
     var url = "/" + $realm + "/window/unit/equipment/" + subid;
@@ -1692,27 +1721,22 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
     var urlCTIE = "/" + $realm + "/main/geo/regionENVD/359838";
     var urlTrans = "/" + $realm + "/main/common/main_page/game_info/transport";
     let urlReport:string[] = [];
+    // ["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"]
 
     var getcount = 1;
-    xGet(url, "sale", false, function () {
-        !--getcount && phase();
-    });
+    xGet(url, "sale", false, () => !--getcount && phase());
 
+    // ["Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"]
     if (choices[0] >= 3) {
         getcount = getcount + 2;
-        xGet(urlTM, "TM", false, function () {
-            !--getcount && phase();
-        });
-        xGet(urlIP, "IP", false, function () {
-            !--getcount && phase();
-        });
+        xGet(urlTM, "TM", false, () => !--getcount && phase());
+        xGet(urlIP, "IP", false, () => !--getcount && phase());
     }
 
+    // ["CTIE", "Profit Tax"]
     if (choices[0] === 4 || choices[0] === 5) {
         getcount++;
-        xGet(urlTrans, "transport", false, function () {
-            !--getcount && phase();
-        });
+        xGet(urlTrans, "transport", false, () => !--getcount && phase());
     }
 
     function phase() {
@@ -1751,17 +1775,18 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 });
             }
 
+            // если есть страница с контрактами, надо ее грузануть иначе все данные на главной sale странице
             if (_sale.contractpage) {
                 getcount++;
                 xGet(urlContract, "salecontract", false, function () {
                     let _saleContract = $mapped[urlContract] as ISaleContract;
+
+                    // загружаем контракты по каждому товару
                     getcount += _saleContract.category.length;
-                    for (var i = 0; i < _saleContract.category.length; i++) {
-                        xGet(_saleContract.category[i], "salecontract", false, function () {
-                            !--getcount && post();
-                        });
-                    }
-                    !--getcount && post();
+                    for (var i = 0; i < _saleContract.category.length; i++)
+                        xGet(_saleContract.category[i], "salecontract", false, () => !--getcount && post());
+
+                    !--getcount && post()
                 });
             }
 
@@ -1867,7 +1892,7 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 var highprice = 0;
                 // TODO: тут могут быть косяки! возможно будет криво считать цены закупщиков и не будет работать. проверять.
                 if (_sale.contractpage && _saleContract.category.length) {
-                    let _contract: ISaleContract = { contractprice:["", 0,0], category:[]};
+                    let _contract: ISaleContract = { contractprice:[], category:[]};
                     for (var j = 0; j < _saleContract.category.length; j++) {
                         _contract = $mapped[_saleContract.category[j]] as ISaleContract;
                         if (_contract.contractprice[0] === _sale.product[i]) {

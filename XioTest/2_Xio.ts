@@ -48,7 +48,8 @@ let subType: IDictionary<[number, number, string]> = {
     service_light: [0.12, 0.12, "/img/qualification/service.png"],
     office: [0.08, 0.08, "/img/qualification/management.png"],
     it: [0.08, 0.08, "/img/qualification/it.png"],
-    educational: [0.12, 0.12, "/img/qualification/educational.png"]
+    educational: [0.12, 0.12, "/img/qualification/educational.png"],
+    advertisement: [0, 0, "/img/qualification/advert.png"]      // таких рабов нет по факту, но есть ссыль на картинку в одном месте
 };
 
 
@@ -184,32 +185,10 @@ function map(html: any, url: string, page: string): boolean {
         $mapped[url] = parseUnitList(html, url);
     }
     else if (page === "sale") {
-        $mapped[url] = {
-            form: $html.find("[name=storageForm]"),
-            policy: $html.find("select:even").map(function (i, e) { return $(e).find("[selected]").index(); }).get() as any as number[],
-            price: $html.find("input.money:even").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[],
-            incineratorMaxPrice: $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            outqual: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            outprime: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            stockqual: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            stockprime: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            product: $html.find(".grid a:not([onclick])").map(function (i, e) { return $(e).text(); }).get() as any as string[],
-            productId: $html.find(".grid a:not([onclick])").map(
-                function (i, e) {
-                    let m = $(e).attr("href").match(/\d+/);
-                    return numberfy(m  ? m[0]: "0");
-                }).get() as any as number[],
-            region: $html.find(".officePlace a:eq(-2)").text(),
-            contractpage: !!$html.find(".tabsub").length,
-            // ["Мука", "$0.78", "$0.78"] вот такая хуйня выпадает.
-            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) }) as any as [string, number, number]
-        }
+        $mapped[url] = parseSale(html, url);
     }
     else if (page === "salecontract") {
-        $mapped[url] = {
-            category: $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[],
-            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) }) as any as [string, number, number]
-        }
+        $mapped[url] = parseSaleContracts(html, url);
     }
     else if (page === "prodsupply") {
         $mapped[url] = $html.find(".inner_table").length ? {  //new interface
@@ -606,14 +585,7 @@ function map(html: any, url: string, page: string): boolean {
         }
     }
     else if (page === "ads") {
-        $mapped[url] = {
-            pop: (() => {
-                let m = $html.find("script").text().match(/params\['population'\] = \d+/);
-                return numberfy(m == null ? "0" : m[0].substring(23));
-            })(),
-            budget: numberfy($html.find(":text:not([readonly])").val()),
-            requiredBudget: numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split("$")[1])
-        }
+        $mapped[url] = parseAds(html, url);
     }
     else if (page === "employees") {
         $mapped[url] = {
@@ -953,6 +925,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
 
     // вообще без понятия что это за херня, но походу парсит главную страницу юнитов.
     // походу убираем фильтры по типам, ставим 20000 страниц и тока потом чето парсим
+    // TODO: зачем парсим все если работаем чисто с юнита???? Мне сложно понять
     urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
     let filtersetting = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
     xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/20000", "none", false, function () {

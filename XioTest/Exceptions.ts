@@ -20,11 +20,11 @@ class ParseError extends Error {
     constructor(dataName: string, url?: string, innerError?: Error) {
         let msg = `Error parsing ${dataName}`;
         if (url)
-            msg += `from $(url)`;
-
+            msg += `from ${url}`;
+        // TODO: как то плохо работает. не выводит нихрена сообщений.
         msg += ".";
         if (innerError)
-            msg += innerError.message + ".";
+            msg += "\n" + innerError.message + ".";
 
         super(msg);
     }

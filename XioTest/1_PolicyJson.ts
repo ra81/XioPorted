@@ -145,7 +145,7 @@ let policyJSON: IDictionary<IPolicy> = {
         group: "Supply",
         wait: ["supplyProd", "supplyRetail"]
     },
-    ad: {
+    ad: { // если менять Pop значения то надо обязательно лезть в функцию ибо там захардкодены коэффициенты
         func: advertisement,
         save: [["-", "Zero", "Min TV", "Max", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Req"]],
         order: [["-", "Zero", "Min TV", "Req", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Max"]],
