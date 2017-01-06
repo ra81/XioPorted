@@ -1,5 +1,5 @@
 ﻿// ==UserScript==
-// @name           XioScript
+// @name           XioScriptPorted
 // @namespace      https://github.com/XiozZe/XioScript
 // @description    XioScript with XioMaintenance
 // @version        12.1.1

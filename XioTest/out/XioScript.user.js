@@ -1,5 +1,10 @@
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
 // ==UserScript==
-// @name           XioScript
+// @name           XioScriptPorted
 // @namespace      https://github.com/XiozZe/XioScript
 // @description    XioScript with XioMaintenance
 // @version        12.1.1
@@ -279,7 +284,8 @@ var subType = {
     service_light: [0.12, 0.12, "/img/qualification/service.png"],
     office: [0.08, 0.08, "/img/qualification/management.png"],
     it: [0.08, 0.08, "/img/qualification/it.png"],
-    educational: [0.12, 0.12, "/img/qualification/educational.png"]
+    educational: [0.12, 0.12, "/img/qualification/educational.png"],
+    advertisement: [0, 0, "/img/qualification/advert.png"] // таких рабов нет по факту, но есть ссыль на картинку в одном месте
 };
 function getRealm() {
     var r = xpCookie('last_realm');
@@ -304,6 +310,10 @@ function logDebug(msg) {
     else
         console.log(msg, args);
 }
+/**
+ * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
+ * @param variable любая строка.
+ */
 function numberfy(variable) {
     // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
     if (String(variable) === 'Не огр.' ||
@@ -391,37 +401,13 @@ function map(html, url, page) {
     // TODO: запилить классы для каждого типа страницы. чтобы потом можно было с этим типизированно воркать
     var $html = $(html);
     if (page === "unitlist") {
-        $mapped[url] = {
-            subids: $html.find(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            type: $html.find(".unit-list-2014 td:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[1]; }).get()
-        };
+        $mapped[url] = parseUnitList(html, url);
     }
     else if (page === "sale") {
-        $mapped[url] = {
-            form: $html.find("[name=storageForm]"),
-            policy: $html.find("select:even").map(function (i, e) { return $(e).find("[selected]").index(); }).get(),
-            price: $html.find("input.money:even").map(function (i, e) { return numberfy($(e).val()); }).get(),
-            incineratorMaxPrice: $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfy($(e).text()); }).get(),
-            outqual: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            outprime: $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            stockqual: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            stockprime: $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            product: $html.find(".grid a:not([onclick])").map(function (i, e) { return $(e).text(); }).get(),
-            productId: $html.find(".grid a:not([onclick])").map(function (i, e) {
-                var m = $(e).attr("href").match(/\d+/);
-                return numberfy(m ? m[0] : "0");
-            }).get(),
-            region: $html.find(".officePlace a:eq(-2)").text(),
-            contractpage: !!$html.find(".tabsub").length,
-            // ["Мука", "$0.78", "$0.78"] вот такая хуйня выпадает.
-            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e); })
-        };
+        $mapped[url] = parseSale(html, url);
     }
     else if (page === "salecontract") {
-        $mapped[url] = {
-            category: $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get(),
-            contractprice: ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e); })
-        };
+        $mapped[url] = parseSaleContracts(html, url);
     }
     else if (page === "prodsupply") {
         $mapped[url] = $html.find(".inner_table").length ? {
@@ -794,14 +780,7 @@ function map(html, url, page) {
         };
     }
     else if (page === "ads") {
-        $mapped[url] = {
-            pop: (function () {
-                var m = $html.find("script").text().match(/params\['population'\] = \d+/);
-                return numberfy(m == null ? "0" : m[0].substring(23));
-            })(),
-            budget: numberfy($html.find(":text:not([readonly])").val()),
-            requiredBudget: numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split("$")[1])
-        };
+        $mapped[url] = parseAds(html, url);
     }
     else if (page === "employees") {
         $mapped[url] = {
@@ -1090,6 +1069,7 @@ function XioMaintenance(subids, policyGroups) {
     $("div.metro_header").append(tablestring);
     // вообще без понятия что это за херня, но походу парсит главную страницу юнитов.
     // походу убираем фильтры по типам, ставим 20000 страниц и тока потом чето парсим
+    // TODO: зачем парсим все если работаем чисто с юнита???? Мне сложно понять
     urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
     var filtersetting = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
     xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/20000", "none", false, function () {
@@ -1929,31 +1909,6 @@ function setOptions(container, options, showMode, policy) {
     for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++)
         $selects.filter("[option-number=" + optionNumber + "]").val(Math.max(showChoices[optionNumber], 0));
 }
-// в будущем будут фильтры, эта шняга понадобится. да и пусть будет централизованно
-function parseSubid(trList) {
-    var rows = $(trList);
-    return rows.find("td.unit_id").map(function (i, e) { return numberfy($(e).text()); }).get();
-}
-// берет локальное хранилище и тащит оттуда все записи по юнитам. выделяет subid
-function parseAllSavedSubid(realm) {
-    if (!realm || realm.length === 0)
-        throw new Error("realm должен быть задан.");
-    var subids = [];
-    var rx = new RegExp("x" + realm + "\\d+");
-    for (var key in localStorage) {
-        if (!rx.test(key))
-            continue;
-        var m = key.match(/\d+/);
-        if (m != null)
-            subids.push(numberfy(m[0]));
-    }
-    return subids;
-}
-// парсит id компании со страницы
-function getCompanyId() {
-    var m = $(".dashboard a").attr("href").match(/\d+/);
-    return numberfy(m == null ? "0" : m[0]);
-}
 //
 // Сюда совать все функции для расчета чего либо. Чисто математика. Которая не лезет никуда в глобал и на страницу
 //
@@ -2014,64 +1969,88 @@ function advertisement(policyName, subid, choices) {
     var url = "/" + $realm + "/main/unit/view/" + subid + "/virtasement";
     var urlFame = "/" + $realm + "/ajax/unit/virtasement/" + subid + "/fame";
     var urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
-    var pccost = 0;
+    //["-", "Zero", "Min TV", "Max", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Req"]
+    var pccost = 0; // цена 1 контакта
     var getcount = 0;
+    // ["Max", "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50"]
     if (choices[0] >= 3 && choices[0] <= 9) {
         getcount++;
-        xGet(urlManager, "manager", false, function () {
-            !--getcount && post();
-        });
+        xGet(urlManager, "manager", false, function () { return !--getcount && post(); });
     }
+    // ["Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50"]
     if (choices[0] >= 4 && choices[0] <= 9) {
         getcount++;
+        // чтобы послать запрос используем moneyCost=20000&type%5B0%5D=2260
+        // подаем сумму и ID рекламы. Если сумма 0, то вернет по минимальной цене инфу.
+        // Интернет = 2260, Печать, Наружка, Радио, Тв = 2264. Можно запросить любые данные ответ приходит такой
+        /*
+        contactCost: "2.07253886010363" - цена контакта
+        contactCount: "965"             - число контактов за данную сумму.
+        minCost: "2000"                 - минималка для данного вида рекламы
+        population: "2258018"           - население города общее
+        productivity: "1"               - эффективность рекламы
+        totalCost: "2000"               - конечная стоимость рекламы. Обычно или минималка или то что мы послали
+        */
+        // TODO: как сказала djerri рекламу держать все время нехорошо. Надо ее снимать и ставить минималку на поддержание
+        // принцип 2 дня реклмы, и 3 дня поддержание и все. 
         xPost(urlFame, "moneyCost=0&type%5B0%5D=2264", function (data) {
             pccost = numberfy(JSON.parse(data).contactCost);
             !--getcount && post();
         });
     }
+    //["Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50", "Req"]
     if (choices[0] >= 4) {
         getcount++;
         xGet(url, "ads", false, function () { return !--getcount && post(); });
     }
+    //["-", "Zero", "Min TV"]
     if (choices[0] <= 2)
         post();
     function post() {
         $("[id='x" + "Ads" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+        var _ads = $mapped[url];
         var data = "";
         var budget = 0;
-        var top = $mapped[urlManager];
-        var ads = $mapped[url];
-        if (choices[0] === 1) {
-            data = "cancel=Stop+advertising";
+        switch (choices[0]) {
+            case 1:
+                data = "cancel=Stop+advertising";
+                break;
+            case 2:
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=0";
+                break;
+            case 3:
+                var _top = $mapped[urlManager];
+                var qualIndex = _top.pic.indexOf(subType["advertisement"][2]);
+                var topQual = _top.base[qualIndex] + _top.bonus[qualIndex];
+                budget = 200010 * Math.pow(topQual, 1.4);
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
+                break;
+            case 4: // "Pop1", "Pop2", "Pop5", "Pop10", "Pop20", "Pop50"
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+            case 9:
+                var _top = $mapped[urlManager];
+                var qualIndex = _top.pic.indexOf(subType["advertisement"][2]);
+                var topQual = _top.base[qualIndex] + _top.bonus[qualIndex];
+                var multiplier = [1, 2, 5, 10, 20, 50];
+                budget = Math.round(_ads.pop * pccost * multiplier[choices[0] - 4]);
+                var maxbudget = Math.floor(200010 * Math.pow(topQual, 1.4));
+                budget = Math.min(budget, maxbudget);
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
+                break;
+            // TODO: если например требуемый бюджет 0, тупит и ставит минималку по ТВ. 
+            case 10:
+                data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + _ads.requiredBudget;
         }
-        else if (choices[0] === 2) {
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=0";
-        }
-        else if (choices[0] === 3) {
-            var managerIndex = top.pic.indexOf("/img/qualification/advert.png");
-            var manager = top.base[managerIndex] + top.bonus[managerIndex];
-            budget = 200010 * Math.pow(manager, 1.4);
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
-        }
-        else if (choices[0] >= 4 && choices[0] <= 9) {
-            var managerIndex = top.pic.indexOf("/img/qualification/advert.png");
-            var manager = top.base[managerIndex] + top.bonus[managerIndex];
-            var multiplier = [1, 2, 5, 10, 20, 50];
-            budget = Math.round(ads.pop * pccost * multiplier[choices[0] - 4]);
-            var maxbudget = Math.floor(200010 * Math.pow(manager, 1.4));
-            budget = Math.min(budget, maxbudget);
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + budget;
-        }
-        else if (choices[0] === 10) {
-            data = "advertData%5Btype%5D%5B%5D=2264&advertData%5BtotalCost%5D=" + ads.requiredBudget;
-        }
-        if (choices[0] <= 3 || budget !== ads.budget)
+        // ставим рекламу
+        if (choices[0] <= 3 || budget !== _ads.budget)
             xPost(url, data, function () { return xTypeDone(policyName); });
         else
             xTypeDone(policyName);
     }
 }
-// TODO: доделать
 function equipment(policyName, subid, choices) {
     var url = "/" + $realm + "/window/unit/equipment/" + subid;
     var urlMain = "/" + $realm + "/main/unit/view/" + subid;
@@ -3433,24 +3412,19 @@ function salePrice(policyName, subid, choices) {
     var urlCTIE = "/" + $realm + "/main/geo/regionENVD/359838";
     var urlTrans = "/" + $realm + "/main/common/main_page/game_info/transport";
     var urlReport = [];
+    // ["-", "Zero", "$0.01", "Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"]
     var getcount = 1;
-    xGet(url, "sale", false, function () {
-        !--getcount && phase();
-    });
+    xGet(url, "sale", false, function () { return !--getcount && phase(); });
+    // ["Prime Cost", "CTIE", "Profit Tax", "1x IP", "30x IP", "PQR"]
     if (choices[0] >= 3) {
         getcount = getcount + 2;
-        xGet(urlTM, "TM", false, function () {
-            !--getcount && phase();
-        });
-        xGet(urlIP, "IP", false, function () {
-            !--getcount && phase();
-        });
+        xGet(urlTM, "TM", false, function () { return !--getcount && phase(); });
+        xGet(urlIP, "IP", false, function () { return !--getcount && phase(); });
     }
+    // ["CTIE", "Profit Tax"]
     if (choices[0] === 4 || choices[0] === 5) {
         getcount++;
-        xGet(urlTrans, "transport", false, function () {
-            !--getcount && phase();
-        });
+        xGet(urlTrans, "transport", false, function () { return !--getcount && phase(); });
     }
     function phase() {
         $("[id='x" + "Price" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
@@ -3482,16 +3456,15 @@ function salePrice(policyName, subid, choices) {
                     !--getcount && post();
                 });
             }
+            // если есть страница с контрактами, надо ее грузануть иначе все данные на главной sale странице
             if (_sale.contractpage) {
                 getcount++;
                 xGet(urlContract, "salecontract", false, function () {
                     var _saleContract = $mapped[urlContract];
+                    // загружаем контракты по каждому товару
                     getcount += _saleContract.category.length;
-                    for (var i = 0; i < _saleContract.category.length; i++) {
-                        xGet(_saleContract.category[i], "salecontract", false, function () {
-                            !--getcount && post();
-                        });
-                    }
+                    for (var i = 0; i < _saleContract.category.length; i++)
+                        xGet(_saleContract.category[i], "salecontract", false, function () { return !--getcount && post(); });
                     !--getcount && post();
                 });
             }
@@ -3586,7 +3559,7 @@ function salePrice(policyName, subid, choices) {
                 var highprice = 0;
                 // TODO: тут могут быть косяки! возможно будет криво считать цены закупщиков и не будет работать. проверять.
                 if (_sale.contractpage && _saleContract.category.length) {
-                    var _contract = { contractprice: ["", 0, 0], category: [] };
+                    var _contract = { contractprice: [], category: [] };
                     for (var j = 0; j < _saleContract.category.length; j++) {
                         _contract = $mapped[_saleContract.category[j]];
                         if (_contract.contractprice[0] === _sale.product[i]) {
@@ -4342,6 +4315,252 @@ function wareSupply(policyName, subid, choices, good) {
         }
     }
 }
+//
+// Сюда все функции которые парсят данные со страниц
+//
+/**
+ * Пробуем оцифровать данные но если они выходят как Number.POSITIVE_INFINITY или 0, валит ошибку
+ * @param value строка являющая собой число больше 0
+ */
+function numberfyOrError(value) {
+    var n = numberfy(value);
+    if (n === Number.POSITIVE_INFINITY || n === 0)
+        throw new RangeError("Должны получить число > 0");
+    return n;
+}
+/**
+ * Из набора HTML элементов представляющих собой tr парсит subid. Ряды должны быть стандартного формата.
+ */
+function parseSubid(trList) {
+    if (trList == null)
+        throw new ArgumentNullError("trList");
+    var f = function (i, e) { return numberfyOrError($(e).text()); };
+    return $(trList).find("td.unit_id").map(f).get();
+}
+/**
+ * Берет локальное хранилище и тащит оттуда все записи по юнитам. возвращает subid
+ */
+function parseAllSavedSubid(realm) {
+    if (!realm || realm.length === 0)
+        throw new ArgumentNullError("realm");
+    var subids = [];
+    var rx = new RegExp("x" + realm + "\\d+");
+    for (var key in localStorage) {
+        if (!rx.test(key))
+            continue;
+        var m = key.match(/\d+/);
+        if (m != null)
+            subids.push(numberfy(m[0]));
+    }
+    return subids;
+}
+/**
+ * Парсит id компании со страницы
+ */
+function getCompanyId() {
+    var m = $(".dashboard a").attr("href").match(/\d+/);
+    if (m == null)
+        throw new ParseError("company id");
+    return numberfy(m[0]);
+}
+/**
+ * Парсинг главной страницы с юнитами.
+ * @param html
+* @param url
+ */
+function parseUnitList(html, url) {
+    var $html = $(html);
+    var $unitList = $html.find(".unit-list-2014");
+    try {
+        var _subids = $unitList.find("td:nth-child(1)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _type = $unitList.find("td:nth-child(3)").map(function (i, e) {
+            var s = $(e).attr("class").split("-")[1];
+            if (s == null)
+                throw new RangeError("class attribute doesn't contains type part.");
+            return s;
+        }).get();
+        return { subids: _subids, type: _type };
+    }
+    catch (err) {
+        throw new ParseError("unit list", url, err);
+    }
+}
+/**
+ * Парсит "/main/unit/view/ + subid + /sale" урлы
+ * @param html
+ * @param url
+ */
+function parseSale(html, url) {
+    var $html = $(html);
+    try {
+        var _form = $html.find("[name=storageForm]");
+        var _policy = $html.find("select:even").map(function (i, e) {
+            var f = $(e).find("[selected]").index();
+            if (f < 0)
+                throw new RangeError("policy index < 0");
+            return f;
+        }).get();
+        var _price = $html.find("input.money:even").map(function (i, e) { return numberfyOrError($(e).val()); }).get();
+        var _incineratorMaxPrice = $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _outqual = $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _outprime = $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _stockqual = $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _stockprime = $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        // название продукта Спортивное питание, Маточное молочко и так далее
+        var _product = $html.find(".grid a:not([onclick])").map(function (i, e) {
+            var t = $(e).text();
+            if (t.trim() === "")
+                throw new Error("product name is empty");
+            return t;
+        }).get();
+        // урл на продукт
+        var _productId = $html.find(".grid a:not([onclick])").map(function (i, e) {
+            var m = $(e).attr("href").match(/\d+/);
+            if (m == null)
+                throw new Error("product id not found.");
+            return numberfyOrError(m[0]);
+        }).get();
+        // "Аттика, Македония, Эпир и Фессалия"
+        var _region = $html.find(".officePlace a:eq(-2)").text();
+        if (_region.trim() === "")
+            throw new Error("region not found");
+        // если покупцов много то появляется доп ссылка на страницу с контрактами. эта херь и говорит есть она или нет
+        var _contractpage = !!$html.find(".tabsub").length;
+        // данное поле существует только если НЕТ ссылки на контракты то есть в простом случае и здесь может быть такой хуйня
+        // ["Молоко", "$1.41", "$1.41", "$1.41", "Мясо", "$5.62"]
+        // идет категория, потом цены покупателей, потом снова категория и цены. И как бы здесь нет порядка
+        // Если покупателей нет, гарантируется пустой массив!
+        var _contractprice = ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) {
+            return e[0] === "[" ? e.slice(13, -1) : numberfy(e);
+        });
+        return {
+            form: _form,
+            policy: _policy,
+            price: _price,
+            incineratorMaxPrice: _incineratorMaxPrice,
+            outqual: _outqual,
+            outprime: _outprime,
+            stockqual: _stockqual,
+            stockprime: _stockprime,
+            product: _product,
+            productId: _productId,
+            region: _region,
+            contractpage: _contractpage,
+            contractprice: _contractprice
+        };
+    }
+    catch (err) {
+        throw new ParseError("sale", url, err);
+    }
+}
+/**
+ * Парсит страницы вида "/main/unit/view/ + subid + /sale/product", а так же
+ * "/main/unit/view/" + subid + "/sale/product/ + productId"
+ * @param html
+ * @param url
+ */
+function parseSaleContracts(html, url) {
+    var $html = $(html);
+    // слегка дибильный подход. В объекте мы имеем цены покупцов для одной категории по url, но список категорий 
+    // каждый раз забираем весь.
+    // TODO: перепилить. Сделать контракт как {url:string, ИмяТовара:string, prices: number[]} 
+    // итоговая структура будет выглядеть так 
+    /* $mapped[subid/sale/product] = {
+            categories: string[];  - список урлов категорий
+        }
+        а далее
+        $mapped[subid/sale/product/prodId] = {
+            prodName: string; - строковое имя продукта
+            buyerPrices: number[]; - массив цен покупцов данного товара
+        }
+
+        аналогично делать ISale. Вместо хуйни с string|number вставить туда сразу свойство
+        contracts: IDictionary<ISaleContract> содержащее инфу по всем товарам. ключом будет productId или его урл
+    */
+    try {
+        // каждая категория представляет товар который продается со склада или производства. По факту берем ссыль через которую
+        // попадаем на список покупателей товара.
+        // если покупцов товара НЕТ, тогда данной категории не будет. То есть не может быть пустая категория
+        var _categorys = $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get();
+        // здесь уже есть четкая гарантия что резалт будет вида 
+        // ["Медицинский инструментарий", 534.46, 534.46, 534.46, 534.46]
+        // то есть первым идет название а потом цены покупателей
+        var _contractprices = ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e); });
+        return { category: _categorys, contractprice: _contractprices };
+    }
+    catch (err) {
+        throw new ParseError("unit list", url, err);
+    }
+}
+/**
+ * Парсинг данных по страницы /main/unit/view/8004742/virtasement
+ * @param html
+ * @param url
+ */
+function parseAds(html, url) {
+    var $html = $(html);
+    try {
+        // известность
+        var _celebrity = numberfy($html.find(".infoblock tr:eq(0) td:eq(1)").text());
+        // население города
+        var _pop = (function () {
+            var m = $html.find("script").text().match(/params\['population'\] = \d+/);
+            if (m == null)
+                throw new Error("population number not found.");
+            return numberfy(m[0].substring(23));
+        })();
+        // текущий бюджет, он может быть и 0
+        var _budget = numberfy($html.find(":text:not([readonly])").val());
+        // бюжет на поддержание известности
+        // ["не менее ©110.25  в неделю для ТВ-рекламы"] здесь может быть и $110.25
+        // данный бюжет тоже может быть 0 если известность 0
+        var _requiredBudget = numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split(/[$©]/g)[1]);
+        if (_celebrity > 0 && _requiredBudget === 0)
+            throw new Error("required budget can't be 0 for celebrity" + _celebrity);
+        return {
+            celebrity: _celebrity,
+            pop: _pop,
+            budget: _budget,
+            requiredBudget: _requiredBudget
+        };
+    }
+    catch (err) {
+        throw new ParseError("unit list", url, err);
+    }
+}
+//
+// Свои исключения
+// 
+var ArgumentError = (function (_super) {
+    __extends(ArgumentError, _super);
+    function ArgumentError(argument, message) {
+        var msg = argument + ". " + message;
+        _super.call(this, msg);
+    }
+    return ArgumentError;
+}(Error));
+var ArgumentNullError = (function (_super) {
+    __extends(ArgumentNullError, _super);
+    function ArgumentNullError(argument) {
+        var msg = argument + " is null";
+        _super.call(this, msg);
+    }
+    return ArgumentNullError;
+}(Error));
+var ParseError = (function (_super) {
+    __extends(ParseError, _super);
+    function ParseError(dataName, url, innerError) {
+        var msg = "Error parsing " + dataName;
+        if (url)
+            msg += "from " + url;
+        // TODO: как то плохо работает. не выводит нихрена сообщений.
+        msg += ".";
+        if (innerError)
+            msg += "\n" + innerError.message + ".";
+        _super.call(this, msg);
+    }
+    return ParseError;
+}(Error));
 //namespace Shops {
 //    export class TradingHall {
 //        name: string[];
