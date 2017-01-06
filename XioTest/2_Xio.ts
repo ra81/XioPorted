@@ -77,6 +77,10 @@ function logDebug(msg: string, ...args: any[]) {
         console.log(msg, args);
 }
 
+/**
+ * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
+ * @param variable любая строка.
+ */
 function numberfy(variable: string): number {
     // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
 
@@ -177,10 +181,7 @@ function map(html: any, url: string, page: string): boolean {
     // TODO: запилить классы для каждого типа страницы. чтобы потом можно было с этим типизированно воркать
     var $html = $(html);
     if (page === "unitlist") {
-        $mapped[url] = {
-            subids: $html.find(".unit-list-2014 td:nth-child(1)").map( (i, e) => numberfy($(e).text()) ).get() as any as number[],
-            type: $html.find(".unit-list-2014 td:nth-child(3)").map(function (i, e) { return $(e).attr("class").split("-")[1]; }).get() as any as string[]
-        }
+        $mapped[url] = parseUnitList(html, url);
     }
     else if (page === "sale") {
         $mapped[url] = {
@@ -1306,7 +1307,7 @@ function XioOverview() {
 
     // вставляем кнопки в каждую строку. generate/fire. и вставляем опции уже с настройками
     let unitRows = unitsTable.find("tr").not(".unit_comment");
-    let subids = parseSubid(unitRows.get());
+    let subids = parseSubid(unitRows.get() as HTMLTableRowElement[]);
     let $td = unitRows.find("td.alerts");
     for (var i = 0; i < subids.length; i++) {
         let subid = subids[i];

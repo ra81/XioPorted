@@ -200,35 +200,3 @@ function setOptions(container: HTMLElement, options: PolicyOptions, showMode: bo
     for (var optionNumber = 0; optionNumber < policy.order.length; optionNumber++)
         $selects.filter(`[option-number=${optionNumber}]`).val(Math.max(showChoices[optionNumber], 0));
 }
-
-// в будущем будут фильтры, эта шняга понадобится. да и пусть будет централизованно
-function parseSubid(trList: HTMLElement[]): number[] {
-    let rows = $(trList);
-    return rows.find("td.unit_id").map((i, e) => numberfy( $(e).text() )).get() as any as number[];
-}
-
-// берет локальное хранилище и тащит оттуда все записи по юнитам. выделяет subid
-function parseAllSavedSubid(realm: string): number[] {
-
-    if (!realm || realm.length === 0)
-        throw new Error("realm должен быть задан.");
-
-    let subids: number[] = [];
-    let rx = new RegExp("x" + realm + "\\d+");
-    for (let key in localStorage) {
-        if (!rx.test(key))
-            continue;
-
-        let m = key.match(/\d+/);
-        if (m != null)
-            subids.push(numberfy(m[0]));
-    }
-
-    return subids;
-}
-
-// парсит id компании со страницы
-function getCompanyId() {
-    let m = $(".dashboard a").attr("href").match(/\d+/);
-    return numberfy(m == null ? "0" : m[0]);
-}
