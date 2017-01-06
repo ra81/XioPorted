@@ -33,7 +33,7 @@ interface IAction1<T> {
 }
 
 // алиас для группы типов.
-type MappedPage = IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistory | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
+type MappedPage = IContract | IWareSupply | IWareSize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistory | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
 
 interface IMain {
     employees: number;
@@ -201,7 +201,9 @@ interface ISale {
     productId: number[];
     region: string;
     contractpage: boolean;
-    contractprice: number[];
+    // TODO: проверить это поле
+    // ["Мука", "$0.78", "$0.78"]
+    contractprice: [string, number, number];
 }
 
 interface IAjax {
@@ -274,9 +276,11 @@ interface ICtie {
     CTIE: number[];
 }
 
+// TODO: проверить ВСЕ поля.
 interface ISaleContract {
     category: string[];
-    contractprice: number[];
+    // ["Мука", "$0.78", "$0.78"]
+    contractprice: [string, number, number];
 }
 
 interface IProductReport {
@@ -286,4 +290,91 @@ interface IProductReport {
     quality: number[];
     price: number[];
     subid: number[];
+}
+
+interface IServiceHistory {
+    price: number[];
+    quantity: number[];
+}
+
+interface IStoreSupply {
+    parcel: number[];
+    price_mark_up: number[];
+    price_constraint_max: number[];
+    price_constraint_type: string[];
+    quality_constraint_min: number[];
+    purchase: number[];
+    quantity: number[];
+    sold: number[];
+    offer: number[];
+    price: number[];
+    reprice: boolean[];
+    quality: number[];
+    available: number[];
+    img: string[];
+}
+
+interface ITech {
+    price: string[];
+    tech: number;
+    img: string;
+}
+
+interface ITraining {
+    form: JQuery;
+    salaryNow: number;
+    salaryCity: number;
+    weekcost: number;
+    employees: number;
+    skillNow: number;
+    skillCity: number;
+}
+
+interface IWareMain {
+    size: number;
+    full: number;
+    product: string[];
+    stock: number[];
+    shipments: number[];
+}
+
+interface IWareSize {
+    size: number[];
+    rent: number[];
+    id: number[];
+}
+
+interface IWareSupply {
+    form: JQuery;
+    contract: string[];
+    id: number[];
+    type: string[];
+    stock: number[];
+    shipments: number[];
+    parcel: number[];
+    price_mark_up: number[];
+    price_constraint_max: number[];
+    price_constraint_type: string[];
+    quality_constraint_min: number[];
+    product: string[];
+    price: number[];
+    reprice: boolean[];
+    quality: number[];
+    offer: number[];
+    available: number[];
+    myself: boolean[];
+    contractAdd: string[];
+    idAdd: number[];
+    typeAdd: string[];
+}
+
+interface IContract {
+    available: number[];
+    offer: number[];
+    price: number[];
+    quality: number[];
+    tm: string[];
+    company: string[];
+    myself: boolean[];
+    product: string;
 }

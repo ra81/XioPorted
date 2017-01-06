@@ -1,7 +1,7 @@
 ﻿
 // интерфейсы и основные политики
 interface IPolicy {
-    func: (policyName: string, subid:number, choices: number[]) => void;
+    func: (policyName: string, subid:number, choices: number[], good?:string) => void;
     save: string[][];
     order: string[][];
     name: string;

@@ -85,7 +85,7 @@ function equipment(policyName: string, subid: number, choices: number[]) {
     var urlAnimals = "/" + $realm + "/main/company/view/" + companyid + "/unit_list/animals";
 
     var getcount = 0;
-    var equip: any = {};
+    let equip: any = {};
 
     getcount += 4;
     xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithEquipment/20000", "none", false, function () {
@@ -114,24 +114,25 @@ function equipment(policyName: string, subid: number, choices: number[]) {
 
     function phase2() {
         $("[id='x" + "Equipment" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
-        
-        let machines = $mapped[urlEquipment] as IMachines;
-        let animals = $mapped[urlAnimals] as IAnimals;
-        
-        for (var i = 0; i < machines.subid.length; i++) {
-            if (machines.subid[i] === subid) {
-                for (var key in machines) {
-                    equip[key] = machines[key][i];
-                }
+
+        let _machines = $mapped[urlEquipment] as IMachines;
+        let _animals = $mapped[urlAnimals] as IAnimals;
+
+        for (var i = 0; i < _machines.subid.length; i++) {
+            if (_machines.subid[i] === subid) {
+                for (var key in _machines)     // TODO: конский хак. как то переделать
+                    equip[key] = (_machines as any)[key][i];
+
                 break;
             }
         }
-        for (var i = 0; i < animals.subid.length; i++) {
-            if (animals.subid[i] === subid) {
-                for (var key in animals) {
-                    equip[key] = animals[key][i];
-                }
-                equip.perc = 100 - animals.perc[i];
+
+        for (var i = 0; i < _animals.subid.length; i++) {
+            if (_animals.subid[i] === subid) {
+                for (var key in _animals) // TODO: конский хак. как то переделать
+                    equip[key] = (_animals as any)[key][i];
+
+                equip["perc"] = 100 - _animals.perc[i];
                 break;
             }
         }
@@ -147,19 +148,19 @@ function equipment(policyName: string, subid: number, choices: number[]) {
             xsup.push([subid, equip.id,
                 (function () {
                     xGet(url, "equipment", true, function () {
+                        let _equip = $mapped[url] as IEquipment;
 
-                        let equipment = $mapped[url] as IEquipment;
-                        if (equipfilter.indexOf(equipment.filtername) === -1) {
-                            equipfilter.push(equipment.filtername);
+                        if (equipfilter.indexOf(_equip.filtername) === -1) {
+                            equipfilter.push(_equip.filtername);
                             getcount += 3;
-                            xGet("/" + $realm + "/window/common/util/setpaging/db" + equipment.filtername + "/equipmentSupplierListByUnit/40000", "none", false, function () {
+                            xGet("/" + $realm + "/window/common/util/setpaging/db" + _equip.filtername + "/equipmentSupplierListByUnit/40000", "none", false, function () {
                                 !(--getcount - 1) && xsupGo(subid, equip.id);
                             });
                             var data = "total_price%5Bfrom%5D=&total_price%5Bto%5D=&quality%5Bfrom%5D=&quality%5Bto%5D=&quantity%5Bisset%5D=1&quantity%5Bfrom%5D=1&total_price%5Bfrom%5D=0&total_price%5Bto%5D=0&total_price_isset=0&quality%5Bfrom%5D=0&quality%5Bto%5D=0&quality_isset=0&quantity_isset=1";
-                            xPost("/" + $realm + "/window/common/util/setfiltering/db" + equipment.filtername + "/equipmentSupplierListByUnit", data, function () {
+                            xPost("/" + $realm + "/window/common/util/setfiltering/db" + _equip.filtername + "/equipmentSupplierListByUnit", data, function () {
                                 !(--getcount - 1) && xsupGo(subid, equip.id);
                             });
-                            xGet("/" + $realm + "/window/common/util/setfiltering/db" + equipment.filtername + "/equipmentSupplierListByUnit/supplierType=all", "none", false, function () {
+                            xGet("/" + $realm + "/window/common/util/setfiltering/db" + _equip.filtername + "/equipmentSupplierListByUnit/supplierType=all", "none", false, function () {
                                 !(--getcount - 1) && xsupGo(subid, equip.id);
                             });
                             xsup.push([subid, equip.id, (function () {
@@ -192,9 +193,10 @@ function equipment(policyName: string, subid: number, choices: number[]) {
 
     }
 
-    function post() {
+    function post(this:any) {
         $("[id='x" + "Equipment" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
 
+        let _equip = $mapped[url] as IEquipment;
         var equipWear = 0;
         // console.log('choices[1] = ' + choices[1]);
         // console.log('equip.black = ' + equip.black);
@@ -218,15 +220,11 @@ function equipment(policyName: string, subid: number, choices: number[]) {
             equipWear = equip.perc >= 1 ? 1 : 0;
         }
 
-        var change = [];
-        let _equipment = $mapped[url] as IEquipment;
-        let _manager = $mapped[urlManager] as ITopManager;
-        let _salary = $mapped[urlSalary] as ISalary;
-        type TData = { PQR: number, quality: number, available: number, buy: number, offer: number, index: number };
-        //type TOffer = { low: TData[], high: TData[], inc: TData[] };
+        var change:any[] = [];
 
         if (choices[0] === 1) {
-            var offer: IDictionary<TData[]> = {
+
+            var offer:any = {
                 low: [],
                 high: [],
                 inc: []
@@ -237,26 +235,26 @@ function equipment(policyName: string, subid: number, choices: number[]) {
             // console.log('qualReq = ' + qualReq);
             // console.log('qualNow = ' + qualNow);
 
-            for (var i = 0; i < _equipment.offer.length; i++) {
-                var data: TData = {
-                    PQR: _equipment.price[i] / _equipment.qualOffer[i],
-                    quality: _equipment.qualOffer[i],
-                    available: _equipment.available[i],
+            for (var i = 0; i < _equip.offer.length; i++) {
+                var data = {
+                    PQR: _equip.price[i] / _equip.qualOffer[i],
+                    quality: _equip.qualOffer[i],
+                    available: _equip.available[i],
                     buy: 0,
-                    offer: _equipment.offer[i],
+                    offer: _equip.offer[i],
                     index: i
                 };
                 // console.log('data.quality = ' + data.quality );
                 if (data.quality < qualReq) {
-                    offer["low"].push(data);
+                    offer.low.push(data);
                 }
                 else {
-                    offer["high"].push(data);
+                    offer.high.push(data);
                 }
             }
 
             for (var key in offer) {
-                offer[key].sort(function (a, b) {
+                offer[key].sort(function (a:any, b:any) {
                     return a.PQR - b.PQR;
                 });
             }
@@ -265,29 +263,29 @@ function equipment(policyName: string, subid: number, choices: number[]) {
             var h = 0;
             var qualEst = 0;
             var qualNew = qualNow;
-            // console.log('offer["low"].length = ' + offer["low"].length);
-            // console.log('offer["high"].length = ' + offer["high"].length);
+            // console.log('offer.low.length = ' + offer.low.length);
+            // console.log('offer.high.length = ' + offer.high.length);
 
-            while (equipWear > 0 && h < offer["high"].length) {
+            while (equipWear > 0 && h < offer.high.length) {
                 // console.log('l = ' + l);
                 // console.log('h = ' + h);
-                // TODO: сраный говнокод. length не может быть. и реальный дебаг показал что хуй!
-                if (offer["low"][l] && offer["low"][l].length > l && offer["low"][l].available - offer["low"][l].buy === 0) {
+
+                if (offer.low[l] && offer.low[l].length > l && offer.low[l].available - offer.low[l].buy === 0) {
                     l++;
                     // console.log('continue l');
                     continue;
                 }
-                if (offer["high"][h] && offer["high"][h].length > h && offer["high"][h].available - offer["high"][h].buy === 0) {
+                if (offer.high[h] && offer.high[h].length > h && offer.high[h].available - offer.high[h].buy === 0) {
                     h++;
                     // console.log('continue h');
                     continue;
                 }
 
-                // console.log(subid, l, offer["low"][l].available - offer["low"][l].buy, offer["low"][l]);
-                // console.log(subid, h, offer["high"][h].available - offer["high"][h].buy, offer["high"][h]);
+                // console.log(subid, l, offer.low[l].available - offer.low[l].buy, offer.low[l]);
+                // console.log(subid, h, offer.high[h].available - offer.high[h].buy, offer.high[h]);
 
                 qualEst = qualNew;
-                l < offer["low"].length && offer["low"][l].buy++;
+                l < offer.low.length && offer.low[l].buy++;
                 for (var key in offer) {
                     for (var i = 0; i < offer[key].length; i++) {
                         if (offer[key][i].buy) {
@@ -295,13 +293,13 @@ function equipment(policyName: string, subid: number, choices: number[]) {
                         }
                     }
                 }
-                l < offer["low"].length && offer["low"][l].buy--;
+                l < offer.low.length && offer.low[l].buy--;
 
-                if (l < offer["low"].length && qualEst > qualReq && offer["low"][l].PQR < offer["high"][h].PQR) {
-                    offer["low"][l].buy++;
+                if (l < offer.low.length && qualEst > qualReq && offer.low[l].PQR < offer.high[h].PQR) {
+                    offer.low[l].buy++;
                 }
                 else {
-                    offer["high"][h].buy++;
+                    offer.high[h].buy++;
                 }
 
                 equipWear--;
@@ -320,50 +318,50 @@ function equipment(policyName: string, subid: number, choices: number[]) {
                 }
             }
 
-            for (var i = 0; i < _equipment.offer.length; i++) {
+            for (var i = 0; i < _equip.offer.length; i++) {
                 var data = {
-                    PQR: _equipment.price[i] / (_equipment.qualOffer[i] - qualReq),
-                    quality: _equipment.qualOffer[i] - 0.005,
-                    available: _equipment.available[i],
+                    PQR: _equip.price[i] / (_equip.qualOffer[i] - qualReq),
+                    quality: _equip.qualOffer[i] - 0.005,
+                    available: _equip.available[i],
                     buy: 0,
-                    offer: _equipment.offer[i],
+                    offer: _equip.offer[i],
                     index: i
                 };
                 if (data.quality > qualReq) {
-                    offer["inc"].push(data);
+                    offer.inc.push(data);
                 }
             }
 
-            offer["inc"].sort(function (a, b) {
+            offer.inc.sort(function (a:any, b:any) {
                 return a.PQR - b.PQR;
             });
 
             var n = 0;
             qualEst = 0;
             var torepair = 0;
-            for (var i = 0; i < offer["inc"].length; i++) {
-                if (offer["inc"][i].buy) {
-                    torepair += offer["inc"][i].buy;
-                    qualEst += offer["inc"][i].buy * offer["inc"][i].quality;
+            for (var i = 0; i < offer.inc.length; i++) {
+                if (offer.inc[i].buy) {
+                    torepair += offer.inc[i].buy;
+                    qualEst += offer.inc[i].buy * offer.inc[i].quality;
                 }
             }
             qualEst = (qualEst + (equip.num - torepair) * qualNow) / equip.num;
 
-            while (qualEst < qualReq && n < offer["inc"].length) {
+            while (qualEst < qualReq && n < offer.inc.length) {
 
-                if (offer["inc"][n] && offer["inc"][n].length > n && offer["inc"][n].available - offer["inc"][n].buy === 0) {
+                if (offer.inc[n] && offer.inc[n].length > n && offer.inc[n].available - offer.inc[n].buy === 0) {
                     n++;
                     continue;
                 }
 
-                offer["inc"][n].buy++;
+                offer.inc[n].buy++;
 
                 qualEst = 0;
                 torepair = 0;
-                for (var i = 0; i < offer["inc"].length; i++) {
-                    if (offer["inc"][i].buy) {
-                        torepair += offer["inc"][i].buy;
-                        qualEst += offer["inc"][i].buy * offer["inc"][i].quality;
+                for (var i = 0; i < offer.inc.length; i++) {
+                    if (offer.inc[i].buy) {
+                        torepair += offer.inc[i].buy;
+                        qualEst += offer.inc[i].buy * offer.inc[i].quality;
                     }
                 }
                 qualEst = (qualEst + (equip.num - torepair) * qualNow) / equip.num;
@@ -376,57 +374,59 @@ function equipment(policyName: string, subid: number, choices: number[]) {
                 });
             }
 
-            for (var i = 0; i < offer["inc"].length; i++) {
-                if (offer["inc"][i].buy) {
+            for (var i = 0; i < offer.inc.length; i++) {
+                if (offer.inc[i].buy) {
                     change.push({
                         op: "buy",
-                        offer: offer["inc"][i].offer,
-                        amount: offer["inc"][i].buy
+                        offer: offer.inc[i].offer,
+                        amount: offer.inc[i].buy
                     });
                 }
             }
 
-            if (equipWear > 0 && (h < offer["high"].length || n < offer["inc"].length)) {
+            if (equipWear > 0 && (h < offer.high.length || n < offer.inc.length)) {
                 postMessage0("No equipment on the market with a quality higher than required. Could not repair subdivision <a href=" + url + ">" + subid + "</a>");
             }
 
         }
 
         else if (choices[0] === 2 && equipWear !== 0) {
+            let _top = $mapped[urlManager] as ITopManager;
+            let _salary = $mapped[urlSalary] as ISalary;
 
-            var managerIndex = _manager.pic.indexOf(subType[equip.type][2]);
-            var equipMax = calcEquip(calcSkill(_salary.employees, subType[equip.type][0], _manager.base[managerIndex] + _manager.bonus[managerIndex]));
+            var managerIndex = _top.pic.indexOf(subType[equip.type][2]);
+            var equipMax = calcEquip(calcSkill(_salary.employees, subType[equip.type][0], _top.base[managerIndex] + _top.bonus[managerIndex]));
 
-            var offer = {
+            let offer: any = {
                 low: [],
                 mid: [],
                 high: []
             };
 
-            var qualNow = equip.quality + 0.005;
+            let qualNow = equip.quality + 0.005;
 
-            for (var i = 0; i < _equipment.offer.length; i++) {
+            for (var i = 0; i < _equip.offer.length; i++) {
                 var data = {
-                    PQR: _equipment.price[i] / _equipment.qualOffer[i],
-                    quality: _equipment.qualOffer[i] + 0.005,
-                    available: _equipment.available[i],
+                    PQR: _equip.price[i] / _equip.qualOffer[i],
+                    quality: _equip.qualOffer[i] + 0.005,
+                    available: _equip.available[i],
                     buy: 0,
-                    offer: _equipment.offer[i],
+                    offer: _equip.offer[i],
                     index: i
                 };
                 if (data.quality < qualNow) {
-                    offer["low"].push(data);
+                    offer.low.push(data);
                 }
                 else if (data.quality < equipMax) {
                     offer.mid.push(data);
                 }
                 else {
-                    offer["high"].push(data);
+                    offer.high.push(data);
                 }
             }
 
             for (var key in offer) {
-                offer[key].sort(function (a, b) {
+                offer[key].sort(function (a:any, b:any) {
                     return a.PQR - b.PQR;
                 });
             }
@@ -435,11 +435,11 @@ function equipment(policyName: string, subid: number, choices: number[]) {
             var m = 0;
             var h = 0;
             var qualEst = 0;
-            var qualNew = qualNow;
+            let qualNew = qualNow;
 
-            while (equipWear > 0 && l + m < offer["low"].length + offer.mid.length && m + h < offer.mid.length + offer["high"].length) {
+            while (equipWear > 0 && l + m < offer.low.length + offer.mid.length && m + h < offer.mid.length + offer.high.length) {
 
-                if (offer["low"][l] && offer["low"][l].length > l && offer["low"][l].available - offer["low"][l].buy === 0) {
+                if (offer.low[l] && offer.low[l].length > l && offer.low[l].available - offer.low[l].buy === 0) {
                     l++;
                     continue;
                 }
@@ -447,13 +447,13 @@ function equipment(policyName: string, subid: number, choices: number[]) {
                     m++;
                     continue;
                 }
-                if (offer["high"][h] && offer["high"][h].length > h && offer["high"][h].available - offer["high"][h].buy === 0) {
+                if (offer.high[h] && offer.high[h].length > h && offer.high[h].available - offer.high[h].buy === 0) {
                     h++;
                     continue;
                 }
 
                 qualEst = qualNew;
-                h < offer["high"].length && offer["high"][h].buy++;
+                h < offer.high.length && offer.high[h].buy++;
                 for (var key in offer) {
                     for (var i = 0; i < offer[key].length; i++) {
                         if (offer[key][i].buy) {
@@ -461,13 +461,13 @@ function equipment(policyName: string, subid: number, choices: number[]) {
                         }
                     }
                 }
-                h < offer["high"].length && offer["high"][h].buy--;
+                h < offer.high.length && offer.high[h].buy--;
 
-                if (h < offer["high"].length && qualEst < equipMax && (m === offer.mid.length || offer["high"][h].PQR < offer.mid[m].PQR)) {
-                    offer["high"][h].buy++;
+                if (h < offer.high.length && qualEst < equipMax && (m === offer.mid.length || offer.high[h].PQR < offer.mid[m].PQR)) {
+                    offer.high[h].buy++;
                 }
-                else if (l < offer["low"].length && qualEst > equipMax && (m === offer.mid.length || offer["low"][l].PQR < offer.mid[m].PQR)) {
-                    offer["low"][l].buy++;
+                else if (l < offer.low.length && qualEst > equipMax && (m === offer.mid.length || offer.low[l].PQR < offer.mid[m].PQR)) {
+                    offer.low[l].buy++;
                 }
                 else {
                     offer.mid[m].buy++;
@@ -489,10 +489,10 @@ function equipment(policyName: string, subid: number, choices: number[]) {
                 }
             }
 
-            if (equipWear > 0 && l + m < offer["low"].length + offer.mid.length) {
+            if (equipWear > 0 && l + m < offer.low.length + offer.mid.length) {
                 postMessage0("No equipment on the market with a quality lower than the maximum quality defined by the Top1. Could not repair subdivision <a href=" + url + ">" + subid + "</a>");
             }
-            else if (equipWear > 0 && m + h < offer.mid.length + offer["high"].length) {
+            else if (equipWear > 0 && m + h < offer.mid.length + offer.high.length) {
                 postMessage0("No equipment on the market with a quality higher than the current quality. Could not repair subdivision <a href=" + url + ">" + subid + "</a>");
             }
 
@@ -500,14 +500,14 @@ function equipment(policyName: string, subid: number, choices: number[]) {
 
         else if (choices[0] === 3 && equipWear !== 0) {
 
-            var offer = [];
+            let offer:any[] = [];
 
-            for (var i = 0; i < _equipment.offer.length; i++) {
+            for (var i = 0; i < _equip.offer.length; i++) {
                 offer.push({
-                    price: _equipment.price[i],
-                    quality: _equipment.qualOffer[i],
-                    available: _equipment.available[i],
-                    offer: _equipment.offer[i],
+                    price: _equip.price[i],
+                    quality: _equip.qualOffer[i],
+                    available: _equip.available[i],
+                    offer: _equip.offer[i],
                     index: i
                 });
             }
@@ -544,7 +544,7 @@ function equipment(policyName: string, subid: number, choices: number[]) {
         change.length && console.log(subid, change);
         for (var i = 0; i < change.length; i++) {
             xequip.push(
-                (function (i) {
+                (function (i:number) {
                     xContract("/" + $realm + "/ajax/unit/supply/equipment", {
                         'operation': change[i].op,
                         'offer': change[i].offer,
@@ -559,7 +559,7 @@ function equipment(policyName: string, subid: number, choices: number[]) {
                             else {
                                 fireequip = false;
                             }
-                            !--equipcount && xTypeDone(type);
+                            !--equipcount && xTypeDone(policyName);
                             !equipcount && xsupGo(subid, equip.id);
                         });
                 }.bind(this, i))
@@ -574,7 +574,9 @@ function equipment(policyName: string, subid: number, choices: number[]) {
             xTypeDone(policyName);
             xsupGo(subid, equip.id);
         }
+
     }
+
 }
 
 function holiday(policyName: string, subid: number, choices: number[]) {
@@ -1863,27 +1865,31 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 var thisproduct = false;
                 var lowprice = Infinity;
                 var highprice = 0;
-
+                // TODO: тут могут быть косяки! возможно будет криво считать цены закупщиков и не будет работать. проверять.
                 if (_sale.contractpage && _saleContract.category.length) {
-                    let _sale = $mapped[_saleContract.category[j]] as ISale;
+                    let _contract: ISaleContract = { contractprice:["", 0,0], category:[]};
                     for (var j = 0; j < _saleContract.category.length; j++) {
-                        if (_sale.contractprice[0] === _sale.product[i]) {
+                        _contract = $mapped[_saleContract.category[j]] as ISaleContract;
+                        if (_contract.contractprice[0] === _sale.product[i]) {
                             thisproduct = true;
                             break;
                         }
                     }
 
-                    var contractprices = thisproduct ? _sale.contractprice : [];
+                    if (_contract.contractprice[0] === "")
+                        throw new Error("Неведомая хуйня но что то не так с PQR salePrice");
+
+                    let contractprices = thisproduct ? _contract.contractprice : [];
 
                     for (var j = 1; j < contractprices.length; j++) {
-                        lowprice = Math.min(lowprice, contractprices[j]);
-                        highprice = Math.max(highprice, contractprices[j]);
+                        lowprice = Math.min(lowprice, contractprices[j] as number);
+                        highprice = Math.max(highprice, contractprices[j]as number);
                     }
 
                 }
                 else {
 
-                    var contractprices = _sale.contractpage && _saleContract ? _saleContract.contractprice : _sale.contractprice;
+                    let contractprices = _sale.contractpage && _saleContract ? _saleContract.contractprice : _sale.contractprice;
 
                     for (var j = 0; j < contractprices.length; j++) {
                         if (contractprices[j] === _sale.product[i]) {
@@ -1893,14 +1899,14 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                             thisproduct = false;
                         }
                         else if (thisproduct) {
-                            lowprice = Math.min(lowprice, contractprices[j]);
-                            highprice = Math.max(highprice, contractprices[j]);
+                            lowprice = Math.min(lowprice, contractprices[j] as number);
+                            highprice = Math.max(highprice, contractprices[j] as number);
                         }
                     }
 
                 }
 
-                price = Math.round(favPQR * quality * 100) / 100;
+                price = Math.round(favPQR * quality * 100) / 100;	
 
                 if (highprice > 0) {
                     price = Math.max(Math.ceil(highprice * 0.91 * 100) / 100, price);
@@ -1931,60 +1937,858 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
     }
 }
 
-
-
 function servicePrice(policyName: string, subid: number, choices: number[]) {
-    let fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-    xTypeDone(policyName);
+
+    var url = "/" + $realm + "/main/unit/view/" + subid;
+    var url2 = "/" + $realm + "/main/unit/view/" + subid + "/consume";
+
+    xGet(url, "service", false, function () {
+        phase();
+    });
+
+    function phase() {
+        $("[id='x" + "Price" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _service = $mapped[url] as IService;
+        var getcount = _service.history.length * 2;
+
+        for (var i = 0; i < _service.history.length; i++) {
+            xGet(_service.history[i], "servicepricehistory", false, function () {
+                !--getcount && post();
+            });
+            xGet(url2, "consume", false, function () {
+                !--getcount && post();
+            });
+        }
+    }
+
+    function post() {
+        $("[id='x" + "Price" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _service = $mapped[url] as IService;
+        let _consume = $mapped[url2] as IConsume;
+        
+        var change = false;
+        var data = "setprice=1";
+
+        for (var i = 0; i < _service.price.length; i++) {
+
+            let _serviceHistory = $mapped[_service.history[i]] as IServiceHistory;
+            var price = 0;
+
+            if (choices[0] === 1) {
+                var priceOld = _serviceHistory.price[0];
+                var priceOlder = _serviceHistory.price[1];
+                var saleOld = _serviceHistory.quantity[0];
+                var saleOlder = _serviceHistory.quantity[1];
+
+                if (!priceOld) {
+                    price = 0;
+                }
+                else if (!priceOlder) {
+                    price = priceOld * 1.03;
+                }
+                else {
+                    price = (saleOld > saleOlder) === (priceOld > priceOlder) ? priceOld * 1.03 : priceOld * 0.97;
+                }
+            } else if (choices[0] === 2) {
+                var priceOld = _serviceHistory.price[0];
+                var priceOlder = _serviceHistory.price[1];
+                var turnOld = _serviceHistory.quantity[0] * priceOld;
+                var turnOlder = _serviceHistory.quantity[1] * priceOlder;
+
+                if (!priceOld) {
+                    price = 0;
+                }
+                else if (!priceOlder) {
+                    price = priceOld * 1.03;
+                }
+                else {
+                    price = (turnOld > turnOlder) === (priceOld > priceOlder) ? priceOld * 1.03 : priceOld * 0.97;
+                }
+            } else if (choices[0] === 3) {
+                var priceOld = _serviceHistory.price[0];
+                var priceOlder = _serviceHistory.price[1];
+                var saleOld = _serviceHistory.quantity[0];
+                var saleOlder = _serviceHistory.quantity[1];
+                var profitOld = (priceOld - _consume.purch[0]) * saleOld;
+                var profitOlder = (priceOlder - _consume.purch[0]) * saleOlder;
+
+                if (!priceOld) {
+                    price = 0;
+                }
+                else if (!priceOlder) {
+                    price = priceOld * 1.03;
+                }
+                else {
+                    price = (profitOld > profitOlder) === (priceOld > priceOlder) ? priceOld * 1.03 : priceOld * 0.97;
+                }
+            }
+
+            price = numberfy(price.toPrecision(4));
+
+            var multiplier = [0, 1, 1.1, 1.4, 2];
+            var prime = Math.round(_consume.purch[0] * multiplier[choices[1]]);
+            price = Math.max(price, prime);
+
+            if (_service.price[i] !== price && price > 0) {
+                change = true;
+                data += "&" + encodeURI("servicePrice=" + price);
+            }
+        }
+
+        if (change) {
+            xPost(url, data, function () {
+                xTypeDone(policyName);
+            });
+        }
+        else {
+            xTypeDone(policyName);
+        }
+
+    }
+
 }
 
 function serviceWithoutStockPrice(policyName: string, subid: number, choices: number[]) {
-    let fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-    xTypeDone(policyName);
+
+    var url = "/" + $realm + "/main/unit/view/" + subid;
+
+    xGet(url, "service", false, function () {
+        phase();
+    });
+
+    function phase() {
+        $("[id='x" + "Price" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _service = $mapped[url] as IService;
+        var getcount = _service.history.length;
+
+        for (var i = 0; i < _service.history.length; i++) {
+            xGet(_service.history[i], "servicepricehistory", false, function () {
+                !--getcount && post();
+            });
+        }
+    }
+
+    function post() {
+        $("[id='x" + "Price" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _service = $mapped[url] as IService;
+        var change = false;
+        var data = "setprice=1";
+
+        for (var i = 0; i < _service.price.length; i++) {
+
+            let _serviceHistory = $mapped[_service.history[i]] as IServiceHistory;
+            var price = 0;
+
+            if (choices[0] === 1) {
+                var priceOld = _serviceHistory.price[0];
+                var priceOlder = _serviceHistory.price[1];
+                var saleOld = _serviceHistory.quantity[0];
+                var saleOlder = _serviceHistory.quantity[1];
+
+                if (!priceOld) {
+                    price = 0;
+                }
+                else if (!priceOlder) {
+                    price = priceOld * 1.03;
+                }
+                else {
+                    price = (saleOld > saleOlder) === (priceOld > priceOlder) ? 1.03 * priceOld : 0.97 * priceOld;
+                }
+            } else if (choices[0] === 2) {
+                var priceOld = _serviceHistory.price[0];
+                var priceOlder = _serviceHistory.price[1];
+                var turnOld = _serviceHistory.quantity[0] * priceOld;
+                var turnOlder = _serviceHistory.quantity[1] * priceOlder;
+
+                if (!priceOld) {
+                    price = 0;
+                }
+                else if (!priceOlder) {
+                    price = priceOld * 1.03;
+                }
+                else {
+                    price = (turnOld > turnOlder) === (priceOld > priceOlder) ? 1.03 * priceOld : 0.97 * priceOld;
+                }
+            }
+
+            price = numberfy(price.toPrecision(4));
+
+            if (_service.price[i] !== price && price > 0) {
+                change = true;
+                data += "&" + encodeURI("servicePrice=" + price);
+            }
+
+        }
+
+        if (change) {
+            xPost(url, data, function () {
+                xTypeDone(policyName);
+            });
+        }
+        else {
+            xTypeDone(policyName);
+        }
+
+    }
+
 }
-
-
-
-
-
 
 function storeSupply(policyName: string, subid: number, choices: number[]) {
-    let fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-    xTypeDone(policyName);
-}
+    var url = "/" + $realm + "/main/unit/view/" + subid + "/supply";
+    var urlContract = "/" + $realm + "/ajax/unit/supply/create";
+    var urlTrade = "/" + $realm + "/main/unit/view/" + subid + "/trading_hall";
+    //debugger;
+    var getcount = 1;
+    xGet(url, "storesupply", false, function () {
+        !--getcount && phase();
+    });
 
-function wareSupply(policyName: string, subid: number, choices: number[]) {
-    let fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-    xTypeDone(policyName);
-}
+    if (choices[1] >= 1) {
+        getcount++;
+        xGet(urlTrade, "tradehall", false, function () {
+            !--getcount && phase();
+        });
+    }
 
+    var reports: string[] = [];
 
+    function phase() {
+        $("[id='x" + "Supply" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
 
+        let _storeSupply = $mapped[url] as IStoreSupply;
+        let _tradeHall = $mapped[urlTrade] as ITradeHall;
 
+        if (choices[1] >= 4 || choices[2] >= 1) {
+            getcount += _storeSupply.img.length;
+            for (var i = 0; i < _storeSupply.img.length; i++) {
+                var index = _tradeHall.img.indexOf(_storeSupply.img[i]);
+                reports.push(_tradeHall.report[index]);
 
-function training(policyName: string, subid: number, choices: number[]) {
-    let fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-    xTypeDone(policyName);
+                xGet(reports[i], "retailreport", false, function () {
+                    !--getcount && post();
+                });
+            }
+        }
+        else {
+            post();
+        }
+    }
+
+    function post() {
+        $("[id='x" + "Supply" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _storeSupply = $mapped[url] as IStoreSupply;
+        let _tradeHall = $mapped[urlTrade] as ITradeHall;
+        var change:any[] = [];
+
+        if (_storeSupply.parcel.length !== _storeSupply.sold.length) {
+            choices[0] = 1;
+            postMessage0("Subdivision <a href=" + url + ">" + subid + "</a> is missing a supplier, or has too many suppliers!");
+        }
+        for (var i = 0; i < _storeSupply.parcel.length; i++) {
+            var newsupply = 0;
+
+            if (choices[0] === 2) {
+                newsupply = _storeSupply.sold[i];
+            }
+            else if (choices[0] === 3) {
+                newsupply = _storeSupply.quantity[i] === _storeSupply.purchase[i]
+                    ? _storeSupply.sold[i] + Math.ceil(_storeSupply.sold[i] * 1 * 0.25)
+                    : _storeSupply.sold[i] + Math.ceil(_storeSupply.sold[i] * 0 * 0.25);
+            }
+            else if (choices[0] === 4) {
+                newsupply = Math.min(2 * _storeSupply.sold[i], 3 * _storeSupply.sold[i] - _storeSupply.quantity[i]);
+            }
+            else if (choices[0] === 5) {
+                newsupply = (_storeSupply.sold[i] > _storeSupply.quantity[i] / 2)
+                    ? _storeSupply.sold[i] * (0.4 * 1 + 0.8)
+                    : _storeSupply.sold[i] * (0.4 * 0 + 0.8);
+            }
+
+            if (newsupply > 0 && _storeSupply.available[i] < newsupply) {
+                postMessage0("Subdivision (store) <a href=" + url + ">" + subid + "</a> has insufficient reserves at the supplier!");
+                break;
+            }
+        }
+
+        for (var i = 0; i < _storeSupply.parcel.length; i++) {
+            //[["-", "Zero", "Sold", "Amplify", "Stock", "Enhance"], 
+            // ["None", "One", "$1 000", "$1 000 000", "Market 1%", "Market 5%", "Market 10%"], 
+            // ["Any Q", "Local Q", "City Q"]],
+            var newsupply = 0;
+            if (choices[0] === 1) {
+                newsupply = 0;
+            }
+            else if (choices[0] === 2) {
+                newsupply = _storeSupply.sold[i];
+            }
+            else if (choices[0] === 3) {
+                newsupply = _storeSupply.quantity[i] === _storeSupply.purchase[i]
+                    ? _storeSupply.sold[i] + Math.ceil(_storeSupply.sold[i] * 1 * 0.25)
+                    : _storeSupply.sold[i] + Math.ceil(_storeSupply.sold[i] * 0 * 0.25);
+            }
+            else if (choices[0] === 4) {
+                newsupply = Math.min(2 * _storeSupply.sold[i], 3 * _storeSupply.sold[i] - _storeSupply.quantity[i]);
+            }
+            else if (choices[0] === 5) {
+                newsupply = (_storeSupply.sold[i] > _storeSupply.quantity[i] / 2)
+                    ? _storeSupply.sold[i] * (0.4 * 1 + 0.8)
+                    : _storeSupply.sold[i] * (0.4 * 0 + 0.8);
+            }
+
+            var minsupply = 0;
+            let _retailReport = $mapped[reports[i]] as IRetailReport;
+
+            if (choices[1] === 1) {
+                minsupply = 1;
+            }
+            else if (choices[1] === 2) {
+                minsupply = Math.ceil(1000 / _storeSupply.price[i]);
+            }
+            else if (choices[1] === 3) {
+                minsupply = Math.ceil(1000000 / _storeSupply.price[i]);
+            }
+            else if (choices[1] === 4) {
+                minsupply = Math.ceil(_retailReport.marketsize * 0.01);
+            }
+            else if (choices[1] === 5) {
+                minsupply = Math.ceil(_retailReport.marketsize * 0.05);
+            }
+            else if (choices[1] === 6) {
+                minsupply = Math.ceil(_retailReport.marketsize * 0.10);
+            }
+
+            newsupply = Math.max(newsupply, minsupply - _storeSupply.quantity[i] + _storeSupply.purchase[i]);
+
+            var nosupply = false;
+
+            if (choices[2] === 1) {
+                nosupply = _storeSupply.quality[i] != null && _storeSupply.quality[i] < _retailReport.localquality;
+            }
+            else if (choices[2] === 2) {
+                nosupply = _storeSupply.quality[i] != null && _storeSupply.quality[i] < _retailReport.cityquality;
+            }
+
+            if (nosupply) {
+                newsupply = 0;
+            }
+
+            if (_storeSupply.parcel[i] !== newsupply || _storeSupply.reprice[i]) {
+                change.push({
+                    amount: newsupply,
+                    offer: _storeSupply.offer[i],
+                    unit: subid,
+                    priceConstraint: _storeSupply.price_constraint_max[i],
+                    priceMarkUp: _storeSupply.price_mark_up[i],
+                    qualityMin: _storeSupply.quality_constraint_min[i],
+                    constraintPriceType: _storeSupply.price_constraint_type[i]
+                });
+            }
+        }
+        // TODO: тут походу каждый товар шлется отдельно, есть смысл посылать одной кнопкой. так будет вернее.
+        var postcount = change.length;
+        if (postcount) {
+            for (var i = 0; i < change.length; i++) {
+                xContract(urlContract, change[i], function () {
+                    !--postcount && xTypeDone(policyName);
+                });
+            }
+        }
+        else {
+            xTypeDone(policyName);
+        }
+    }
 }
 
 function technology(policyName: string, subid: number, choices: number[]) {
-    let fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-    xTypeDone(policyName);
+    var url = "/" + $realm + "/main/unit/view/" + subid + "/technology";
+    var urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
+
+    var getcount = 2;
+    xGet(url, "tech", false, function () {
+        !--getcount && post();
+    });
+    xGet(urlManager, "manager", false, function () {
+        !--getcount && post();
+    });
+
+    function post() {
+        $("[id='x" + "Technology" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _top = $mapped[urlManager] as ITopManager;
+        let _tech = $mapped[url] as ITech;
+        var change = false;
+        var newTech = -1;
+
+        if (choices[0] === 1) {
+
+            var managerIndex = _top.pic.indexOf(subType[_tech.img][2]);
+            var managerQual = _top.base[managerIndex] + _top.bonus[managerIndex];
+            var techLevel = calcTechLevel(managerQual);
+
+            // если цена технологии нулевая, то купит которую можно.
+            // TODO: неясно чего оно тут проверяет строку а не число. возможно тупняк или так надо
+            for (var i = _tech.price.length - 1; i >= 0; i--) {
+                if (_tech.price[i] === "$0.00" && (i + 1) <= techLevel && (i + 1) > _tech.tech && _tech.tech > 0) {
+                    newTech = i + 1;
+                    change = true;
+                    break;
+                }
+            }
+
+        }
+
+        if (change) {
+            xPost(url, "level=" + newTech + "&impelentit=Buy+a+technology", function () {
+                xTypeDone(policyName);
+            });
+        }
+        else {
+            xTypeDone(policyName);
+        }
+    }
+
+
 }
 
+function training(policyName: string, subid: number, choices: number[]) {
+    var url = "/" + $realm + "/window/unit/employees/education/" + subid;
+    var urlValue = "/" + $realm + "/ajax/unit/employees/calc_new_lvl_after_train/" + subid;
 
+    xGet(url, "training", false, function () {
+        phase();
+    });
 
+    var expectedSkill = 0;
 
+    function phase() {
+        $("[id='x" + "Training" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
 
+        let _train = $mapped[url] as ITraining;
+
+        if (choices[0] === 3 && _train.form.length) {
+            xContract(urlValue, "employees=" + _train.employees + "&weeks=4", function (data) {
+                expectedSkill = data.employees_level;
+                post();
+            });
+        }
+        else if (_train.form.length) {
+            post();
+        }
+        else {
+            xTypeDone(policyName);
+        }
+
+    }
+
+    function post() {
+        $("[id='x" + "Training" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _train = $mapped[url] as ITraining;
+        var change = false;
+
+        if (choices[0] === 1) {
+            change = true;
+            _train.form.find("#unitEmployeesData_timeCount").val(4);
+        }
+        else if (choices[0] === 2 && _train.salaryNow > _train.salaryCity) {
+            change = true;
+            _train.form.find("#unitEmployeesData_timeCount").val(4);
+        }
+        else if (choices[0] === 3) {
+
+            var salaryNew = calcSalary(_train.salaryNow, _train.salaryCity, expectedSkill, _train.skillCity, _train.skillNow);
+            salaryNew = Math.max(salaryNew, 0.8 * _train.salaryCity);
+            var savings = (_train.salaryNow - salaryNew) * 365;
+            var costs = _train.weekcost * 4 / _train.employees;
+
+            if (savings > costs) {
+                change = true;
+                _train.form.find("#unitEmployeesData_timeCount").val(4);
+            }
+
+        }
+
+        if (change) {
+            xPost(url, _train.form.serialize(), function () {
+                xTypeDone(policyName);
+            });
+        }
+        else {
+            xTypeDone(policyName);
+        }
+
+    }
+}
 
 function wareSize(policyName: string, subid: number, choices: number[]) {
-    let fn = getFuncName(arguments);
-    logDebug("started: ", fn);
-    xTypeDone(policyName);
+
+    var url = "/" + $realm + "/main/unit/view/" + subid;
+    var urlSize = "/" + $realm + "/window/unit/upgrade/" + subid;
+
+    xGet(url, "waremain", false, function () {
+        phase();
+    });
+
+
+    let min: number;
+    let max: number;
+
+    if (choices[0] === 1) {
+        min = 69 / 5;
+        max = 69.5;
+    }
+    else {
+        min = 20;
+        max = 200;
+    }
+
+    function phase() {
+        $("[id='x" + "Size" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _ware = $mapped[url] as IWareMain;
+        if (_ware.full < min || _ware.full > max) {
+
+            xGet(urlSize, "size", false, function () {
+                post();
+            });
+
+        }
+        else {
+            xTypeDone(policyName);
+        }
+
+    }
+
+    function post() {
+        $("[id='x" + "Size" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _ware = $mapped[url] as IWareMain;
+        let _wareSize = $mapped[urlSize] as IWareSize
+
+        if (_ware.size < 10) {
+            _ware.size = _ware.size * 1000;
+        }
+
+        for (var i = 0; i < _wareSize.rent.length; i++) {
+            if (_wareSize.size[i] < 10) {
+                _wareSize.size[i] = _wareSize.size[i] * 1000;
+            }
+
+            var coef = _wareSize.size[i] / _ware.size;
+            var normal = _ware.full / coef > min && _ware.full / coef < max;
+            var low = i === 0 && _wareSize.size[i] < _ware.size && _ware.full / coef < min;
+            var high = i === _wareSize.rent.length && _wareSize.size[i] > _ware.size && _ware.full / coef > max;
+
+            if (normal || low || high) {
+                xPost("/" + $realm + "/window/unit/upgrade/" + subid, "upgrade%5Bbound%5D=" + _wareSize.id[i], function () {
+                    xTypeDone(policyName);
+                });
+                return false;
+            }
+        }
+
+        xTypeDone(policyName);
+
+        return false;
+    }
 }
+
+function wareSupply(policyName: string, subid: number, choices: number[], good:string) {
+
+    var url = "/" + $realm + "/main/unit/view/" + subid + "/supply";
+    var urlMain = "/" + $realm + "/main/unit/view/" + subid;
+    let urlContract:string[] = [];
+
+    var getcount = 2;
+    xGet(url, "waresupply", true, function () {
+        !--getcount && phase();
+    });
+    xGet(urlMain, "waremain", true, function () {
+        !--getcount && phase();
+    });
+
+    if (choices[1] >= 1) {
+        var minFreeForBuy = 1;
+        //"Any available volume"
+        // , "1k", "10k", "100k"
+        // , "1m", "10m", "100m"
+        // , "1b", "10b", "100b"
+        if (choices[3] > 0) {
+            minFreeForBuy = 100 * Math.pow(10, choices[3]);
+        }
+
+        getcount += 3;
+        xGet("/" + $realm + "/window/common/util/setpaging/dbwarehouse/supplyList/40000", "none", false, function () {
+            !--getcount && phase();
+        });
+        var data = "total_price%5Bfrom%5D=&total_price%5Bto%5D=&quality%5Bfrom%5D=&quality%5Bto%5D=&quantity%5Bfrom%5D=&free_for_buy%5Bfrom%5D=" + minFreeForBuy + "&brand_value%5Bfrom%5D=&brand_value%5Bto%5D=";
+        xPost("/" + $realm + "/window/common/util/setfiltering/dbwarehouse/supplyList", data, function () {
+            !--getcount && phase();
+        });
+        xGet("/" + $realm + "/window/common/util/setfiltering/dbwarehouse/supplyList/supplierType=all/tm=all", "none", false, function () {
+            !--getcount && phase();
+        });
+
+    }
+
+    function phase(this:any) {
+        $("[id='x" + "Supply" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _wareSupp = $mapped[url] as IWareSupply;
+        let _ware = $mapped[urlMain] as IWareMain;
+
+        var contract = _wareSupp.contract.concat(_wareSupp.contractAdd);
+        var id = _wareSupp.id.concat(_wareSupp.idAdd);
+        var type = _wareSupp.type.concat(_wareSupp.typeAdd);
+
+        if (choices[1] >= 1 && _wareSupp.type.length) {
+
+            for (var i = 0; i < _ware.product.length; i++) {
+                if (good && _ware.product[i] !== good)
+                    continue;
+
+                getcount++;
+                let index = type.indexOf(_ware.product[i]);
+                urlContract[i] = contract[index];
+
+                xsup.push([subid, id[index],
+                    (function (urlCon:any, type:any) {
+                        xGet(urlCon, "contract", true, function () {
+                            xsupGo(subid, type);
+                            !--getcount && post();
+                        });
+                    }.bind(this, contract[index], id[index]))
+                ]);
+            }
+            xsupGo();
+        }
+        else {
+            post();
+        }
+    }
+
+    var change:any[] = [];
+    var deletechange = false;
+    var deletestring = "contractDestroy=1";
+
+    function post() {
+        $("[id='x" + "Supply" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
+
+        let _wareSupp = $mapped[url] as IWareSupply;
+        let _ware = $mapped[urlMain] as IWareMain;
+        let supplier:any[] = [];
+        var j = 0;
+        var x = 0;
+        for (var i = 0; i < _ware.product.length; i++) {
+
+            var newsupply = 0;
+            if (choices[0] === 2) {
+                newsupply = _ware.shipments[i];
+            }
+            else if (choices[0] === 3) {
+                newsupply = Math.min(2 * _ware.shipments[i], Math.max(3 * _ware.shipments[i] - _ware.stock[i], 0));
+            }
+            else if (choices[0] === 4) {
+                newsupply = (_ware.shipments[i] > _ware.stock[i] / 2)
+                    ? _ware.shipments[i] * (0.4 * 1 + 0.8)
+                    : _ware.shipments[i] * (0.4 * 0 + 0.8);
+            }
+            else if (choices[0] === 5) {
+                newsupply = Math.min(Math.sqrt(_ware.shipments[i] / _ware.stock[i] * 2), 2) * _ware.shipments[i];
+            }
+            else if (choices[0] === 6) {
+                newsupply = Infinity;
+            }
+
+            newsupply = Math.ceil(newsupply);
+
+            var set = newsupply;
+
+            var jstart = j;
+            supplier = [];
+            while (_ware.product[i] === _wareSupp.product[j]) {
+                supplier.push({
+                    available: _wareSupp.available[j],
+                    PQR: _wareSupp.price[j] / _wareSupp.quality[j],
+                    offer: _wareSupp.offer[j],
+                    myself: _wareSupp.myself[j],
+                    index: j,
+                    sup: j - jstart,
+                    priceMarkUp: _wareSupp.price_mark_up[j],
+                    priceConstraint: _wareSupp.price_constraint_max[j],
+                    constraintPriceType: _wareSupp.price_constraint_type[j],
+                    qualityMin: _wareSupp.quality_constraint_min[j]
+                });
+                j++;
+            }
+
+            if (good && _ware.product[i] !== good) {
+                continue;
+            }
+
+            if (choices[1] === 0) {
+
+                supplier.sort(function (a, b) {
+                    return a.PQR - b.PQR;
+                });
+
+                var toset = 0;
+                for (var k = 0; k < supplier.length; k++) {
+                    toset = Math.min(set, supplier[k].available);
+                    set -= toset;
+                    if (_wareSupp.parcel[supplier[k].index] !== toset || _wareSupp.reprice[supplier[k].index]) {
+                        change.push({
+                            'newsup': false,
+                            'offer': supplier[k].offer,
+                            'amount': toset,
+                            'priceMarkUp': supplier[k].priceMarkUp,
+                            'priceConstraint': supplier[k].priceConstraint,
+                            'constraintPriceType': supplier[k].constraintPriceType,
+                            'qualityMin': supplier[k].qualityMin
+                        });
+                    }
+                }
+
+                if (set > 0) {
+                    postMessage0("Not enough suppliers for product " + _ware.product[i] + " in warehouse <a href=" + url + ">" + subid + "</a>");
+                }
+            }
+
+            else if (choices[1] >= 1) {
+
+                var product = _ware.product[i];
+
+                var offers = supplier.map(function (contract) {
+                    return contract.offer;
+                });
+
+                var mix = supplier.slice();
+                var indexcount = mix.length;
+                let _contract = $mapped[urlContract[i]] as IContract;
+
+                for (var k = 0; k < _contract.offer.length; k++) {
+                    if (offers.indexOf(_contract.offer[k]) === -1 && (_contract.tm[k] === product || !_contract.tm[k] && _contract.product === product) && blackmail.indexOf(_contract.company[k]) === -1) {
+                        mix.push({
+                            available: _contract.available[k],
+                            PQR: _contract.price[k] / _contract.quality[k],
+                            offer: _contract.offer[k],
+                            company: _contract.company[k],
+                            myself: _contract.myself[k],
+                            row: k
+                        });
+                    }
+                }
+
+                mix.sort(function (a, b) {
+                    return a.PQR - b.PQR;
+                });
+
+                if (choices[2] === 0) {
+                    set = Math.max(set, 1);
+                }
+
+                for (var k = 0; k < mix.length; k++) {
+
+                    var comp:any = mix[k].myself && choices[1] === 1 || !mix[k].myself && choices[1] === 3 || choices[1] === 2;
+                    var toset = Math.min(set, mix[k].available) * comp;
+                    set -= toset;
+
+                    if (choices[2] === 2 && mix[k].index >= 0) {
+                        toset = Math.max(toset, 1);
+                    }
+
+                    if (mix[k].available && (toset > 0 || choices[2] >= 1 && mix[k].index >= 0) && (mix[k].row >= 0 || mix[k].index >= 0 && (_wareSupp.parcel[mix[k].index] !== toset || _wareSupp.reprice[mix[k].index]))) {
+                        change.push({
+                            'newsup': mix[k].row >= 0,
+                            'offer': mix[k].offer,
+                            'amount': toset,
+                            'company': mix[k].company,
+                            'good': product,
+                            'priceMarkUp': mix[k].priceMarkUp,
+                            'priceConstraint': mix[k].priceConstraint,
+                            'constraintPriceType': mix[k].constraintPriceType,
+                            'qualityMin': mix[k].qualityMin
+                        });
+                        if (mix[k].row >= 0) {
+                            _contract.available[mix[k].index] -= toset;
+                        }
+                    }
+                    else if (mix[k].index >= 0 && toset === 0 && choices[2] === 0 || mix[k].index >= 0 && !mix[k].available) {
+                        deletechange = true;
+                        deletestring += "&supplyContractData%5Bselected%5D%5B%5D=" + mix[k].offer;
+                        supplier.splice(mix[k].sup, 1);
+                    }
+                }
+
+                if (set > 0) {
+                    postMessage0("Not enough suppliers for product " + product + " in warehouse <a href=" + url + ">" + subid + "</a>");
+                }
+            }
+        }
+
+        var contractcount = change.length + (deletechange ? 1 : 0);
+
+        if (deletechange) {
+            xPost(url, deletestring, function () {
+                contractcount--;
+                further();
+            });
+        }
+        else {
+            further();
+        }
+
+        function further() {
+
+            for (var i = 0; i < change.length; i++) {
+
+                (function (steak) {
+                    xContract("/" + $realm + "/ajax/unit/supply/create", {
+                        'offer': steak.offer,
+                        'unit': subid,
+                        'amount': steak.amount,
+                        'priceConstraint': steak.priceConstraint,
+                        'priceMarkUp': steak.priceMarkUp,
+                        'qualityMin': steak.qualityMin,
+                        'constraintPriceType': steak.constraintPriceType
+                    }, function (data) {
+
+                        if (data.result === "-5" && blackmail.indexOf(steak.company) === -1) {
+                            postMessage0("You are blackmailed by the company 「" + steak.company + "」!");
+                            blackmail.push(steak.company);
+                        }
+
+                        if (data.result === "-5") {
+                            wareSupply(policyName, subid, choices, steak.good);
+                        }
+
+                        if (data.result !== "-5" && steak.newsup) {
+                            suppliercount++;
+                            $("#XioSuppliers").text(suppliercount);
+                        }
+
+                        if (data.result !== "-5") {
+                            !--contractcount && xTypeDone(policyName);
+                        }
+
+                    });
+                })(change[i]);
+
+            }
+
+            if (contractcount === 0) {
+                xTypeDone(policyName);
+            }
+
+            change = [];
+
+        }
+    }
+}
+
+
