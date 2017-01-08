@@ -38,7 +38,7 @@ type MappedPage = IContract | IWareSupply | IWareSize | IWareMain | ITraining | 
 interface IMain {
     employees: number;
     totalEmployees: number;
-    employeesDemand: number;
+    employeesReq: number;
 
     salaryNow: number;
     salaryCity: number;
@@ -203,10 +203,15 @@ interface ISale {
     policy: number[];
     price: number[];
     incineratorMaxPrice: number[];
+
+    outamount: number[];
     outqual: number[];
     outprime: number[];
+
+    stockamount: number[];
     stockqual: number[];
     stockprime: number[];
+
     product: string[];
     productId: number[];
     region: string;

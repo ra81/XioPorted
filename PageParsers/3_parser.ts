@@ -1,16 +1,14 @@
-﻿// ==UserScript==
-// @name           parsers
-// @namespace      
-// @description    parsers
-// @version        12.1.1
-// @include        https://virtonomica.ru/*/*
-// ==/UserScript==
-
+﻿
 $ = jQuery = jQuery.noConflict(true);
 let $xioDebug = true;
 
-let urlTemplates: IDictionary<[string, (html: any, url: string)=> any]> = {
-    manager: ["/#realm#/main/user/privat/persondata/knowledge", parseManager]
+let urlTemplates: IDictionary<[RegExp, (html: any, url: string) => any]> = {
+    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge$/ig, parseManager],
+    unitMain: [/\/\w+\/main\/unit\/view\/\d+$/gi, parseUnitMain],
+    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement$/ig, parseAds],
+    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+$/ig, parseSalary],
+    unitList: [/\/\w+\/main\/company\/view\/\d+\/unit_list$/ig, parseUnitList],
+    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$/ig, parseSale],
 };
 
 $(document).ready(() => parseStart());
@@ -26,8 +24,7 @@ function parseStart() {
         throw new Error("realm не найден.");
 
     for (let key in urlTemplates) {
-        let h = urlTemplates[key][0].replace(/#realm#/, realm);
-        if (h === url) {
+        if (urlTemplates[key][0].test(url)) {
             let obj = urlTemplates[key][1]($("html").html(), url);
             logDebug("parsed: ", obj);
         }

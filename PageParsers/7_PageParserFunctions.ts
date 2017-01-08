@@ -65,12 +65,14 @@ function getCompanyId() {
  */
 function parseUnitList(html: any, url: string): IUnitList {
     let $html = $(html);
-    let $unitList = $html.find(".unit-list-2014");
 
     try {
-        let _subids = $unitList.find("td:nth-child(1)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+        let $rows = $html.find(".unit-list-2014").find("tr").not(".unit_comment");
 
-        let _type = $unitList.find("td:nth-child(3)").map((i, e) => {
+        //let _subids = $unitList.find("td:nth-child(1)").not(".unit_comment").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+        let _subids = $rows.find("td:nth-child(1)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+
+        let _type = $rows.find("td:nth-child(3)").map((i, e) => {
             let s = $(e).attr("class").split("-")[1];
             if (s == null)
                 throw new RangeError("class attribute doesn't contains type part.");
@@ -92,32 +94,34 @@ function parseUnitList(html: any, url: string): IUnitList {
  */
 function parseSale(html: any, url: string): ISale {
     let $html = $(html);
-
+    debugger;
     try {
+        let $rows = $html.find("table.grid").find("tr.even, tr.odd");
+
+        // помним что на складах есть позиции без товаров и они как бы не видны по дефолту в продаже, но там цена 0 и есть политика сбыта.
         let _form = $html.find("[name=storageForm]") as JQuery;
 
-        let _policy = $html.find("select:even").map((i, e) => {
-            let f = $(e).find("[selected]").index();
-            if (f < 0)
-                throw new RangeError("policy index < 0");
+        // может быть -1 если вдруг ничего не выбрано в селекте, что маовероятно
+        let _policy = $rows.find("select:nth-child(3)").map((i, e) => $(e).find("[selected]").index()).get() as any as number[];
 
-            return f;
-        }).get() as any as number[];
+        let _price = $rows.find("input.money:nth-child(1)").map((i, e) => numberfy($(e).val())).get() as any as number[];
+        let _incineratorMaxPrice = $html.find('span[style="COLOR: green;"]').map((i, e) => numberfy($(e).text())).get() as any as number[];
 
-        let _price = $html.find("input.money:even").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
+        let stockIndex = $html.find("table.grid").find("th:contains('На складе')").index();
+        let $stockTd = $rows.children(`td:nth-child(${stockIndex+1})`);
+        let _stockamount = $stockTd.find("tr:nth-child(1)").find("td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
+        let _stockqual = $stockTd.find("tr:nth-child(2)").find("td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
+        let _stockprime = $stockTd.find("tr:nth-child(3)").find("td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
 
-        let _incineratorMaxPrice = $html.find('span[style="COLOR: green;"]').map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-
-        let _outqual = $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(2) td:nth-child(2)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-
-        let _outprime = $html.find("td:has('table'):nth-last-child(6)  tr:nth-child(3) td:nth-child(2)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-
-        let _stockqual = $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(2) td:nth-child(2)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-
-        let _stockprime = $html.find("td:has('table'):nth-last-child(5)  tr:nth-child(3) td:nth-child(2)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+        // относится к производству. для складов тупо редиректим на ячейку со складом. Будет одно и то же для склада и для выхода.
+        let outIndex = $html.find("table.grid").find("th:contains('Выпуск')").index();
+        let $outTd = outIndex >= 0 ? $rows.children(`td:nth-child(${outIndex + 1})`) : $stockTd;
+        let _outamount = $outTd.find("tr:nth-child(1)").find("td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
+        let _outqual = $outTd.find("tr:nth-child(2)").find("td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
+        let _outprime = $outTd.find("tr:nth-child(3)").find("td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
 
         // название продукта Спортивное питание, Маточное молочко и так далее
-        let _product = $html.find(".grid a:not([onclick])").map((i, e) => {
+        let _product = $rows.find("a:not([onclick])").map((i, e) => {
             let t = $(e).text();
             if (t.trim() === "")
                 throw new Error("product name is empty");
@@ -125,8 +129,8 @@ function parseSale(html: any, url: string): ISale {
             return t;
         }).get() as any as string[];
 
-        // урл на продукт
-        let _productId = $html.find(".grid a:not([onclick])").map((i, e) => {
+        // номер продукта
+        let _productId = $rows.find("a:not([onclick])").map((i, e) => {
             let m = $(e).attr("href").match(/\d+/);
             if (m == null)
                 throw new Error("product id not found.");
@@ -141,7 +145,7 @@ function parseSale(html: any, url: string): ISale {
 
         // если покупцов много то появляется доп ссылка на страницу с контрактами. эта херь и говорит есть она или нет
         let _contractpage = !!$html.find(".tabsub").length;
-
+        // TODO: сделать чтобы контракты были вида [товар, [линк на юнит, цена контракта]]. Тогда тупо словарь удобный для работы а не текущая хуйня
         // данное поле существует только если НЕТ ссылки на контракты то есть в простом случае и здесь может быть такой хуйня
         // ["Молоко", "$1.41", "$1.41", "$1.41", "Мясо", "$5.62"]
         // идет категория, потом цены покупателей, потом снова категория и цены. И как бы здесь нет порядка
@@ -155,8 +159,12 @@ function parseSale(html: any, url: string): ISale {
             policy: _policy,
             price: _price,
             incineratorMaxPrice: _incineratorMaxPrice,
+
+            outamount: _outamount,
             outqual: _outqual,
             outprime: _outprime,
+
+            stockamount: _stockamount,
             stockqual: _stockqual,
             stockprime: _stockprime,
             product: _product,
@@ -394,7 +402,7 @@ function parseUnitMain(html: any, url: string): IMain {
             return {
                 employees: _employees,
                 totalEmployees: _totalEmployees,
-                employeesDemand: -1,
+                employeesReq: -1,
 
                 salaryNow: _salaryNow,
                 salaryCity: _salaryCity,
@@ -435,19 +443,28 @@ function parseUnitMain(html: any, url: string): IMain {
                 // 10(требуется ~ 1)
                 // 10(максимум:1)
                 // 10 ед. (максимум:1) это уже не включать
-                let emplRx = new RegExp(/\d+\s*\(.+\d+.*\)/g);
-                let jq = $block.find("td.title:contains('Количество')").next("td").filter((i, el) => emplRx.test($(el).text()));
-                if (jq.length !== 1)
-                    return ["-1", "-1"];
+                // 1 000 (максимум:10 000) пробелы в числах!!
+                let types = ["сотрудников", "работников", "учёных", "рабочих"];
+                let res = [-1, -1];
 
-                let m = jq.text().match(rxInt);
+                //let emplRx = new RegExp(/\d+\s*\(.+\d+.*\)/g);
+                //let td = jq.next("td").filter((i, el) => emplRx.test($(el).text()));
+                let jq = $block.find("td.title:contains('Количество')").filter((i, el) => {
+                    return types.some((t, i, arr) => $(el).text().indexOf(t) >= 0);
+                });
+
+                if (jq.length !== 1)
+                    return res;
+
+                // например в лаборатории будет находить вместо требований, так как их нет, макс число рабов в здании
+                let m = jq.next("td").text().replace(/\s*/g, "").match(rxInt);
                 if (!m || m.length !== 2)
-                    return ["-1", "-1"];
-                
-                return m as string[];
+                    return res;
+
+                return [parseFloat(m[0]), parseFloat(m[1])];
             })();
-            let _employees = numberfy(empl[0]);
-            let _employeesDemand = numberfy(empl[1]);
+            let _employees = empl[0];
+            let _employeesReq = empl[1];
             // общее число подчиненных по профилю
             let _totalEmployees = numberfy($block.find("td:contains('Суммарное количество подчинённых')").next("td").text());
 
@@ -457,7 +474,7 @@ function parseUnitMain(html: any, url: string): IMain {
                 if (jq.length !== 1)
                     return ["-1", "-1"];
 
-                let m = jq.text().match(rxFloat);
+                let m = jq.text().replace(/\s*/g, "").match(rxFloat);
                 if (!m || m.length !== 2)
                     return ["-1", "-1"];
 
@@ -488,7 +505,7 @@ function parseUnitMain(html: any, url: string): IMain {
                 let res = [-1, -1, -1, -1, -1, -1, -1];
 
                 // число оборудования тупо не ищем. гемор  не надо
-
+                
                 // качество оборудования и треб по технологии
                 let jq = $block.find("td.title:contains('Качество')").next("td");
                 if (jq.length === 1) {
@@ -504,10 +521,14 @@ function parseUnitMain(html: any, url: string): IMain {
                 // красный и черный и % износа
                 // 1.28 % (25+1 ед.)
                 // 0.00 % (0 ед.)
-                jq = $block.find("td.title:contains('Износ')").next("td");
+                let types = ["Износ", "Здоровье"];
+                jq = $block.find("td.title").filter((i, el) => {
+                    return types.some((t, i, arr) => $(el).text().indexOf(t) >= 0);
+                });
+
                 if (jq.length === 1) {
                     let rx = new RegExp(/(\d+\.\d+)\s*%\s*\((\d+)(?:\+(\d+))*.*\)/ig);
-                    let m = rx.exec(jq.text());
+                    let m = rx.exec(jq.next("td").text());
                     if (m) {
                         // первым идет сама исходная строка
                         res[4] = parseFloat(m[1]);  // 0  или float.
@@ -522,7 +543,7 @@ function parseUnitMain(html: any, url: string): IMain {
             let _equipMax = equip[1];
             let _equipQual = equip[2];
             let _equipReq = equip[3];
-            // % износа 
+            // % износа или здоровье животных для ферм.
             let _equipBroken = equip[4];
             // кол-во черного оборудования
             let _equipWearBlack = equip[5];
@@ -544,11 +565,16 @@ function parseUnitMain(html: any, url: string): IMain {
 
                 return numberfy(jq.text());
             })();
-            
+
             let _img = $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0];
             let _size = numberfy($html.find("#unitImage img").attr("src").split("_")[1]);
+
+            //  есть ли возможность вкорячить бустер производства типо солнечных панелей или нет. если не занято то втыкает
             let _hasBooster = !$html.find("[src='/img/artefact/icons/color/production.gif']").length;
+
+            // хз что это вообще
             let _hasAgitation = !$html.find("[src='/img/artefact/icons/color/politics.gif']").length;
+
             let _onHoliday = !!$html.find("[href$=unset]").length;
             let _isStore = !!$html.find("[href$=trading_hall]").length;
             let _departments = numberfy($html.find("tr:contains('Количество отделов') td:eq(1)").text()) || -1;
@@ -557,7 +583,7 @@ function parseUnitMain(html: any, url: string): IMain {
             return {
                 employees: _employees,
                 totalEmployees: _totalEmployees,
-                employeesDemand: _employeesDemand,
+                employeesReq: _employeesReq,
 
                 salaryNow: _salaryNow,
                 salaryCity: _salaryCity,

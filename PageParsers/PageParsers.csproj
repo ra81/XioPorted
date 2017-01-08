@@ -33,10 +33,11 @@
     <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
-    <TypeScriptCompile Include="0_parser.ts" />
-    <TypeScriptCompile Include="3_IDictionary.ts" />
+    <TypeScriptCompile Include="0_Header.ts" />
+    <TypeScriptCompile Include="1_Exceptions.ts" />
+    <TypeScriptCompile Include="2_IDictionary.ts" />
+    <TypeScriptCompile Include="3_parser.ts" />
     <TypeScriptCompile Include="7_PageParserFunctions.ts" />
-    <TypeScriptCompile Include="8_Exceptions.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
   </ItemGroup>
   <ItemGroup>
