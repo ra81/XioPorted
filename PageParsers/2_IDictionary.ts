@@ -71,10 +71,10 @@ interface IMain {
 
 interface IEmployees {
     id: number[];
-    salaryWrk: number[];
+    salary: number[];
     salaryCity: number[];
-    skillWrk: number[];
-    skillCity: number[];
+    skill: number[];
+    skillRequired: number[];
     onHoliday: boolean[];
     efficiency: string[];
 }

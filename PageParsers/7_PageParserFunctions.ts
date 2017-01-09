@@ -15,6 +15,14 @@ function numberfyOrError(value: string) {
 }
 
 /**
+ * Возвращает ТОЛЬКО текст элемента БЕЗ его наследников
+ * @param el
+ */
+function getInnerText(el: Element) {
+    return $(el).clone().children().remove().end().text();
+}
+
+/**
  * Из набора HTML элементов представляющих собой tr парсит subid. Ряды должны быть стандартного формата.
  */
 function parseSubid(trList: HTMLTableRowElement[]): number[] {
@@ -94,7 +102,7 @@ function parseUnitList(html: any, url: string): IUnitList {
  */
 function parseSale(html: any, url: string): ISale {
     let $html = $(html);
-    debugger;
+
     try {
         let $rows = $html.find("table.grid").find("tr.even, tr.odd");
 
@@ -620,8 +628,240 @@ function parseUnitMain(html: any, url: string): IMain {
     }
 }
 
+/**
+ * Чисто размер складов вида https://virtonomica.ru/fast/window/unit/upgrade/8006972
+ * @param html
+ * @param url
+ */
+function parseWareSize(html: any, url: string): IWareSize {
+    let $html = $(html);
 
+    try {
+        let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
+            let txt = $(e).text();
+            let sz = numberfyOrError(txt);
+            if (txt.indexOf("тыс") >= 0)
+                sz *= 1000;
+
+            if (txt.indexOf("млн") >= 0)
+                sz *= 1000000;
+
+            return sz;
+        }).get() as any as number[];
+        let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+        let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
+
+        return {
+            size: _size,
+            rent: _rent,
+            id: _id
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware size", url, err);
+    }
+}
+
+/**
+ * Главная страница склада аналогично обычной главной юнита /main/unit/view/ + subid
+ * @param html
+ * @param url
+ */
+function parseWareMain(html: any, url: string): IWareMain {
+    let $html = $(html);
+
+    try {
+        if ($html.find("#unitImage img").attr("src").indexOf("warehouse") < 0)
+            throw new Error("Это не склад!");
+
+        let _size = $html.find(".infoblock td:eq(1)").map((i, e) => {
+            let txt = $(e).text();
+            let sz = numberfyOrError(txt);
+            if (txt.indexOf("тыс") >= 0)
+                sz *= 1000;
+
+            if (txt.indexOf("млн") >= 0)
+                sz *= 1000000;
+
+            return sz;
+        }).get() as any as number;
+        let _full = (() => {
+            let f = $html.find("[nowrap]:eq(0)").text().trim();
+            if (f === "")
+                throw new Error("ware full not found");
+
+            return numberfy(f);
+        })();
+        let _product = $html.find(".grid td:nth-child(1)").map((i, e) => $(e).text()).get() as any as string[];
+        let _stock = $html.find(".grid td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
+        let _shipments = $html.find(".grid td:nth-child(6)").map((i, e) => numberfy($(e).text())).get() as any as number[];
+
+        return {
+            size: _size,
+            full: _full,
+            product: _product,
+            stock: _stock,
+            shipments: _shipments
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware main", url, err);
+    }
+}
+
+/**
+ * все продавцы данного продукта ВООБЩЕ /"+realm+"/main/globalreport/marketing/by_products/"+mapped[url].productId[i]
+ * @param html
+ * @param url
+ */
+function parseProductReport(html: any, url: string): IProductReport {
+    let $html = $(html);
+
+    try {
+        let $rows = $html.find(".grid").find("tr.odd, tr.even");
+
+        // Макс ограничение на контракт. -1 если без.
+        let _max = $rows.find("td.nowrap:nth-child(2)").map((i, e) => {
+            let $span = $(e).find("span");
+            if ($span.length !== 1)
+                return -1;
+
+            return numberfy($span.text().split(":")[1]);
+        }).get() as any as number[];
+
+        // общее число на складе. может быть 0
+        let _total = $rows.find("td.nowrap:nth-child(2)").map((i, e) => {
+            let txt = $(e).clone().children().remove().end().text().trim();
+            if (txt.length === 0)
+                throw new Error("total amount not found");
+
+            return numberfy(txt);
+            }).get() as any as number[];
+        let _available = $rows.find("td.nowrap:nth-child(3)").map((i, e) => numberfy($(e).text())).get() as any as number[];
+
+        // не могут быть 0 по определению
+        let _quality = $rows.find("td.nowrap:nth-child(4)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+        let _price = $rows.find("td.nowrap:nth-child(5)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+
+        // может быть независимый поставщик БЕЗ id. для таких будет -1 id
+        let _subid = $rows.find("td:nth-child(1) td:nth-child(1)").map((i, e) => {
+            let jq = $(e).find("a");
+            if (jq.length !== 1)
+                return -1;
+
+            let m = jq.attr("href").match(/\d+/);
+            return numberfy(m ? m[0] : "-1");
+            }).get() as any as number[];
+
+        return {
+            max: _max,
+            total: _total,
+            available: _available,
+            quality: _quality,
+            price: _price,
+            subid: _subid
+        };
+    }
+    catch (err) {
+        throw new ParseError("product report", url, err);
+    }
+}
+
+/**
+ * "/"+realm+"/main/company/view/"+companyid+"/unit_list/employee/salary"
+ * @param html
+ * @param url
+ */
+function parseEmployees(html: any, url: string): IEmployees {
+    let $html = $(html);
+
+    try {
+        let $rows = $html.find("table.list").find(".u-c").map((i, e) => $(e).closest("tr").get());
+
+        let _id = $rows.find(":checkbox").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
+
+        // может быть 0 в принципе
+        let _salary = $rows.find("td:nth-child(7)").map((i, e) => {
+            let txt = getInnerText(e).trim();
+            if (txt.length === 0)
+                throw new Error("salary not found");
+
+            return numberfy(txt);
+        }).get() as any as number[];
+
+        // не может быть 0
+        let _salaryCity = $rows.find("td:nth-child(8)").map((i, e) => {
+            let txt = getInnerText(e).trim(); // тут низя удалять ничо. внутри какой то инпут сраный и в нем текст
+            if (txt.length === 0)
+                throw new Error("salary city not found");
+
+            return numberfyOrError(txt);
+        }).get() as any as number[];
+
+        // может быть 0
+        let _skill = $rows.find("td:nth-child(9)").map((i, e) => {
+            let txt = $(e).text().trim();  // может быть a тег внутри. поэтому просто текст.
+            if (txt.length === 0)
+                throw new Error("skill not found");
+
+            return numberfy(txt);
+        }).get() as any as number[];
+        let _skillRequired = $rows.find("td:nth-child(10)").map((i, e) => {
+            let txt = $(e).text().trim();  // может быть a тег внутри. поэтому просто текст.
+            if (txt.length === 0)
+                throw new Error("skill not found");
+
+            return numberfy(txt);
+        }).get() as any as number[];
+
+        let _onHoliday = $rows.find("td:nth-child(11)").map((i, e) => !!$(e).find(".in-holiday").length).get() as any as boolean[];
+
+        // может отсутстовать если мы в отпуске -1 будет
+        let _efficiency = $rows.find("td:nth-child(11)").map((i, e) => {
+            let txt = getInnerText(e).trim();
+            return numberfy(txt || "-1");
+        }).get() as any as string[];
+
+        return {
+            id: _id,
+            salary: _salary,
+            salaryCity: _salaryCity,
+            skill: _skill,
+            skillRequired: _skillRequired,
+            onHoliday: _onHoliday,
+            efficiency: _efficiency
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware size", url, err);
+    }
+}
 
 function parseX(html: any, url: string) {
+    let $html = $(html);
 
+    try {
+        let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
+            let txt = $(e).text();
+            let sz = numberfyOrError(txt);
+            if (txt.indexOf("тыс") >= 0)
+                sz *= 1000;
+
+            if (txt.indexOf("млн") >= 0)
+                sz *= 1000000;
+
+            return sz;
+        }).get() as any as number[];
+        let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+        let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
+
+        return {
+            size: _size,
+            rent: _rent,
+            id: _id
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware size", url, err);
+    }
 }

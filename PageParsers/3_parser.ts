@@ -3,12 +3,16 @@ $ = jQuery = jQuery.noConflict(true);
 let $xioDebug = true;
 
 let urlTemplates: IDictionary<[RegExp, (html: any, url: string) => any]> = {
-    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge$/ig, parseManager],
-    unitMain: [/\/\w+\/main\/unit\/view\/\d+$/gi, parseUnitMain],
-    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement$/ig, parseAds],
-    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+$/ig, parseSalary],
-    unitList: [/\/\w+\/main\/company\/view\/\d+\/unit_list$/ig, parseUnitList],
-    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$/ig, parseSale],
+    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig, parseManager],
+    unitMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi, parseUnitMain],
+    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig, parseAds],
+    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig, parseSalary],
+    unitList: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig, parseUnitList],
+    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig, parseSale],
+    wareSize: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig, parseWareSize],
+    wareMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/, parseWareMain],
+    productReport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig, parseProductReport],
+    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig, parseEmployees],
 };
 
 $(document).ready(() => parseStart());
@@ -26,7 +30,7 @@ function parseStart() {
     for (let key in urlTemplates) {
         if (urlTemplates[key][0].test(url)) {
             let obj = urlTemplates[key][1]($("html").html(), url);
-            logDebug("parsed: ", obj);
+            logDebug(`parsed ${key}: `, obj);
         }
     }
 }

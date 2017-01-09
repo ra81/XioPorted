@@ -59,12 +59,16 @@ function dict2String(dict) {
 $ = jQuery = jQuery.noConflict(true);
 var $xioDebug = true;
 var urlTemplates = {
-    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge$/ig, parseManager],
-    unitMain: [/\/\w+\/main\/unit\/view\/\d+$/gi, parseUnitMain],
-    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement$/ig, parseAds],
-    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+$/ig, parseSalary],
-    unitList: [/\/\w+\/main\/company\/view\/\d+\/unit_list$/ig, parseUnitList],
-    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$/ig, parseSale],
+    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig, parseManager],
+    unitMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi, parseUnitMain],
+    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig, parseAds],
+    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig, parseSalary],
+    unitList: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig, parseUnitList],
+    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig, parseSale],
+    wareSize: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig, parseWareSize],
+    wareMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/, parseWareMain],
+    productReport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig, parseProductReport],
+    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig, parseEmployees],
 };
 $(document).ready(function () { return parseStart(); });
 function parseStart() {
@@ -78,7 +82,7 @@ function parseStart() {
     for (var key in urlTemplates) {
         if (urlTemplates[key][0].test(url)) {
             var obj = urlTemplates[key][1]($("html").html(), url);
-            logDebug("parsed: ", obj);
+            logDebug("parsed " + key + ": ", obj);
         }
     }
 }
@@ -173,6 +177,13 @@ function numberfyOrError(value) {
     return n;
 }
 /**
+ * Возвращает ТОЛЬКО текст элемента БЕЗ его наследников
+ * @param el
+ */
+function getInnerText(el) {
+    return $(el).clone().children().remove().end().text();
+}
+/**
  * Из набора HTML элементов представляющих собой tr парсит subid. Ряды должны быть стандартного формата.
  */
 function parseSubid(trList) {
@@ -237,7 +248,6 @@ function parseUnitList(html, url) {
  */
 function parseSale(html, url) {
     var $html = $(html);
-    debugger;
     try {
         var $rows = $html.find("table.grid").find("tr.even, tr.odd");
         // помним что на складах есть позиции без товаров и они как бы не видны по дефолту в продаже, но там цена 0 и есть политика сбыта.
@@ -685,6 +695,202 @@ function parseUnitMain(html, url) {
         throw new ParseError("unit main page", url, err);
     }
 }
+/**
+ * Чисто размер складов вида https://virtonomica.ru/fast/window/unit/upgrade/8006972
+ * @param html
+ * @param url
+ */
+function parseWareSize(html, url) {
+    var $html = $(html);
+    try {
+        var _size = $html.find(".nowrap:nth-child(2)").map(function (i, e) {
+            var txt = $(e).text();
+            var sz = numberfyOrError(txt);
+            if (txt.indexOf("тыс") >= 0)
+                sz *= 1000;
+            if (txt.indexOf("млн") >= 0)
+                sz *= 1000000;
+            return sz;
+        }).get();
+        var _rent = $html.find(".nowrap:nth-child(3)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _id = $html.find(":radio").map(function (i, e) { return numberfyOrError($(e).val()); }).get();
+        return {
+            size: _size,
+            rent: _rent,
+            id: _id
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware size", url, err);
+    }
+}
+/**
+ * Главная страница склада аналогично обычной главной юнита /main/unit/view/ + subid
+ * @param html
+ * @param url
+ */
+function parseWareMain(html, url) {
+    var $html = $(html);
+    try {
+        if ($html.find("#unitImage img").attr("src").indexOf("warehouse") < 0)
+            throw new Error("Это не склад!");
+        var _size = $html.find(".infoblock td:eq(1)").map(function (i, e) {
+            var txt = $(e).text();
+            var sz = numberfyOrError(txt);
+            if (txt.indexOf("тыс") >= 0)
+                sz *= 1000;
+            if (txt.indexOf("млн") >= 0)
+                sz *= 1000000;
+            return sz;
+        }).get();
+        var _full = (function () {
+            var f = $html.find("[nowrap]:eq(0)").text().trim();
+            if (f === "")
+                throw new Error("ware full not found");
+            return numberfy(f);
+        })();
+        var _product = $html.find(".grid td:nth-child(1)").map(function (i, e) { return $(e).text(); }).get();
+        var _stock = $html.find(".grid td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _shipments = $html.find(".grid td:nth-child(6)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        return {
+            size: _size,
+            full: _full,
+            product: _product,
+            stock: _stock,
+            shipments: _shipments
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware main", url, err);
+    }
+}
+/**
+ * все продавцы данного продукта ВООБЩЕ /"+realm+"/main/globalreport/marketing/by_products/"+mapped[url].productId[i]
+ * @param html
+ * @param url
+ */
+function parseProductReport(html, url) {
+    var $html = $(html);
+    try {
+        var $rows = $html.find(".grid").find("tr.odd, tr.even");
+        // Макс ограничение на контракт. -1 если без.
+        var _max = $rows.find("td.nowrap:nth-child(2)").map(function (i, e) {
+            var $span = $(e).find("span");
+            if ($span.length !== 1)
+                return -1;
+            return numberfy($span.text().split(":")[1]);
+        }).get();
+        // общее число на складе. может быть 0
+        var _total = $rows.find("td.nowrap:nth-child(2)").map(function (i, e) {
+            var txt = $(e).clone().children().remove().end().text().trim();
+            if (txt.length === 0)
+                throw new Error("total amount not found");
+            return numberfy(txt);
+        }).get();
+        var _available = $rows.find("td.nowrap:nth-child(3)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        // не могут быть 0 по определению
+        var _quality = $rows.find("td.nowrap:nth-child(4)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _price = $rows.find("td.nowrap:nth-child(5)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        // может быть независимый поставщик БЕЗ id. для таких будет -1 id
+        var _subid = $rows.find("td:nth-child(1) td:nth-child(1)").map(function (i, e) {
+            var jq = $(e).find("a");
+            if (jq.length !== 1)
+                return -1;
+            var m = jq.attr("href").match(/\d+/);
+            return numberfy(m ? m[0] : "-1");
+        }).get();
+        return {
+            max: _max,
+            total: _total,
+            available: _available,
+            quality: _quality,
+            price: _price,
+            subid: _subid
+        };
+    }
+    catch (err) {
+        throw new ParseError("product report", url, err);
+    }
+}
+/**
+ * "/"+realm+"/main/company/view/"+companyid+"/unit_list/employee/salary"
+ * @param html
+ * @param url
+ */
+function parseEmployees(html, url) {
+    var $html = $(html);
+    try {
+        var $rows = $html.find("table.list").find(".u-c").map(function (i, e) { return $(e).closest("tr").get(); });
+        var _id = $rows.find(":checkbox").map(function (i, e) { return numberfyOrError($(e).val()); }).get();
+        // может быть 0 в принципе
+        var _salary = $rows.find("td:nth-child(7)").map(function (i, e) {
+            var txt = getInnerText(e).trim();
+            if (txt.length === 0)
+                throw new Error("salary not found");
+            return numberfy(txt);
+        }).get();
+        // не может быть 0
+        var _salaryCity = $rows.find("td:nth-child(8)").map(function (i, e) {
+            var txt = getInnerText(e).trim(); // тут низя удалять ничо. внутри какой то инпут сраный и в нем текст
+            if (txt.length === 0)
+                throw new Error("salary city not found");
+            return numberfyOrError(txt);
+        }).get();
+        // может быть 0
+        var _skill = $rows.find("td:nth-child(9)").map(function (i, e) {
+            var txt = $(e).text().trim(); // может быть a тег внутри. поэтому просто текст.
+            if (txt.length === 0)
+                throw new Error("skill not found");
+            return numberfy(txt);
+        }).get();
+        var _skillRequired = $rows.find("td:nth-child(10)").map(function (i, e) {
+            var txt = $(e).text().trim(); // может быть a тег внутри. поэтому просто текст.
+            if (txt.length === 0)
+                throw new Error("skill not found");
+            return numberfy(txt);
+        }).get();
+        var _onHoliday = $rows.find("td:nth-child(11)").map(function (i, e) { return !!$(e).find(".in-holiday").length; }).get();
+        // может отсутстовать если мы в отпуске -1 будет
+        var _efficiency = $rows.find("td:nth-child(11)").map(function (i, e) {
+            var txt = getInnerText(e).trim();
+            return numberfy(txt || "-1");
+        }).get();
+        return {
+            id: _id,
+            salary: _salary,
+            salaryCity: _salaryCity,
+            skill: _skill,
+            skillRequired: _skillRequired,
+            onHoliday: _onHoliday,
+            efficiency: _efficiency
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware size", url, err);
+    }
+}
 function parseX(html, url) {
+    var $html = $(html);
+    try {
+        var _size = $html.find(".nowrap:nth-child(2)").map(function (i, e) {
+            var txt = $(e).text();
+            var sz = numberfyOrError(txt);
+            if (txt.indexOf("тыс") >= 0)
+                sz *= 1000;
+            if (txt.indexOf("млн") >= 0)
+                sz *= 1000000;
+            return sz;
+        }).get();
+        var _rent = $html.find(".nowrap:nth-child(3)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _id = $html.find(":radio").map(function (i, e) { return numberfyOrError($(e).val()); }).get();
+        return {
+            size: _size,
+            rent: _rent,
+            id: _id
+        };
+    }
+    catch (err) {
+        throw new ParseError("ware size", url, err);
+    }
 }
 //# sourceMappingURL=parsers.user.js.map
