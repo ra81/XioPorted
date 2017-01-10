@@ -837,6 +837,124 @@ function parseEmployees(html: any, url: string): IEmployees {
     }
 }
 
+/**
+ * \/.*\/main\/unit\/view\/[0-9]+\/trading_hall$
+ * @param html
+ * @param url
+ */
+function parseTradeHall(html: any, url: string): ITradeHall {
+    let $html = $(html);
+
+    try {
+        let _history = $html.find("a.popup").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[];
+        let _report = $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[];
+        let _img = $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[];
+
+        // "productData[price][{37181683}]" а не то что вы подумали
+        let _name = $html.find(":text").map((i, e) => {
+            let nm = $(e).attr("name").trim();
+            if (nm.length === 0)
+                throw new Error("product name not found");
+
+            return nm;
+        }).get() as any as string[];
+        let _stock = $html.find(".nowrap:nth-child(6)").map((i, e) => {
+            return numberfy($(e).text());
+        }).get() as any as number[];
+        let _deliver = $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get() as any as number[];
+        let _quality = $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _purch = $html.find("td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _price = $html.find(":text").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[];
+        let _share = $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _cityprice = $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _cityquality = $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+
+        if (_history.length !== _share.length)
+            throw new Error("что то пошло не так. Количество данных различается");
+
+        return {
+            history: _history,
+            report: _report,
+            img: _img,
+            name: _name,
+            stock: _stock,
+            deliver: _deliver,
+            quality: _quality,
+            purch: _purch,
+            price: _price,
+            share: _share,
+            cityprice: _cityprice,
+            cityquality: _cityquality
+        };
+    }
+    catch (err) {
+        throw new ParseError("trading hall", url, err);
+    }
+}
+
+/**
+ * Снабжение магазина
+ * @param html
+ * @param url
+ */
+function parseStoreSupply(html: any, url: string): IStoreSupply {
+    let $html = $(html);
+
+    try {
+        //  по идее на 1 товар может быть несколько поставщиков и следовательно парселов будет много а стока мало
+        // парсить оно будет, но потом где при обработке данных будет жаловаться и не отработает
+
+        // ячейка для ввода количества штук 
+        let _parcel = $html.find("input:text[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[];
+
+        // тип ограничения заказа абс или процент
+        let _price_constraint_type = $html.find("select[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get() as any as string[];
+        // если задан процент то будет номер опции селекта. иначе 0
+        let _price_mark_up = $html.find("select[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[];
+        // макс ограничение по цене если задан абс вариант ограничения. будет 0 если в процентах
+        let _price_constraint_max = $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[];
+        let _quality_constraint_min = $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[];
+
+        let _deliver = $html.find("td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _stock = $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _sold = $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(5) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+
+        // чекбокс данного поставщика
+        let _offer = $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get() as any as number[];
+        let _price = $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        // есть ли изменение цены
+        let _reprice = $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map((i, e) => {
+            return !!$(e).find("div").length;
+        }).get() as any as boolean[];
+        let _quality = $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _available = $html.find("td:nth-child(10) table:nth-child(1) tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
+        let _img = $html.find(".noborder td > img").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[];
+
+        return {
+            parcel: _parcel,
+            price_constraint_type: _price_constraint_type,
+            price_mark_up: _price_mark_up,
+            price_constraint_max: _price_constraint_max,
+            quality_constraint_min: _quality_constraint_min,
+
+            deliver: _deliver,
+            stock: _stock,
+            sold: _sold,
+
+            offer: _offer,
+            price: _price,
+            reprice: _reprice,
+            quality: _quality,
+            available: _available,
+
+            img: _img
+        };
+    }
+    catch (err) {
+        throw new ParseError("store supply", url, err);
+    }
+}
+
 function parseX(html: any, url: string) {
     let $html = $(html);
 

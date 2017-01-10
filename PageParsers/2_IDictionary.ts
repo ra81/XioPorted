@@ -314,14 +314,17 @@ interface IStoreSupply {
     price_constraint_max: number[];
     price_constraint_type: string[];
     quality_constraint_min: number[];
-    purchase: number[];
-    quantity: number[];
+
+    deliver: number[];
+    stock: number[];
     sold: number[];
+
     offer: number[];
     price: number[];
     reprice: boolean[];
     quality: number[];
     available: number[];
+
     img: string[];
 }
 
