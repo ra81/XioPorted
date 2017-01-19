@@ -33,7 +33,7 @@ interface IAction1<T> {
 }
 
 // алиас для группы типов.
-type MappedPage = IContract | IWareSupply | IWareSize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistory | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
+type MappedPage = ISaleNew | IWareSupply | IWareSize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistory | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
 
 interface IMain {
     employees: number;
@@ -219,6 +219,16 @@ interface ISale {
     contractprice: string|number[];
 }
 
+interface ISaleNew {
+    region: string;
+    form: JQuery;
+    incineratorMaxPrice: number[];
+    products: IDictionary<ISaleProductData>;
+
+    contractpage: boolean;
+    contracts: IDictionary<ISaleContract[]>;
+}
+
 interface IAjax {
     [key: string]: { symbol: string, size: string, initial_cost: string, ttl: string, cost_per_turn: string };
 }
@@ -289,10 +299,10 @@ interface ICtie {
     CTIE: number[];
 }
 
-interface ISaleContract {
-    category: string[];
-    contractprice: string|number[];
-}
+//interface ISaleContract {
+//    category: string[];
+//    contractprice: string|number[];
+//}
 
 interface IProductReport {
     max: number[];
@@ -382,7 +392,7 @@ interface IWareSupply {
     typeAdd: string[];
 }
 
-interface IContract {
+interface IBuyContract {
     available: number[];
     offer: number[];
     price: number[];
@@ -392,3 +402,43 @@ interface IContract {
     myself: boolean[];
     product: string;
 }
+
+// информация о товаре в хранилище. Кол-во, качество, цена, бренд
+interface IStorageData {
+    quantity: number;
+    quality: number;
+    price: number;
+    brand: number;
+}
+
+// товар в игре. Имя, картинка и номер. Уникально идентифицирует
+interface IProduct {
+    name: string;
+    img: string;
+    id: number
+}
+
+interface ISaleProductData {
+    product: IProduct;
+    stock: IStorageData;
+    out: IStorageData;
+    freeQuantity: number;
+    orderedQuantity: number;
+    salePolicy: number;
+    salePrice: number;
+}
+
+interface ISaleContract {
+    UnitType: string;
+    CompanyName: string;
+    UnitId: string;
+    Purchased: number;  // закуплено в пересчет
+    Ordered: number;    // заказано на след пересчет
+    Price: number;      // цена контракта
+}
+
+//interface IProductContracts {
+//    Name: string;       // имя товара
+//    Img: string;        // урл на картинку
+//    Contracts: IContract[];
+//}

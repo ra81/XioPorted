@@ -8,6 +8,8 @@ var __extends = (this && this.__extends) || function (d, b) {
 // @namespace      
 // @description    parsers
 // @version        12.1.1
+// @require        https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js
+// @include        file:///*
 // @include        https://virtonomica.ru/*/*
 // ==/UserScript== 
 //
@@ -56,32 +58,133 @@ function dict2String(dict) {
         newItems.push(key + ":" + dict[key].toString());
     return newItems.join(", ");
 }
+//interface IProductContracts {
+//    Name: string;       // имя товара
+//    Img: string;        // урл на картинку
+//    Contracts: IContract[];
+//} 
 $ = jQuery = jQuery.noConflict(true);
 var $xioDebug = true;
 var urlTemplates = {
-    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig, parseManager],
-    unitMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi, parseUnitMain],
-    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig, parseAds],
-    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig, parseSalary],
-    unitList: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig, parseUnitList],
-    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig, parseSale],
-    wareSize: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig, parseWareSize],
-    wareMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/, parseWareMain],
-    productReport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig, parseProductReport],
-    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig, parseEmployees],
+    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig,
+        function (html) { return true; },
+        parseManager],
+    main: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi,
+        function (html) { return true; },
+        parseUnitMain],
+    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig,
+        function (html) { return true; },
+        parseAds],
+    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
+        function (html) { return true; },
+        parseSalary],
+    unitlist: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig,
+        function (html) { return true; },
+        parseUnitList],
+    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
+        function (html) { return true; },
+        parseSale],
+    saleNew: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
+        function (html) { return true; },
+        parseSaleNew],
+    salecontract: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    prodsupply: [/zzz/gi,
+        function (html) { return $(html).find(".add_contract").length === 0 && $(html).find("[name=productCategory]").length === 0; },
+        parseX],
+    consume: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    storesupply: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
+        function (html) { return $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0; },
+        parseStoreSupply],
+    tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
+        function (html) { return true; },
+        parseTradeHall],
+    service: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    servicepricehistory: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    retailreport: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    pricehistory: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    TM: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    IP: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    transport: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    CTIE: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    training: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    equipment: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    tech: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    products: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    waresupply: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    contract: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    research: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    experimentalunit: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    financeitem: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    machines: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    animals: [/zzz/gi,
+        function (html) { return true; },
+        parseX],
+    size: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig,
+        function (html) { return true; },
+        parseWareSize],
+    waremain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
+        function (html) { return true; },
+        parseWareMain],
+    productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
+        function (html) { return true; },
+        parseProductReport],
+    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
+        function (html) { return true; },
+        parseEmployees],
 };
 $(document).ready(function () { return parseStart(); });
 function parseStart() {
     var href = window.location.href;
     var url = window.location.pathname;
     logDebug("url: ", href);
-    var realm = getRealm(href);
+    var realm = getRealm();
     logDebug("realm: ", realm);
     if (realm == null)
         throw new Error("realm не найден.");
     for (var key in urlTemplates) {
-        if (urlTemplates[key][0].test(url)) {
-            var obj = urlTemplates[key][1]($("html").html(), url);
+        var html = $("html").html();
+        if (urlTemplates[key][0].test(url) && urlTemplates[key][1](html)) {
+            var obj = urlTemplates[key][2](html, url);
             logDebug("parsed " + key + ": ", obj);
         }
     }
@@ -110,22 +213,24 @@ function isOneOf(item, arr) {
  * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
  * @param variable любая строка.
  */
-function numberfy(variable) {
-    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо 0 если не получилось преобразовать.
-    if (String(variable) === 'Не огр.' ||
-        String(variable) === 'Unlim.' ||
-        String(variable) === 'Не обм.' ||
-        String(variable) === 'N’est pas limité' ||
-        String(variable) === 'No limitado' ||
-        String(variable) === '无限' ||
-        String(variable) === 'Nicht beschr.') {
+function numberfy(str) {
+    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
+    if (String(str) === 'Не огр.' ||
+        String(str) === 'Unlim.' ||
+        String(str) === 'Не обм.' ||
+        String(str) === 'N’est pas limité' ||
+        String(str) === 'No limitado' ||
+        String(str) === '无限' ||
+        String(str) === 'Nicht beschr.') {
         return Number.POSITIVE_INFINITY;
     }
     else {
-        return parseFloat(variable.replace(/[\s\$\%\©]/g, "")) || 0;
+        // если str будет undef null или что то страшное, то String() превратит в строку после чего парсинг даст NaN
+        // не будет эксепшнов
+        var n = parseFloat(String(str).replace(/[\s\$\%\©]/g, ""));
+        return isNaN(n) ? -1 : n;
     }
 }
-;
 function zipAndMin(napArr1, napArr2) {
     // адская функция. так и не понял нафиг она
     if (napArr1.length > napArr2.length) {
@@ -154,11 +259,15 @@ function zipAndMin(napArr1, napArr2) {
  * из урла  извлекает имя риалма.
  * @param url
  */
-function getRealm(url) {
+function getRealm() {
     // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
     // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
-    var rx = new RegExp(/https:\/\/virtonomica\.ru\/([a-zA-Z]+)\/.+/ig);
-    var m = rx.exec(url);
+    var fileRx = new RegExp(/^file.*$/ig);
+    var rx = new RegExp(/https:\/\/virtonomic[A-Za-z]+\.[a-zA-Z]+\/([a-zA-Z]+)\/.+/ig);
+    // если мы локально, то реалм фейканем и не бум добывать
+    if (fileRx.test(document.location.href))
+        return "localfile";
+    var m = rx.exec(document.location.href);
     if (m == null)
         return null;
     return m[1];
@@ -167,14 +276,29 @@ function getRealm(url) {
 // Сюда все функции которые парсят данные со страниц
 //
 /**
- * Пробуем оцифровать данные но если они выходят как Number.POSITIVE_INFINITY или 0, валит ошибку
+ * Пробуем оцифровать данные но если они выходят как Number.POSITIVE_INFINITY или < 0, валит ошибку
  * @param value строка являющая собой число больше 0
  */
-function numberfyOrError(value) {
+function numberfyOrError(value, minVal) {
+    if (minVal === void 0) { minVal = 0; }
     var n = numberfy(value);
-    if (n === Number.POSITIVE_INFINITY || n === 0)
+    if (n === Number.POSITIVE_INFINITY || n <= minVal)
         throw new RangeError("Должны получить число > 0");
     return n;
+}
+/**
+ * Ищет паттерн в строке. Предполагая что паттерн там обязательно есть 1 раз. Если
+ * нет или случился больше раз, валим ошибку
+ * @param str
+ * @param rx
+ */
+function matchedOrError(str, rx) {
+    var m = str.match(rx);
+    if (m == null)
+        throw new Error("\u041F\u0430\u0442\u0442\u0435\u0440\u043D " + rx + " \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 " + str);
+    if (m.length > 1)
+        throw new Error("\u041F\u0430\u0442\u0442\u0435\u0440\u043D " + rx + " \u043D\u0430\u0439\u0434\u0435\u043D \u0432 " + str + " " + m.length + " \u0440\u0430\u0437 \u0432\u043C\u0435\u0441\u0442\u043E \u043E\u0436\u0438\u0434\u0430\u0435\u043C\u043E\u0433\u043E 1");
+    return m[0];
 }
 /**
  * Возвращает ТОЛЬКО текст элемента БЕЗ его наследников
@@ -243,6 +367,7 @@ function parseUnitList(html, url) {
 }
 /**
  * Парсит "/main/unit/view/ + subid + /sale" урлы
+ * Склады, заводы это их тема
  * @param html
  * @param url
  */
@@ -317,45 +442,199 @@ function parseSale(html, url) {
         throw new ParseError("sale", url, err);
     }
 }
-/**
- * Парсит страницы вида "/main/unit/view/ + subid + /sale/product", а так же
- * "/main/unit/view/" + subid + "/sale/product/ + productId"
- * @param html
- * @param url
- */
-function parseSaleContracts(html, url) {
+function parseSaleNew(html, url) {
     var $html = $(html);
-    // слегка дибильный подход. В объекте мы имеем цены покупцов для одной категории по url, но список категорий 
-    // каждый раз забираем весь.
-    // TODO: перепилить. Сделать контракт как {url:string, ИмяТовара:string, prices: number[]} 
-    // итоговая структура будет выглядеть так 
-    /* $mapped[subid/sale/product] = {
-            categories: string[];  - список урлов категорий
-        }
-        а далее
-        $mapped[subid/sale/product/prodId] = {
-            prodName: string; - строковое имя продукта
-            buyerPrices: number[]; - массив цен покупцов данного товара
-        }
-
-        аналогично делать ISale. Вместо хуйни с string|number вставить туда сразу свойство
-        contracts: IDictionary<ISaleContract> содержащее инфу по всем товарам. ключом будет productId или его урл
-    */
+    // парсинг ячейки продукта на складе или на производстве
+    // продукт идентифицируется уникально через картинку и имя. Урл на картинку нам пойдет
+    // так же есть у продуктов уникальный id, но не всегда его можно выдрать
+    var parseProduct = function ($td) {
+        var img = $td.find("img").eq(0).attr("src");
+        var $a = $td.find("a");
+        // название продукта Спортивное питание, Маточное молочко и так далее
+        var name = $a.text().trim();
+        if (name.length === 0)
+            throw new Error("Имя продукта пустое.");
+        // номер продукта
+        var m = $a.attr("href").match(/\d+/);
+        if (m == null)
+            throw new Error("id продукта не найден");
+        var id = numberfyOrError(m[0], 0); // должно быть больше 0 полюбому
+        return { name: name, img: img, id: id };
+    };
+    // парсинг ячеек на складе и выпуск 
+    // если нет товара то прочерки стоят.вывалит - 1 для таких ячеек
+    var parseStock = function ($td) {
+        return {
+            quantity: numberfy($td.find("tr").eq(0).find("td").eq(1).text()),
+            quality: numberfy($td.find("tr").eq(1).find("td").eq(1).text()),
+            price: numberfy($td.find("tr").eq(2).find("td").eq(1).text()),
+            brand: -1
+        };
+    };
+    // ищет имена в хедерах чтобы получить индексы колонок
+    var parseHeaders = function ($ths) {
+        // индексы колонок с данными
+        var prodIndex = $ths.filter(":contains('Продукт')").index();
+        var stockIndex = $ths.filter(":contains('На складе')").index();
+        // для склада нет выпуска и ячейки может не быть. Просто дублируем складскую ячейку
+        var outIndex = $ths.filter(":contains('Выпуск')").index();
+        if (outIndex < 0)
+            outIndex = stockIndex;
+        var policyIndex = $ths.filter(":contains('Политика сбыта')").index();
+        var priceIndex = $ths.filter(":contains('Цена')").index();
+        var orderedIndex = $ths.filter(":contains('Объем заказов')").index();
+        var freeIndex = $ths.filter(":contains('Свободно')").index();
+        var obj = {
+            prod: prodIndex,
+            stock: stockIndex,
+            out: outIndex,
+            policy: policyIndex,
+            price: priceIndex,
+            ordered: orderedIndex,
+            free: freeIndex
+        };
+        return obj;
+    };
+    var parseContractRow = function ($row) {
+        // тип покупца вытащим из картинки. для завода workshop
+        var items = $row.find("img[src*=unit_types]").attr("src").split("/");
+        var unitType = items[items.length - 1].split(".")[0];
+        var companyName = $row.find("b").text();
+        var $a = $row.find("a").eq(1);
+        var unitId = matchedOrError($a.attr("href"), new RegExp(/\d+/ig));
+        var $td = $a.closest("td");
+        var purshased = numberfyOrError($td.next("td").text(), -1);
+        var ordered = numberfyOrError($td.next("td").next("td").text(), -1);
+        var price = numberfyOrError($td.next("td").next("td").next("td").text(), -1);
+        return {
+            CompanyName: companyName,
+            UnitType: unitType,
+            UnitId: unitId,
+            Ordered: ordered,
+            Purchased: purshased,
+            Price: price
+        };
+    };
     try {
-        // каждая категория представляет товар который продается со склада или производства. По факту берем ссыль через которую
-        // попадаем на список покупателей товара.
-        // если покупцов товара НЕТ, тогда данной категории не будет. То есть не может быть пустая категория
-        var _categorys = $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get();
-        // здесь уже есть четкая гарантия что резалт будет вида 
-        // ["Медицинский инструментарий", 534.46, 534.46, 534.46, 534.46]
-        // то есть первым идет название а потом цены покупателей
-        var _contractprices = ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e); });
-        return { category: _categorys, contractprice: _contractprices };
+        var $storageTable = $("table.grid");
+        // помним что на складах есть позиции без товаров и они как бы не видны по дефолту в продаже, но там цена 0 и есть политика сбыта.
+        var _storageForm = $html.find("[name=storageForm]");
+        var _incineratorMaxPrice = $html.find('span[style="COLOR: green;"]').map(function (i, e) { return numberfy($(e).text()); }).get();
+        // "Аттика, Македония, Эпир и Фессалия"
+        var _region = $html.find(".officePlace a:eq(-2)").text().trim();
+        if (_region === "")
+            throw new Error("region not found");
+        // если покупцов много то появляется доп ссылка на страницу с контрактами. эта херь и говорит есть она или нет
+        var _contractpage = !!$html.find(".tabsub").length;
+        // берем все стркои включая те где нет сбыта и они пусты. Может быть глюки если заказы есть товара нет. Хз в общем.
+        // список ВСЕХ продуктов на складе юнита. Даже тех которых нет в наличии, что актуально для складов
+        var products = {};
+        var $rows = $storageTable.find("select[name*='storageData']").closest("tr");
+        var th = parseHeaders($storageTable.find("th"));
+        for (var i = 0; i < $rows.length; i++) {
+            var $r = $rows.eq(i);
+            var product = parseProduct($r.children("td").eq(th.prod));
+            // для складов и производства разный набор ячеек и лучше привязаться к именам чем индексам
+            var stock = parseStock($r.children("td").eq(th.stock));
+            var out = parseStock($r.children("td").eq(th.out));
+            var freeQuantity = numberfyOrError($r.children("td").eq(th.free).text(), -1);
+            var orderedQuantity = numberfyOrError($r.children("td").eq(th.ordered).text(), -1);
+            // может быть -1 если вдруг ничего не выбрано в селекте, что маовероятно
+            var policy = $r.find("select:nth-child(3)").prop("selectedIndex");
+            var price = numberfyOrError($r.find("input.money:nth-child(1)").eq(0).val(), -1);
+            if (products[product.img] != null)
+                throw new Error("Что то пошло не так. Два раза один товар");
+            products[product.img] = {
+                product: product,
+                stock: stock,
+                out: out,
+                freeQuantity: freeQuantity,
+                orderedQuantity: orderedQuantity,
+                salePolicy: policy,
+                salePrice: price
+            };
+        }
+        // Парсим контракты склада
+        var contracts = {};
+        if (_contractpage) {
+        }
+        else {
+            var $consumerForm = $html.find("[name=consumerListForm]");
+            var $consumerTable = $consumerForm.find("table.salelist");
+            // находим строки с заголовками товара. Далее между ними находятся покупатели. Собираем их
+            var $prodImgs = $consumerTable.find("img").filter("[src*='products']");
+            var $productRows = $prodImgs.closest("tr"); // ряды содержащие категории то есть имя товара
+            // покупцы в рядах с id
+            var $contractRows = $consumerTable.find("tr[id]");
+            if ($contractRows.length < $prodImgs.length)
+                throw new Error("Что то пошло не так. Число контрактов МЕНЬШЕ числа категорий");
+            var prodInd = -1;
+            var lastInd = -1;
+            var key = "";
+            for (var i = 0; i < $contractRows.length; i++) {
+                var $r = $contractRows.eq(i);
+                // если разница в индексах больше 1 значит была вставка ряда с именем товара и мы уже другой товар смотрим
+                if ($r.index() > lastInd + 1) {
+                    prodInd++;
+                    key = $prodImgs.eq(prodInd).attr("src");
+                    contracts[key] = [];
+                }
+                contracts[key].push(parseContractRow($r));
+                lastInd = $r.index();
+            }
+        }
+        return {
+            region: _region,
+            incineratorMaxPrice: _incineratorMaxPrice,
+            form: _storageForm,
+            contractpage: _contractpage,
+            products: products,
+            contracts: contracts
+        };
     }
     catch (err) {
-        throw new ParseError("sale contracts", url, err);
+        //throw new ParseError("sale", url, err);
+        throw err;
     }
 }
+///**
+// * Парсит страницы вида "/main/unit/view/ + subid + /sale/product", а так же
+// * "/main/unit/view/" + subid + "/sale/product/ + productId"
+// * @param html
+// * @param url
+// */
+//function parseSaleContracts(html: any, url: string): ISaleContract {
+//    let $html = $(html);
+//    // слегка дибильный подход. В объекте мы имеем цены покупцов для одной категории по url, но список категорий 
+//    // каждый раз забираем весь.
+//    // TODO: перепилить. Сделать контракт как {url:string, ИмяТовара:string, prices: number[]} 
+//    // итоговая структура будет выглядеть так 
+//    /* $mapped[subid/sale/product] = {
+//            categories: string[];  - список урлов категорий
+//        }
+//        а далее
+//        $mapped[subid/sale/product/prodId] = {
+//            prodName: string; - строковое имя продукта    
+//            buyerPrices: number[]; - массив цен покупцов данного товара
+//        }
+//        аналогично делать ISale. Вместо хуйни с string|number вставить туда сразу свойство
+//        contracts: IDictionary<ISaleContract> содержащее инфу по всем товарам. ключом будет productId или его урл
+//    */ 
+//    try {
+//        // каждая категория представляет товар который продается со склада или производства. По факту берем ссыль через которую
+//        // попадаем на список покупателей товара.
+//        // если покупцов товара НЕТ, тогда данной категории не будет. То есть не может быть пустая категория
+//        let _categorys = $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[];
+//        // здесь уже есть четкая гарантия что резалт будет вида 
+//        // ["Медицинский инструментарий", 534.46, 534.46, 534.46, 534.46]
+//        // то есть первым идет название а потом цены покупателей
+//        let _contractprices = ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) }) as any as string | number[]
+//        return { category: _categorys, contractprice: _contractprices };
+//    }
+//    catch (err) {
+//        throw new ParseError("sale contracts", url, err);
+//    }
+//}
 /**
  * Парсинг данных по страницы /main/unit/view/8004742/virtasement
  * @param html
@@ -553,7 +832,7 @@ function parseUnitMain(html, url) {
                 var res = [-1, -1];
                 //let emplRx = new RegExp(/\d+\s*\(.+\d+.*\)/g);
                 //let td = jq.next("td").filter((i, el) => emplRx.test($(el).text()));
-                var jq = $block_1.find("td.title:contains('Количество')").filter(function (i, el) {
+                var jq = $block_1.find('td.title:contains("Количество")').filter(function (i, el) {
                     return types.some(function (t, i, arr) { return $(el).text().indexOf(t) >= 0; });
                 });
                 if (jq.length !== 1)
@@ -567,10 +846,10 @@ function parseUnitMain(html, url) {
             var _employees = empl[0];
             var _employeesReq = empl[1];
             // общее число подчиненных по профилю
-            var _totalEmployees = numberfy($block_1.find("td:contains('Суммарное количество подчинённых')").next("td").text());
+            var _totalEmployees = numberfy($block_1.find('td:contains("Суммарное количество подчинённых")').next("td").text());
             var salary = (function () {
                 //let rx = new RegExp(/\d+\.\d+.+в неделю\s*\(в среднем по городу.+?\d+\.\d+\)/ig);
-                var jq = $block_1.find("td.title:contains('Зарплата')").next("td");
+                var jq = $block_1.find('td.title:contains("Зарплата")').next("td");
                 if (jq.length !== 1)
                     return ["-1", "-1"];
                 var m = jq.text().replace(/\s*/g, "").match(rxFloat_1);
@@ -581,7 +860,7 @@ function parseUnitMain(html, url) {
             var _salaryNow = numberfy(salary[0]);
             var _salaryCity = numberfy(salary[1]);
             var skill = (function () {
-                var jq = $block_1.find("td.title:contains('Уровень квалификации')").next("td");
+                var jq = $block_1.find('td.title:contains("Уровень квалификации")').next("td");
                 if (jq.length !== 1)
                     return ["-1", "-1", "-1"];
                 // возможные варианты результата
@@ -599,7 +878,7 @@ function parseUnitMain(html, url) {
                 var res = [-1, -1, -1, -1, -1, -1, -1];
                 // число оборудования тупо не ищем. гемор  не надо
                 // качество оборудования и треб по технологии
-                var jq = $block_1.find("td.title:contains('Качество')").next("td");
+                var jq = $block_1.find('td.title:contains("Качество")').next("td");
                 if (jq.length === 1) {
                     // 8.40 (требуется по технологии 1.00)
                     // или просто 8.40 если нет требований
@@ -659,8 +938,8 @@ function parseUnitMain(html, url) {
             var _hasAgitation = !$html.find("[src='/img/artefact/icons/color/politics.gif']").length;
             var _onHoliday = !!$html.find("[href$=unset]").length;
             var _isStore = !!$html.find("[href$=trading_hall]").length;
-            var _departments = numberfy($html.find("tr:contains('Количество отделов') td:eq(1)").text()) || -1;
-            var _visitors = numberfy($html.find("tr:contains('Количество посетителей') td:eq(1)").text()) || -1;
+            var _departments = numberfy($html.find('tr:contains("Количество отделов") td:eq(1)').text()) || -1;
+            var _visitors = numberfy($html.find('tr:contains("Количество посетителей") td:eq(1)').text()) || -1;
             return {
                 employees: _employees,
                 totalEmployees: _totalEmployees,
@@ -692,7 +971,7 @@ function parseUnitMain(html, url) {
         }
     }
     catch (err) {
-        throw new ParseError("unit main page", url, err);
+        throw err; // new ParseError("unit main page", url, err);
     }
 }
 /**
@@ -869,28 +1148,130 @@ function parseEmployees(html, url) {
         throw new ParseError("ware size", url, err);
     }
 }
-function parseX(html, url) {
+/**
+ * \/.*\/main\/unit\/view\/[0-9]+\/trading_hall$
+ * @param html
+ * @param url
+ */
+function parseTradeHall(html, url) {
     var $html = $(html);
     try {
-        var _size = $html.find(".nowrap:nth-child(2)").map(function (i, e) {
-            var txt = $(e).text();
-            var sz = numberfyOrError(txt);
-            if (txt.indexOf("тыс") >= 0)
-                sz *= 1000;
-            if (txt.indexOf("млн") >= 0)
-                sz *= 1000000;
-            return sz;
+        var _history = $html.find("a.popup").map(function (i, e) { return $(e).attr("href"); }).get();
+        var _report = $html.find(".grid a:has(img):not(:has(img[alt]))").map(function (i, e) { return $(e).attr("href"); }).get();
+        var _img = $html.find(".grid a img:not([alt])").map(function (i, e) { return $(e).attr("src"); }).get();
+        // "productData[price][{37181683}]" а не то что вы подумали
+        var _name = $html.find(":text").map(function (i, e) {
+            var nm = $(e).attr("name").trim();
+            if (nm.length === 0)
+                throw new Error("product name not found");
+            return nm;
         }).get();
-        var _rent = $html.find(".nowrap:nth-child(3)").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
-        var _id = $html.find(":radio").map(function (i, e) { return numberfyOrError($(e).val()); }).get();
+        var _stock = $html.find(".nowrap:nth-child(6)").map(function (i, e) {
+            return numberfy($(e).text());
+        }).get();
+        var _deliver = $html.find(".nowrap:nth-child(5)").map(function (i, e) { return numberfy($(e).text().split("[")[1]); }).get();
+        var _quality = $html.find("td:nth-child(7)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _purch = $html.find("td:nth-child(9)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _price = $html.find(":text").map(function (i, e) { return numberfy($(e).val()); }).get();
+        var _share = $html.find(".nowrap:nth-child(11)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _cityprice = $html.find("td:nth-child(12)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _cityquality = $html.find("td:nth-child(13)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        if (_history.length !== _share.length)
+            throw new Error("что то пошло не так. Количество данных различается");
         return {
-            size: _size,
-            rent: _rent,
-            id: _id
+            history: _history,
+            report: _report,
+            img: _img,
+            name: _name,
+            stock: _stock,
+            deliver: _deliver,
+            quality: _quality,
+            purch: _purch,
+            price: _price,
+            share: _share,
+            cityprice: _cityprice,
+            cityquality: _cityquality
         };
     }
     catch (err) {
-        throw new ParseError("ware size", url, err);
+        throw new ParseError("trading hall", url, err);
     }
+}
+/**
+ * Снабжение магазина
+ * @param html
+ * @param url
+ */
+function parseStoreSupply(html, url) {
+    var $html = $(html);
+    try {
+        //  по идее на 1 товар может быть несколько поставщиков и следовательно парселов будет много а стока мало
+        // парсить оно будет, но потом где при обработке данных будет жаловаться и не отработает
+        // ячейка для ввода количества штук 
+        var _parcel = $html.find("input:text[name^='supplyContractData[party_quantity]']").map(function (i, e) { return numberfy($(e).val()); }).get();
+        // тип ограничения заказа абс или процент
+        var _price_constraint_type = $html.find("select[name^='supplyContractData[constraintPriceType]']").map(function (i, e) { return $(e).val(); }).get();
+        // если задан процент то будет номер опции селекта. иначе 0
+        var _price_mark_up = $html.find("select[name^='supplyContractData[price_mark_up]']").map(function (i, e) { return numberfy($(e).val()); }).get();
+        // макс ограничение по цене если задан абс вариант ограничения. будет 0 если в процентах
+        var _price_constraint_max = $html.find("input[name^='supplyContractData[price_constraint_max]']").map(function (i, e) { return numberfy($(e).val()); }).get();
+        var _quality_constraint_min = $html.find("input[name^='supplyContractData[quality_constraint_min]']").map(function (i, e) { return numberfy($(e).val()); }).get();
+        var _deliver = $html.find("td.nowrap:nth-child(4)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _stock = $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _sold = $html.find("td:nth-child(2) table:nth-child(1) tr:nth-child(5) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        // чекбокс данного поставщика
+        var _offer = $html.find(".destroy").map(function (i, e) { return numberfy($(e).val()); }).get();
+        var _price = $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        // есть ли изменение цены
+        var _reprice = $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(1) td:nth-child(2)").map(function (i, e) {
+            return !!$(e).find("div").length;
+        }).get();
+        var _quality = $html.find("td:nth-child(9) table:nth-child(1) tr:nth-child(2) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _available = $html.find("td:nth-child(10) table:nth-child(1) tr:nth-child(3) td:nth-child(2)").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _img = $html.find(".noborder td > img").map(function (i, e) { return $(e).attr("src"); }).get();
+        return {
+            parcel: _parcel,
+            price_constraint_type: _price_constraint_type,
+            price_mark_up: _price_mark_up,
+            price_constraint_max: _price_constraint_max,
+            quality_constraint_min: _quality_constraint_min,
+            deliver: _deliver,
+            stock: _stock,
+            sold: _sold,
+            offer: _offer,
+            price: _price,
+            reprice: _reprice,
+            quality: _quality,
+            available: _available,
+            img: _img
+        };
+    }
+    catch (err) {
+        throw new ParseError("store supply", url, err);
+    }
+}
+function parseX(html, url) {
+    //let $html = $(html);
+    //try {
+    //    let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
+    //        let txt = $(e).text();
+    //        let sz = numberfyOrError(txt);
+    //        if (txt.indexOf("тыс") >= 0)
+    //            sz *= 1000;
+    //        if (txt.indexOf("млн") >= 0)
+    //            sz *= 1000000;
+    //        return sz;
+    //    }).get() as any as number[];
+    //    let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+    //    let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
+    //    return {
+    //        size: _size,
+    //        rent: _rent,
+    //        id: _id
+    //    };
+    //}
+    //catch (err) {
+    //    throw new ParseError("ware size", url, err);
+    //}
 }
 //# sourceMappingURL=parsers.user.js.map

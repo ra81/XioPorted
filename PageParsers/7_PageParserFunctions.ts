@@ -3,15 +3,32 @@
 //
 
 /**
- * Пробуем оцифровать данные но если они выходят как Number.POSITIVE_INFINITY или 0, валит ошибку
+ * Пробуем оцифровать данные но если они выходят как Number.POSITIVE_INFINITY или < 0, валит ошибку
  * @param value строка являющая собой число больше 0
  */
-function numberfyOrError(value: string) {
+function numberfyOrError(value: string, minVal: number = 0) {
     let n = numberfy(value);
-    if (n === Number.POSITIVE_INFINITY || n === 0)
+    if (n === Number.POSITIVE_INFINITY || n <= minVal)
         throw new RangeError("Должны получить число > 0");
 
     return n;
+}
+
+/**
+ * Ищет паттерн в строке. Предполагая что паттерн там обязательно есть 1 раз. Если
+ * нет или случился больше раз, валим ошибку
+ * @param str
+ * @param rx
+ */
+function matchedOrError(str: string, rx: RegExp): string {
+    let m = str.match(rx);
+    if (m == null)
+        throw new Error(`Паттерн ${rx} не найден в ${str}`);
+
+    if (m.length > 1)
+        throw new Error(`Паттерн ${rx} найден в ${str} ${m.length} раз вместо ожидаемого 1`);
+
+    return m[0];
 }
 
 /**
@@ -97,6 +114,7 @@ function parseUnitList(html: any, url: string): IUnitList {
 
 /**
  * Парсит "/main/unit/view/ + subid + /sale" урлы
+ * Склады, заводы это их тема
  * @param html
  * @param url
  */
@@ -187,47 +205,242 @@ function parseSale(html: any, url: string): ISale {
     }
 }
 
-/**
- * Парсит страницы вида "/main/unit/view/ + subid + /sale/product", а так же
- * "/main/unit/view/" + subid + "/sale/product/ + productId"
- * @param html
- * @param url
- */
-function parseSaleContracts(html: any, url: string): ISaleContract {
+function parseSaleNew(html: any, url: string): ISaleNew {
     let $html = $(html);
 
-    // слегка дибильный подход. В объекте мы имеем цены покупцов для одной категории по url, но список категорий 
-    // каждый раз забираем весь.
-    // TODO: перепилить. Сделать контракт как {url:string, ИмяТовара:string, prices: number[]} 
-    // итоговая структура будет выглядеть так 
-    /* $mapped[subid/sale/product] = {
-            categories: string[];  - список урлов категорий
-        }
-        а далее
-        $mapped[subid/sale/product/prodId] = {
-            prodName: string; - строковое имя продукта    
-            buyerPrices: number[]; - массив цен покупцов данного товара
-        }
+    type THeaders = { prod: number, stock: number, out: number, policy: number, price: number, ordered: number, free: number };
 
-        аналогично делать ISale. Вместо хуйни с string|number вставить туда сразу свойство
-        contracts: IDictionary<ISaleContract> содержащее инфу по всем товарам. ключом будет productId или его урл
-    */ 
+    // парсинг ячейки продукта на складе или на производстве
+    // продукт идентифицируется уникально через картинку и имя. Урл на картинку нам пойдет
+    // так же есть у продуктов уникальный id, но не всегда его можно выдрать
+    let parseProduct = ($td: JQuery): IProduct => {
+        let img = $td.find("img").eq(0).attr("src");
+
+        let $a = $td.find("a");
+        // название продукта Спортивное питание, Маточное молочко и так далее
+        let name = $a.text().trim();
+        if (name.length === 0)
+            throw new Error("Имя продукта пустое.");
+
+        // номер продукта
+        let m = $a.attr("href").match(/\d+/);
+        if (m == null)
+            throw new Error("id продукта не найден");
+
+        let id = numberfyOrError(m[0], 0);  // должно быть больше 0 полюбому
+
+        return { name: name, img: img, id: id };
+    };
+
+    // парсинг ячеек на складе и выпуск 
+    // если нет товара то прочерки стоят.вывалит - 1 для таких ячеек
+    let parseStock = ($td: JQuery): IStorageData => {
+        
+        return {
+            quantity: numberfy($td.find("tr").eq(0).find("td").eq(1).text()),
+            quality: numberfy($td.find("tr").eq(1).find("td").eq(1).text()),
+            price: numberfy($td.find("tr").eq(2).find("td").eq(1).text()),
+            brand: -1
+        }
+    };
+
+    // ищет имена в хедерах чтобы получить индексы колонок
+    let parseHeaders = ($ths: JQuery): THeaders => {
+
+        // индексы колонок с данными
+        let prodIndex  = $ths.filter(":contains('Продукт')").index();
+        let stockIndex = $ths.filter(":contains('На складе')").index();
+        // для склада нет выпуска и ячейки может не быть. Просто дублируем складскую ячейку
+        let outIndex = $ths.filter(":contains('Выпуск')").index();
+        if (outIndex < 0)
+            outIndex = stockIndex;
+
+        let policyIndex = $ths.filter(":contains('Политика сбыта')").index();
+        let priceIndex = $ths.filter(":contains('Цена')").index();
+        let orderedIndex = $ths.filter(":contains('Объем заказов')").index();
+        let freeIndex = $ths.filter(":contains('Свободно')").index();
+
+        let obj = {
+            prod: prodIndex,
+            stock: stockIndex,
+            out: outIndex,
+            policy: policyIndex,
+            price: priceIndex,
+            ordered: orderedIndex,
+            free: freeIndex
+        };
+
+        return obj;
+    }
+
+    let parseContractRow = ($row: JQuery): ISaleContract => {
+        // тип покупца вытащим из картинки. для завода workshop
+        let items = $row.find("img[src*=unit_types]").attr("src").split("/");
+        let unitType = items[items.length - 1].split(".")[0];
+
+        let companyName = $row.find("b").text();
+        let $a = $row.find("a").eq(1);
+        let unitId = matchedOrError($a.attr("href"), new RegExp(/\d+/ig));
+        let $td = $a.closest("td");
+        let purshased = numberfyOrError($td.next("td").text(), -1);
+        let ordered = numberfyOrError($td.next("td").next("td").text(), -1);
+        let price = numberfyOrError($td.next("td").next("td").next("td").text(), -1);
+
+        return {
+            CompanyName: companyName,
+            UnitType: unitType,
+            UnitId: unitId,
+            Ordered: ordered,
+            Purchased: purshased,
+            Price: price
+        };
+    };
+
     try {
-        // каждая категория представляет товар который продается со склада или производства. По факту берем ссыль через которую
-        // попадаем на список покупателей товара.
-        // если покупцов товара НЕТ, тогда данной категории не будет. То есть не может быть пустая категория
-        let _categorys = $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[];
+        let $storageTable = $("table.grid");
 
-        // здесь уже есть четкая гарантия что резалт будет вида 
-        // ["Медицинский инструментарий", 534.46, 534.46, 534.46, 534.46]
-        // то есть первым идет название а потом цены покупателей
-        let _contractprices = ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) }) as any as string | number[]
-        return { category: _categorys, contractprice: _contractprices };
+        // помним что на складах есть позиции без товаров и они как бы не видны по дефолту в продаже, но там цена 0 и есть политика сбыта.
+        let _storageForm = $html.find("[name=storageForm]");
+        let _incineratorMaxPrice = $html.find('span[style="COLOR: green;"]').map((i, e) => numberfy($(e).text())).get() as any as number[];
+
+        // "Аттика, Македония, Эпир и Фессалия"
+        let _region = $html.find(".officePlace a:eq(-2)").text().trim();
+        if (_region === "")
+            throw new Error("region not found");
+
+        // если покупцов много то появляется доп ссылка на страницу с контрактами. эта херь и говорит есть она или нет
+        let _contractpage = !!$html.find(".tabsub").length;
+
+        // берем все стркои включая те где нет сбыта и они пусты. Может быть глюки если заказы есть товара нет. Хз в общем.
+        // список ВСЕХ продуктов на складе юнита. Даже тех которых нет в наличии, что актуально для складов
+        let products: IDictionary<ISaleProductData> = {};
+        let $rows = $storageTable.find("select[name*='storageData']").closest("tr");
+        let th = parseHeaders($storageTable.find("th"));
+        for (let i = 0; i < $rows.length; i++) {
+            let $r = $rows.eq(i);
+
+            let product = parseProduct($r.children("td").eq(th.prod));
+
+            // для складов и производства разный набор ячеек и лучше привязаться к именам чем индексам
+            let stock = parseStock($r.children("td").eq(th.stock));
+            let out = parseStock($r.children("td").eq(th.out));
+
+            let freeQuantity = numberfyOrError($r.children("td").eq(th.free).text(), -1);
+            let orderedQuantity = numberfyOrError($r.children("td").eq(th.ordered).text(), -1);
+
+            // может быть -1 если вдруг ничего не выбрано в селекте, что маовероятно
+            let policy = $r.find("select:nth-child(3)").prop("selectedIndex") as number;
+            let price = numberfyOrError($r.find("input.money:nth-child(1)").eq(0).val(), -1);
+
+            if (products[product.img] != null)
+                throw new Error("Что то пошло не так. Два раза один товар");
+
+            products[product.img] = {
+                product: product,
+                stock: stock,
+                out: out,
+                freeQuantity: freeQuantity,
+                orderedQuantity: orderedQuantity,
+                salePolicy: policy,
+                salePrice: price
+            };
+        }
+
+
+        // Парсим контракты склада
+        let contracts: IDictionary<ISaleContract[]> = {};
+        if (_contractpage) {
+
+        }
+        else {
+            let $consumerForm = $html.find("[name=consumerListForm]");
+            let $consumerTable = $consumerForm.find("table.salelist");
+
+            // находим строки с заголовками товара. Далее между ними находятся покупатели. Собираем их
+            let $prodImgs = $consumerTable.find("img").filter("[src*='products']");
+            let $productRows = $prodImgs.closest("tr");   // ряды содержащие категории то есть имя товара
+
+            // покупцы в рядах с id
+            let $contractRows = $consumerTable.find("tr[id]");
+            if ($contractRows.length < $prodImgs.length)
+                throw new Error("Что то пошло не так. Число контрактов МЕНЬШЕ числа категорий");
+
+
+            let prodInd = -1;
+            let lastInd = -1;
+            let key = "";
+            for (let i = 0; i < $contractRows.length; i++) {
+                let $r = $contractRows.eq(i);
+
+                // если разница в индексах больше 1 значит была вставка ряда с именем товара и мы уже другой товар смотрим
+                if ($r.index() > lastInd + 1) {
+                    prodInd++;
+                    key = $prodImgs.eq(prodInd).attr("src");
+                    contracts[key] = [];
+                }
+
+                contracts[key].push(parseContractRow($r));
+                lastInd = $r.index();
+            }
+        }
+
+        return {
+            region: _region,
+            incineratorMaxPrice: _incineratorMaxPrice,
+            form: _storageForm,
+            contractpage: _contractpage,
+            products: products,
+            contracts: contracts
+        };
     }
     catch (err) {
-        throw new ParseError("sale contracts", url, err);
+        //throw new ParseError("sale", url, err);
+        throw err;
     }
 }
+
+
+///**
+// * Парсит страницы вида "/main/unit/view/ + subid + /sale/product", а так же
+// * "/main/unit/view/" + subid + "/sale/product/ + productId"
+// * @param html
+// * @param url
+// */
+//function parseSaleContracts(html: any, url: string): ISaleContract {
+//    let $html = $(html);
+
+//    // слегка дибильный подход. В объекте мы имеем цены покупцов для одной категории по url, но список категорий 
+//    // каждый раз забираем весь.
+//    // TODO: перепилить. Сделать контракт как {url:string, ИмяТовара:string, prices: number[]} 
+//    // итоговая структура будет выглядеть так 
+//    /* $mapped[subid/sale/product] = {
+//            categories: string[];  - список урлов категорий
+//        }
+//        а далее
+//        $mapped[subid/sale/product/prodId] = {
+//            prodName: string; - строковое имя продукта    
+//            buyerPrices: number[]; - массив цен покупцов данного товара
+//        }
+
+//        аналогично делать ISale. Вместо хуйни с string|number вставить туда сразу свойство
+//        contracts: IDictionary<ISaleContract> содержащее инфу по всем товарам. ключом будет productId или его урл
+//    */ 
+//    try {
+//        // каждая категория представляет товар который продается со склада или производства. По факту берем ссыль через которую
+//        // попадаем на список покупателей товара.
+//        // если покупцов товара НЕТ, тогда данной категории не будет. То есть не может быть пустая категория
+//        let _categorys = $html.find("#productsHereDiv a").map(function (i, e) { return $(e).attr("href"); }).get() as any as string[];
+
+//        // здесь уже есть четкая гарантия что резалт будет вида 
+//        // ["Медицинский инструментарий", 534.46, 534.46, 534.46, 534.46]
+//        // то есть первым идет название а потом цены покупателей
+//        let _contractprices = ($html.find("script:contains(mm_Msg)").text().match(/(\$(\d|\.| )+)|(\[\'name\'\]		= \"[a-zA-Zа-яА-ЯёЁ ]+\")/g) || []).map(function (e) { return e[0] === "[" ? e.slice(13, -1) : numberfy(e) }) as any as string | number[]
+//        return { category: _categorys, contractprice: _contractprices };
+//    }
+//    catch (err) {
+//        throw new ParseError("sale contracts", url, err);
+//    }
+//}
 
 /**
  * Парсинг данных по страницы /main/unit/view/8004742/virtasement
@@ -457,7 +670,7 @@ function parseUnitMain(html: any, url: string): IMain {
 
                 //let emplRx = new RegExp(/\d+\s*\(.+\d+.*\)/g);
                 //let td = jq.next("td").filter((i, el) => emplRx.test($(el).text()));
-                let jq = $block.find("td.title:contains('Количество')").filter((i, el) => {
+                let jq = $block.find('td.title:contains("Количество")').filter((i, el) => {
                     return types.some((t, i, arr) => $(el).text().indexOf(t) >= 0);
                 });
 
@@ -474,11 +687,11 @@ function parseUnitMain(html: any, url: string): IMain {
             let _employees = empl[0];
             let _employeesReq = empl[1];
             // общее число подчиненных по профилю
-            let _totalEmployees = numberfy($block.find("td:contains('Суммарное количество подчинённых')").next("td").text());
+            let _totalEmployees = numberfy($block.find('td:contains("Суммарное количество подчинённых")').next("td").text());
 
             let salary = (() => {
                 //let rx = new RegExp(/\d+\.\d+.+в неделю\s*\(в среднем по городу.+?\d+\.\d+\)/ig);
-                let jq = $block.find("td.title:contains('Зарплата')").next("td");
+                let jq = $block.find('td.title:contains("Зарплата")').next("td");
                 if (jq.length !== 1)
                     return ["-1", "-1"];
 
@@ -492,7 +705,7 @@ function parseUnitMain(html: any, url: string): IMain {
             let _salaryCity = numberfy(salary[1]);
 
             let skill = (() => {
-                let jq = $block.find("td.title:contains('Уровень квалификации')").next("td");
+                let jq = $block.find('td.title:contains("Уровень квалификации")').next("td");
                 if (jq.length !== 1)
                     return ["-1", "-1", "-1"];
 
@@ -515,7 +728,7 @@ function parseUnitMain(html: any, url: string): IMain {
                 // число оборудования тупо не ищем. гемор  не надо
                 
                 // качество оборудования и треб по технологии
-                let jq = $block.find("td.title:contains('Качество')").next("td");
+                let jq = $block.find('td.title:contains("Качество")').next("td");
                 if (jq.length === 1) {
                     // 8.40 (требуется по технологии 1.00)
                     // или просто 8.40 если нет требований
@@ -585,8 +798,8 @@ function parseUnitMain(html: any, url: string): IMain {
 
             let _onHoliday = !!$html.find("[href$=unset]").length;
             let _isStore = !!$html.find("[href$=trading_hall]").length;
-            let _departments = numberfy($html.find("tr:contains('Количество отделов') td:eq(1)").text()) || -1;
-            let _visitors = numberfy($html.find("tr:contains('Количество посетителей') td:eq(1)").text()) || -1;
+            let _departments = numberfy($html.find('tr:contains("Количество отделов") td:eq(1)').text()) || -1;
+            let _visitors = numberfy($html.find('tr:contains("Количество посетителей") td:eq(1)').text()) || -1;
 
             return {
                 employees: _employees,
@@ -624,7 +837,7 @@ function parseUnitMain(html: any, url: string): IMain {
         }
     }
     catch (err) {
-        throw new ParseError("unit main page", url, err);
+        throw err; // new ParseError("unit main page", url, err);
     }
 }
 
@@ -956,30 +1169,30 @@ function parseStoreSupply(html: any, url: string): IStoreSupply {
 }
 
 function parseX(html: any, url: string) {
-    let $html = $(html);
+    //let $html = $(html);
 
-    try {
-        let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
-            let txt = $(e).text();
-            let sz = numberfyOrError(txt);
-            if (txt.indexOf("тыс") >= 0)
-                sz *= 1000;
+    //try {
+    //    let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
+    //        let txt = $(e).text();
+    //        let sz = numberfyOrError(txt);
+    //        if (txt.indexOf("тыс") >= 0)
+    //            sz *= 1000;
 
-            if (txt.indexOf("млн") >= 0)
-                sz *= 1000000;
+    //        if (txt.indexOf("млн") >= 0)
+    //            sz *= 1000000;
 
-            return sz;
-        }).get() as any as number[];
-        let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-        let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
+    //        return sz;
+    //    }).get() as any as number[];
+    //    let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+    //    let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
 
-        return {
-            size: _size,
-            rent: _rent,
-            id: _id
-        };
-    }
-    catch (err) {
-        throw new ParseError("ware size", url, err);
-    }
+    //    return {
+    //        size: _size,
+    //        rent: _rent,
+    //        id: _id
+    //    };
+    //}
+    //catch (err) {
+    //    throw new ParseError("ware size", url, err);
+    //}
 }
