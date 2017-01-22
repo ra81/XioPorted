@@ -1,6 +1,8 @@
 ﻿
+/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
+
 $ = jQuery = jQuery.noConflict(true);
-let $xioDebug = true;
+$xioDebug = true;
 
 let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: string) => any]> = {
     manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig,
@@ -131,48 +133,6 @@ function parseStart() {
     }
 }
 
-function logDebug(msg: string, ...args: any[]) {
-    if (!$xioDebug)
-        return;
-
-    if (args.length === 0)
-        console.log(msg);
-    else
-        console.log(msg, args);
-}
-
-/**
- * Проверяет что элемент есть в массиве.
- * @param item
- * @param arr массив НЕ null
- */
-function isOneOf<T>(item: T, arr: T[]) {
-    return arr.indexOf(item) >= 0;
-}
-
-/**
- * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
- * @param variable любая строка.
- */
-function numberfy(str: string): number {
-    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
-
-    if (String(str) === 'Не огр.' ||
-        String(str) === 'Unlim.' ||
-        String(str) === 'Не обм.' ||
-        String(str) === 'N’est pas limité' ||
-        String(str) === 'No limitado' ||
-        String(str) === '无限' ||
-        String(str) === 'Nicht beschr.') {
-        return Number.POSITIVE_INFINITY;
-    } else {
-        // если str будет undef null или что то страшное, то String() превратит в строку после чего парсинг даст NaN
-        // не будет эксепшнов
-        let n = parseFloat(String(str).replace(/[\s\$\%\©]/g, ""));
-        return isNaN(n) ? -1 : n;
-    }
-}
-
 function zipAndMin(napArr1: number[], napArr2: number[]) {
     // адская функция. так и не понял нафиг она
 
@@ -193,25 +153,4 @@ function zipAndMin(napArr1: number[], napArr2: number[]) {
         });
         return res;
     }
-}
-
-/**
- * из урла  извлекает имя риалма.
- * @param url
- */
-function getRealm(): string | null {
-    // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
-    // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
-    let fileRx = new RegExp(/^file.*$/ig);
-    let rx = new RegExp(/https:\/\/virtonomic[A-Za-z]+\.[a-zA-Z]+\/([a-zA-Z]+)\/.+/ig);
-
-    // если мы локально, то реалм фейканем и не бум добывать
-    if (fileRx.test(document.location.href))
-        return "localfile";
-
-    let m = rx.exec(document.location.href);
-    if (m == null)
-        return null;
-
-    return m[1];
 }

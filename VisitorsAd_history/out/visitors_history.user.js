@@ -4,52 +4,16 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 // ==UserScript==
-// @name           parsers
-// @namespace      
-// @description    parsers
-// @version        12.1.1
-// @require        https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js
-// @include        file:///*
-// @include        https://virtonomica.ru/*/*
+// @name           Virtonomica: Visitors and Advertisments
+// @namespace      virtonomica
+// @author         ra81
+// @description    Сохранение и вывод информации о посетосах и рекламном бюджете и известности
+// @include        http*://virtonomic*.*/*/main/unit/view/*
+// @include        http*://virtonomic*.*/*/main/company/view/*/unit_list
+// @require        https://code.jquery.com/jquery-3.1.1.min.js
+// @require        https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.0.2/Chart.bundle.min.js
+// @version        1.0
 // ==/UserScript== 
-//
-// Свои исключения
-// 
-var ArgumentError = (function (_super) {
-    __extends(ArgumentError, _super);
-    function ArgumentError(argument, message) {
-        var msg = argument + ". " + message;
-        _super.call(this, msg);
-    }
-    return ArgumentError;
-}(Error));
-var ArgumentNullError = (function (_super) {
-    __extends(ArgumentNullError, _super);
-    function ArgumentNullError(argument) {
-        var msg = argument + " is null";
-        _super.call(this, msg);
-    }
-    return ArgumentNullError;
-}(Error));
-var ParseError = (function (_super) {
-    __extends(ParseError, _super);
-    function ParseError(dataName, url, innerError) {
-        var msg = "Error parsing " + dataName;
-        if (url)
-            msg += "from " + url;
-        // TODO: как то плохо работает. не выводит нихрена сообщений.
-        msg += ".";
-        if (innerError)
-            msg += "\n" + innerError.message + ".";
-        _super.call(this, msg);
-    }
-    return ParseError;
-}(Error));
-//interface IProductContracts {
-//    Name: string;       // имя товара
-//    Img: string;        // урл на картинку
-//    Contracts: IContract[];
-//} 
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
 //   /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
@@ -189,6 +153,64 @@ function extractFloatPositive(str) {
     var n = m.map(function (i, e) { return numberfyOrError($(e).text(), -1); });
     return n;
 }
+/**
+ * По текстовой строке возвращает номер месяца начиная с 0 для января. Либо null
+ * @param str очищенная от пробелов и лишних символов строка
+ */
+function monthFromStr(str) {
+    var mnth = ["янв", "февр", "мар", "апр", "май", "июн", "июл", "авг", "сент", "окт", "нояб", "дек"];
+    for (var i = 0; i < mnth.length; i++) {
+        if (str.indexOf(mnth[i]) === 0)
+            return i;
+    }
+    return null;
+}
+/**
+ * По типовой игровой строке даты вида 10 января 55 г., 3 февраля 2017 - 22.10.12
+ * выдергивает именно дату и возвращает в виде объекта даты
+ * @param str
+ */
+function extractDate(str) {
+    var dateRx = /^(\d{1,2})\s+([а-я]+)\s+(\d{1,4})/i;
+    var m = dateRx.exec(str);
+    if (m == null)
+        return null;
+    var d = parseInt(m[1]);
+    var mon = monthFromStr(m[2]);
+    if (mon == null)
+        return null;
+    var y = parseInt(m[3]);
+    return new Date(y, mon, d);
+}
+/**
+ * из даты формирует короткую строку типа 01.12.2017
+ * @param date
+ */
+function dateToShort(date) {
+    var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var yyyy = date.getFullYear();
+    var dStr = d < 10 ? "0" + d : d.toString();
+    var mStr = m < 10 ? "0" + m : m.toString();
+    return dStr + "." + mStr + "." + yyyy;
+}
+/**
+ * из строки вида 01.12.2017 формирует дату
+ * @param str
+ */
+function dateFromShort(str) {
+    var items = str.split(".");
+    var d = parseInt(items[0]);
+    if (d <= 0)
+        throw new Error("дата неправильная.");
+    var m = parseInt(items[1]) - 1;
+    if (m < 0)
+        throw new Error("месяц неправильная.");
+    var y = parseInt(items[2]);
+    if (y < 0)
+        throw new Error("год неправильная.");
+    return new Date(y, m, d);
+}
 var urlUnitMainRx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
 var urlTradeHallRx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;
 var urlVisitorsHistoryRx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
@@ -263,157 +285,11 @@ function logDebug(msg) {
     else
         console.log(msg, args);
 }
-/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
-$ = jQuery = jQuery.noConflict(true);
-$xioDebug = true;
-var urlTemplates = {
-    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig,
-        function (html) { return true; },
-        parseManager],
-    main: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi,
-        function (html) { return true; },
-        parseUnitMain],
-    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig,
-        function (html) { return true; },
-        parseAds],
-    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseSalary],
-    unitlist: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig,
-        function (html) { return true; },
-        parseUnitList],
-    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
-        function (html) { return true; },
-        parseSale],
-    saleNew: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
-        function (html) { return true; },
-        parseSaleNew],
-    salecontract: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    prodsupply: [/zzz/gi,
-        function (html) { return $(html).find(".add_contract").length === 0 && $(html).find("[name=productCategory]").length === 0; },
-        parseX],
-    consume: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    storesupply: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
-        function (html) { return $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0; },
-        parseStoreSupply],
-    tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
-        function (html) { return true; },
-        parseTradeHall],
-    service: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    servicepricehistory: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    retailreport: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    pricehistory: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    TM: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    IP: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    transport: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    CTIE: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    training: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    equipment: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    tech: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    products: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    waresupply: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    contract: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    research: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    experimentalunit: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    financeitem: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    machines: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    animals: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    size: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseWareSize],
-    waremain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
-        function (html) { return true; },
-        parseWareMain],
-    productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseProductReport],
-    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
-        function (html) { return true; },
-        parseEmployees],
-};
-$(document).ready(function () { return parseStart(); });
-function parseStart() {
-    var href = window.location.href;
-    var url = window.location.pathname;
-    logDebug("url: ", href);
-    var realm = getRealm();
-    logDebug("realm: ", realm);
-    if (realm == null)
-        throw new Error("realm не найден.");
-    for (var key in urlTemplates) {
-        var html = $("html").html();
-        if (urlTemplates[key][0].test(url) && urlTemplates[key][1](html)) {
-            var obj = urlTemplates[key][2](html, url);
-            logDebug("parsed " + key + ": ", obj);
-        }
-    }
-}
-function zipAndMin(napArr1, napArr2) {
-    // адская функция. так и не понял нафиг она
-    if (napArr1.length > napArr2.length) {
-        return napArr1;
-    }
-    else if (napArr2.length > napArr1.length) {
-        return napArr2;
-    }
-    else {
-        var zipped = napArr1.map(function (e, i) { return [napArr1[i], napArr2[i]]; });
-        var res = zipped.map(function (e, i) {
-            if (e[0] == 0) {
-                return e[1];
-            }
-            else if (e[1] == 0) {
-                return e[0];
-            }
-            else {
-                return Math.min(e[0], e[1]);
-            }
-        });
-        return res;
-    }
-}
+//interface IProductContracts {
+//    Name: string;       // имя товара
+//    Img: string;        // урл на картинку
+//    Contracts: IContract[];
+//} 
 //
 // Сюда все функции которые парсят данные со страниц
 //
@@ -1383,4 +1259,261 @@ function parseX(html, url) {
     //    throw new ParseError("ware size", url, err);
     //}
 }
-//# sourceMappingURL=parsers.user.js.map
+//
+// Свои исключения
+// 
+var ArgumentError = (function (_super) {
+    __extends(ArgumentError, _super);
+    function ArgumentError(argument, message) {
+        var msg = argument + ". " + message;
+        _super.call(this, msg);
+    }
+    return ArgumentError;
+}(Error));
+var ArgumentNullError = (function (_super) {
+    __extends(ArgumentNullError, _super);
+    function ArgumentNullError(argument) {
+        var msg = argument + " is null";
+        _super.call(this, msg);
+    }
+    return ArgumentNullError;
+}(Error));
+var ParseError = (function (_super) {
+    __extends(ParseError, _super);
+    function ParseError(dataName, url, innerError) {
+        var msg = "Error parsing " + dataName;
+        if (url)
+            msg += "from " + url;
+        // TODO: как то плохо работает. не выводит нихрена сообщений.
+        msg += ".";
+        if (innerError)
+            msg += "\n" + innerError.message + ".";
+        _super.call(this, msg);
+    }
+    return ParseError;
+}(Error));
+/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
+/// <reference path= "../PageParsers/2_IDictionary.ts" />
+/// <reference path= "../PageParsers/7_PageParserFunctions.ts" />
+/// <reference path= "../PageParsers/1_Exceptions.ts" />
+$ = jQuery = jQuery.noConflict(true);
+$xioDebug = true;
+function Start() {
+    if (isMyUnitList())
+        unitList();
+    if (isUnitMain())
+        unitMain();
+    //if (isVisitorsHistory())
+    //    showHistory();
+    logDebug("visitors: закончили");
+}
+function unitList() {
+    var $header = $("div.metro_header");
+    var $parseBtn = $("<input type='button' id='parseVisitors' value='parse visitors'>");
+    $parseBtn.on("click", function (event) { return parseVisitors(); });
+    $header.append($parseBtn.wrapAll("<div></div>").closest("div"));
+    function parseVisitors() {
+        // вытащим текущую дату, потому как сохранять данные будем используя ее
+        var $date = $("div.date_time");
+        if ($date.length !== 1)
+            throw new Error("Не получилось получить текущую игровую дату");
+        var currentGameDate = extractDate(getOnlyText($date)[0].trim());
+        if (currentGameDate == null)
+            throw new Error("Не получилось получить текущую игровую дату");
+        // читаем весь список юнитов вычленяем магазины
+        var units = parseUnitList(document.body, document.location.pathname);
+        var shopIds = [];
+        for (var i = 0; i < units.subids.length; i++) {
+            if (units.type[i] === "shop")
+                shopIds.push(units.subids[i]);
+        }
+        // для полученного списка парсим инфу по посетителям, известности, рекламному бюджету
+        var realm = getRealm();
+        var parsedInfo = {};
+        var getCount = shopIds.length * 2;
+        shopIds.forEach(function (val, i, arr) {
+            var urlMain = "/" + realm + "/main/unit/view/" + val;
+            var urlAdv = "/" + realm + "/main/unit/view/" + val + "/virtasement";
+            $.ajax({
+                url: urlMain,
+                type: "GET",
+                success: function (html, status, xhr) {
+                    var parsedData = parseUnitMain(html, urlMain);
+                    if (parsedInfo[val] == null) {
+                        parsedInfo[val] = {
+                            date: currentGameDate,
+                            visitors: parsedData.visitors,
+                            budget: 0,
+                            celebrity: 0,
+                            population: 0
+                        };
+                    }
+                    else {
+                        parsedInfo[val].visitors = parsedData.visitors;
+                    }
+                    getCount--;
+                    if (getCount === 0)
+                        saveInfo();
+                    //time();
+                    //servergetcount++;
+                    //$("#XioGetCalls").text(servergetcount);
+                    //$("#XioServerCalls").text(servergetcount + serverpostcount);
+                    //map(html, url, page);
+                    //logDebug(`visitors of ${val}: `, parsedData);
+                    //callback();
+                    //xUrlDone(url);
+                },
+                error: function (xhr, status, error) {
+                    logDebug("error on " + val + ": ", error);
+                    //time();
+                    //servergetcount++;
+                    //$("#XioGetCalls").text(servergetcount);
+                    //$("#XioServerCalls").text(servergetcount + serverpostcount);
+                    //Resend ajax
+                    var tthis = this;
+                    setTimeout(function () {
+                        $.ajax(tthis);
+                    }, 3000);
+                }
+            });
+            $.ajax({
+                url: urlAdv,
+                type: "GET",
+                success: function (html, status, xhr) {
+                    var parsedData = parseAds(html, urlAdv);
+                    if (parsedInfo[val] == null) {
+                        parsedInfo[val] = {
+                            date: currentGameDate,
+                            visitors: 0,
+                            budget: parsedData.budget,
+                            celebrity: parsedData.celebrity,
+                            population: parsedData.pop
+                        };
+                    }
+                    else {
+                        parsedInfo[val].budget = parsedData.budget;
+                        parsedInfo[val].celebrity = parsedData.celebrity;
+                        parsedInfo[val].population = parsedData.pop;
+                    }
+                    getCount--;
+                    if (getCount === 0)
+                        saveInfo();
+                    //time();
+                    //servergetcount++;
+                    //$("#XioGetCalls").text(servergetcount);
+                    //$("#XioServerCalls").text(servergetcount + serverpostcount);
+                    //map(html, url, page);
+                    //logDebug(`adv of ${val}: `, parsedData);
+                    //callback();
+                    //xUrlDone(url);
+                },
+                error: function (xhr, status, error) {
+                    logDebug("error on " + val + ": ", error);
+                    //time();
+                    //servergetcount++;
+                    //$("#XioGetCalls").text(servergetcount);
+                    //$("#XioServerCalls").text(servergetcount + serverpostcount);
+                    //Resend ajax
+                    var tthis = this;
+                    setTimeout(function () {
+                        $.ajax(tthis);
+                    }, 3000);
+                }
+            });
+        });
+        function saveInfo() {
+            for (var subid in parsedInfo) {
+                var info = parsedInfo[subid];
+                var storeKey = "vh" + realm + subid;
+                var dateKey = dateToShort(info.date);
+                // если записи о юните еще нет, сформируем иначе считаем данные
+                var storedInfo = void 0;
+                if (localStorage[storeKey] == null) {
+                    storedInfo = {};
+                    storedInfo[dateKey] = { budget: 0, celebrity: 0, date: new Date(), population: 0, visitors: 0 };
+                }
+                else {
+                    storedInfo = JSON.parse(localStorage[storeKey], function (key, val) {
+                        if (key === "date")
+                            return new Date(val);
+                        return val;
+                    });
+                }
+                // обновим данные и сохраним назад
+                storedInfo[dateKey] = info;
+                localStorage[storeKey] = JSON.stringify(storedInfo, function (key, val) {
+                    // когда парсер вызывает данный метод, он val для даты выдает уже в виде строки,
+                    // нам нужно взять исходные объект из this и конвертнуть его дату
+                    if (key === "date")
+                        return this.date.toISOString();
+                    return val;
+                });
+            }
+            logDebug("visitors: ", parsedInfo);
+        }
+    }
+}
+function unitMain() {
+    if (!isShop()) {
+        logDebug("не магазин.");
+        return;
+    }
+    // подставляем линк на график истории посетосов и рекламы
+    var $td = $('tr:contains("Количество посетителей") td:eq(1)');
+    var $a = $("<a class='popup'>история</a>").css("cursor", "pointer");
+    $a.on("click", function (event) {
+        var myWindow = window.open("", "_blank");
+        showHistory(myWindow);
+    });
+    $td.append("<br/>").append($a);
+}
+function showHistory(wnd) {
+    var $html = $(wnd.document.body);
+    $html.append('<div id="chartContainer"><canvas id="myChart" width="400" height="400"></canvas></div>');
+    // послед версия чартов не работает. 2.0.2 работает
+    var ctx = $html.find("#myChart")[0].getContext("2d");
+    if (ctx == null)
+        throw new Error("канваса нет");
+    var myChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ["Red", "Blue", "Yellow", "Green", "Purple", "Orange"],
+            datasets: [{
+                    label: '# of Votes',
+                    data: [12, 19, 3, 5, 2, 3],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(153, 102, 255, 0.2)',
+                        'rgba(255, 159, 64, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255,99,132,1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)',
+                        'rgba(255, 159, 64, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+        },
+        options: {
+            scales: {
+                yAxes: [{
+                        ticks: {
+                            display: true
+                        }
+                    }]
+            }
+        }
+    });
+    // как то оно сразу херачит шибко большой график на всю страницу. контейнер может ограничить его размер.
+    $html.find("#chartContainer").width(500);
+    $html.find("#chartContainer").height(500);
+    logDebug("showed");
+}
+$(document).ready(function () { return Start(); });
+//# sourceMappingURL=visitors_history.user.js.map

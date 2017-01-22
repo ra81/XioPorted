@@ -3,35 +3,6 @@
 //
 
 /**
- * Пробуем оцифровать данные но если они выходят как Number.POSITIVE_INFINITY или < 0, валит ошибку
- * @param value строка являющая собой число больше 0
- */
-function numberfyOrError(value: string, minVal: number = 0) {
-    let n = numberfy(value);
-    if (n === Number.POSITIVE_INFINITY || n <= minVal)
-        throw new RangeError("Должны получить число > 0");
-
-    return n;
-}
-
-/**
- * Ищет паттерн в строке. Предполагая что паттерн там обязательно есть 1 раз. Если
- * нет или случился больше раз, валим ошибку
- * @param str
- * @param rx
- */
-function matchedOrError(str: string, rx: RegExp): string {
-    let m = str.match(rx);
-    if (m == null)
-        throw new Error(`Паттерн ${rx} не найден в ${str}`);
-
-    if (m.length > 1)
-        throw new Error(`Паттерн ${rx} найден в ${str} ${m.length} раз вместо ожидаемого 1`);
-
-    return m[0];
-}
-
-/**
  * Возвращает ТОЛЬКО текст элемента БЕЗ его наследников
  * @param el
  */
@@ -73,17 +44,6 @@ function parseAllSavedSubid(realm: string): number[] {
 }
 
 /**
- * Парсит id компании со страницы
- */
-function getCompanyId() {
-    let m = $(".dashboard a").attr("href").match(/\d+/);
-    if (m == null)
-        throw new ParseError("company id");
-
-    return numberfy(m[0]);
-}
-
-/**
  * Парсинг главной страницы с юнитами.
  * @param html
 * @param url
@@ -92,12 +52,10 @@ function parseUnitList(html: any, url: string): IUnitList {
     let $html = $(html);
 
     try {
-        let $rows = $html.find(".unit-list-2014").find("tr").not(".unit_comment");
+        let $table = $html.find("table.unit-list-2014");
 
-        //let _subids = $unitList.find("td:nth-child(1)").not(".unit_comment").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-        let _subids = $rows.find("td:nth-child(1)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-
-        let _type = $rows.find("td:nth-child(3)").map((i, e) => {
+        let _subids = $table.find("td.unit_id").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
+        let _type = $table.find("td.info").map((i, e) => {
             let s = $(e).attr("class").split("-")[1];
             if (s == null)
                 throw new RangeError("class attribute doesn't contains type part.");
@@ -105,10 +63,14 @@ function parseUnitList(html: any, url: string): IUnitList {
             return s;
         }).get() as any as string[];
 
+        if (_type.length !== _subids.length)
+            throw new Error(`Число subid:${_subids.length} не сходится с числом найденных типов юнитов ${_type.length}`);
+
         return { subids: _subids, type: _type };
     }
     catch (err) {
-        throw new ParseError("unit list", url, err);
+        console.log(url);
+        throw err;
     }
 }
 
@@ -452,24 +414,22 @@ function parseAds(html: any, url: string): IAds {
 
     try {
         // известность
-        let _celebrity = numberfy($html.find(".infoblock tr:eq(0) td:eq(1)").text());
+        let _celebrity = numberfyOrError($html.find(".infoblock tr:eq(0) td:eq(1)").text(), -1);
 
         // население города
         let _pop = (() => {
-            let m = $html.find("script").text().match(/params\['population'\] = \d+/);
-            if (m == null)
-                throw new Error("population number not found.");
-
-            return numberfy(m[0].substring(23));
+            // если регулярка сработала значит точно нашли данные
+            let m = execOrError($html.find("script").text(), /params\['population'\] = (\d+);/i);
+            return numberfyOrError(m[1], 0);
         })();
 
         // текущий бюджет, он может быть и 0
-        let _budget = numberfy($html.find(":text:not([readonly])").val());
+        let _budget = numberfyOrError($html.find("input:text:not([readonly])").val(), -1);
 
         // бюжет на поддержание известности
         // ["не менее ©110.25  в неделю для ТВ-рекламы"] здесь может быть и $110.25
         // данный бюжет тоже может быть 0 если известность 0
-        let _requiredBudget = numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split(/[$©]/g)[1]);
+        let _requiredBudget = numberfyOrError($html.find(".infoblock tr:eq(1) td:eq(1)").text().split(/[$©]/g)[1], -1);
         //if (_celebrity > 0 && _requiredBudget === 0)  такое может быть при хреновой известности
         //    throw new Error("required budget can't be 0 for celebrity" + _celebrity);
 
