@@ -411,3 +411,17 @@ interface ISaleContract {
 //    Img: string;        // урл на картинку
 //    Contracts: IContract[];
 //}
+
+interface IEnergyPrices {
+    sector: string;     // отрасль
+    price: number;      // цена на энергию
+    products: IProduct[];   // список продукции для данного сектора
+}
+
+interface IRegion {
+    id: number;         // номер региона
+    name: string;       // имя. Азербайджан и т.д
+    energy: IDictionary<IEnergyPrices>;     // словарь с ценами на энергию. для всех отраслей
+    salary: number;     // средняя зарплата в городе    
+    tax: number;        // налоги. пока так заготовка лишь
+}

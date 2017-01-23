@@ -4,47 +4,15 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 // ==UserScript==
-// @name           parsers
-// @namespace      
-// @description    parsers
-// @version        12.1.1
-// @require        https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js
-// @include        file:///*
-// @include        https://virtonomica.ru/*/*
+// @name           Virtonomica: Энергия и зарплаты
+// @namespace      virtonomica
+// @author         ra81
+// @description    Парсинг и сохранение информации по энергии и зарплатам. Отчеты
+// @include        http*://virtonomic*.*/*/main/company/view/*/unit_list
+// @require        https://code.jquery.com/jquery-3.1.1.min.js
+// @require        https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.0.2/Chart.bundle.min.js
+// @version        1.0
 // ==/UserScript== 
-//
-// Свои исключения
-// 
-var ArgumentError = (function (_super) {
-    __extends(ArgumentError, _super);
-    function ArgumentError(argument, message) {
-        var msg = argument + ". " + message;
-        _super.call(this, msg);
-    }
-    return ArgumentError;
-}(Error));
-var ArgumentNullError = (function (_super) {
-    __extends(ArgumentNullError, _super);
-    function ArgumentNullError(argument) {
-        var msg = argument + " is null";
-        _super.call(this, msg);
-    }
-    return ArgumentNullError;
-}(Error));
-var ParseError = (function (_super) {
-    __extends(ParseError, _super);
-    function ParseError(dataName, url, innerError) {
-        var msg = "Error parsing " + dataName;
-        if (url)
-            msg += "from " + url;
-        // TODO: как то плохо работает. не выводит нихрена сообщений.
-        msg += ".";
-        if (innerError)
-            msg += "\n" + innerError.message + ".";
-        _super.call(this, msg);
-    }
-    return ParseError;
-}(Error));
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
 //   /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
@@ -326,163 +294,6 @@ function logDebug(msg) {
         console.log(msg);
     else
         console.log(msg, args);
-}
-/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
-$ = jQuery = jQuery.noConflict(true);
-$xioDebug = true;
-var urlTemplates = {
-    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig,
-        function (html) { return true; },
-        parseManager],
-    main: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi,
-        function (html) { return true; },
-        parseUnitMain],
-    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig,
-        function (html) { return true; },
-        parseAds],
-    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseSalary],
-    unitlist: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig,
-        function (html) { return true; },
-        parseUnitList],
-    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
-        function (html) { return true; },
-        parseSale],
-    saleNew: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
-        function (html) { return true; },
-        parseSaleNew],
-    salecontract: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    prodsupply: [/zzz/gi,
-        function (html) { return $(html).find(".add_contract").length === 0 && $(html).find("[name=productCategory]").length === 0; },
-        parseX],
-    consume: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    storesupply: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
-        function (html) { return $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0; },
-        parseStoreSupply],
-    tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
-        function (html) { return true; },
-        parseTradeHall],
-    service: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    servicepricehistory: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    retailreport: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    pricehistory: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    TM: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    IP: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    transport: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    CTIE: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    training: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    equipment: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    tech: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    products: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    waresupply: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    contract: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    research: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    experimentalunit: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    financeitem: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    machines: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    animals: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    size: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseWareSize],
-    waremain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
-        function (html) { return true; },
-        parseWareMain],
-    productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseProductReport],
-    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
-        function (html) { return true; },
-        parseEmployees],
-    energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
-        function (html) { return true; },
-        parseEnergyPrices],
-    regions: [/\/[a-z]+\/main\/common\/main_page\/game_info\/bonuses\/region$/i,
-        function (html) { return true; },
-        parseRegions],
-};
-$(document).ready(function () { return parseStart(); });
-function parseStart() {
-    var href = window.location.href;
-    var url = window.location.pathname;
-    logDebug("url: ", href);
-    var realm = getRealm();
-    logDebug("realm: ", realm);
-    if (realm == null)
-        throw new Error("realm не найден.");
-    for (var key in urlTemplates) {
-        var html = $("html").html();
-        if (urlTemplates[key][0].test(url) && urlTemplates[key][1](html)) {
-            var obj = urlTemplates[key][2](html, url);
-            logDebug("parsed " + key + ": ", obj);
-        }
-    }
-}
-function zipAndMin(napArr1, napArr2) {
-    // адская функция. так и не понял нафиг она
-    if (napArr1.length > napArr2.length) {
-        return napArr1;
-    }
-    else if (napArr2.length > napArr1.length) {
-        return napArr2;
-    }
-    else {
-        var zipped = napArr1.map(function (e, i) { return [napArr1[i], napArr2[i]]; });
-        var res = zipped.map(function (e, i) {
-            if (e[0] == 0) {
-                return e[1];
-            }
-            else if (e[1] == 0) {
-                return e[0];
-            }
-            else {
-                return Math.min(e[0], e[1]);
-            }
-        });
-        return res;
-    }
 }
 //
 // Сюда все функции которые парсят данные со страниц
@@ -1525,4 +1336,225 @@ function parseX(html, url) {
     //    throw new ParseError("ware size", url, err);
     //}
 }
-//# sourceMappingURL=parsers.user.js.map
+//
+// Свои исключения
+// 
+var ArgumentError = (function (_super) {
+    __extends(ArgumentError, _super);
+    function ArgumentError(argument, message) {
+        var msg = argument + ". " + message;
+        _super.call(this, msg);
+    }
+    return ArgumentError;
+}(Error));
+var ArgumentNullError = (function (_super) {
+    __extends(ArgumentNullError, _super);
+    function ArgumentNullError(argument) {
+        var msg = argument + " is null";
+        _super.call(this, msg);
+    }
+    return ArgumentNullError;
+}(Error));
+var ParseError = (function (_super) {
+    __extends(ParseError, _super);
+    function ParseError(dataName, url, innerError) {
+        var msg = "Error parsing " + dataName;
+        if (url)
+            msg += "from " + url;
+        // TODO: как то плохо работает. не выводит нихрена сообщений.
+        msg += ".";
+        if (innerError)
+            msg += "\n" + innerError.message + ".";
+        _super.call(this, msg);
+    }
+    return ParseError;
+}(Error));
+/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
+/// <reference path= "../PageParsers/2_IDictionary.ts" />
+/// <reference path= "../PageParsers/7_PageParserFunctions.ts" />
+/// <reference path= "../PageParsers/1_Exceptions.ts" />
+$ = jQuery = jQuery.noConflict(true);
+$xioDebug = true;
+function Start() {
+    if (isMyUnitList())
+        unitList();
+    logDebug("energy: закончили");
+}
+function unitList() {
+    var $header = $("div.metro_header");
+    var $parseBtn = $("<input type='button' id='energyPrices' value='parse energy prices'>");
+    $parseBtn.on("click", function (event) { return parseEnergy(); });
+    $header.append($parseBtn.wrapAll("<div></div>").closest("div"));
+    function parseEnergy() {
+        var $currentReg = $("<span id='currentRegion'></span>");
+        $header.append($currentReg);
+        //if (document.location.pathname)
+        //    return;
+        // вытащим текущую дату, потому как сохранять данные будем используя ее
+        var $date = $("div.date_time");
+        if ($date.length !== 1)
+            throw new Error("Не получилось получить текущую игровую дату");
+        var currentGameDate = extractDate(getOnlyText($date)[0].trim());
+        if (currentGameDate == null)
+            throw new Error("Не получилось получить текущую игровую дату");
+        // парсим регионы
+        var realm = getRealm();
+        var urlRegions = "/" + realm + "/main/common/main_page/game_info/bonuses/region";
+        var regions = [];
+        $.ajax({
+            url: urlRegions,
+            type: "GET",
+            success: function (html, status, xhr) {
+                var $html = $(html);
+                var tthis = this;
+                // если много страниц то установим макс число на страницу и перезагрузимся
+                var $pages = $html.find('ul.pager_list li');
+                if ($pages.length > 2) {
+                    //let $pager = $('ul.pager_options li').last();
+                    //let num = $pager.text().trim();
+                    //let pagerUrl = $pager.find('a').attr('href').replace(num, "10000");
+                    var pagerUrl = "/" + realm + "/main/common/util/setpaging/report/regionBonus/1000";
+                    $.get(pagerUrl, function (data, status, jqXHR) { return $.ajax(tthis); });
+                    return;
+                }
+                // когда уже пейджеры вставили отпарсим регионы
+                regions = parseRegions(html, urlRegions);
+                var getCount = regions.length;
+                var _loop_1 = function(i) {
+                    var url = "/" + realm + "/main/geo/tariff/" + regions[i].id;
+                    $currentReg.text(regions[i].name);
+                    // замкнем переменные
+                    var f = function () {
+                        var _i = i;
+                        var _url = url;
+                        $.ajax({
+                            url: _url,
+                            type: "GET",
+                            success: function (html, status, xhr) {
+                                var energy = parseEnergyPrices(html, _url);
+                                regions[_i].energy = energy;
+                                getCount--;
+                                if (getCount === 0)
+                                    showInfo();
+                            },
+                            error: function (xhr, status, error) {
+                                logDebug("error on " + regions[_i].name + ": ", error);
+                                //Resend ajax
+                                var tthis = this;
+                                setTimeout(function () {
+                                    $.ajax(tthis);
+                                }, 3000);
+                            }
+                        });
+                    };
+                    f();
+                };
+                for (var i = 0; i < regions.length; i++) {
+                    _loop_1(i);
+                }
+            },
+            error: function (xhr, status, error) {
+                logDebug("error parsing regions. retry", error);
+                //Resend ajax
+                var tthis = this;
+                setTimeout(function () {
+                    $.ajax(tthis);
+                }, 3000);
+            }
+        });
+        function showInfo() {
+            logDebug("energy: ", regions);
+            var wnd = window.open("", "_blank");
+            var $html = $(wnd.document.body);
+            var $content = $('<div id="content"></div>');
+            $html.append($content);
+            function buildOptions(items) {
+                var optionsHtml = '';
+                // собственно элементы
+                for (var i = 0; i < items.length; i++) {
+                    var item = items[i];
+                    var lbl = "label=\"" + item + "\"";
+                    var val = "value=\"" + item + "\"";
+                    var txt = item;
+                    var html = "<option " + lbl + " " + val + ">" + txt + "</option>";
+                    optionsHtml += html;
+                }
+                return optionsHtml;
+            }
+            // если панели еще нет, то добавить её
+            // фильтры
+            //
+            var $sectorSelector = $("<select id='sector' class='option' style='min-width: 100px; max-width:160px;'>");
+            var sectors = Object.keys(regions[0].energy);
+            sectors.sort();
+            $sectorSelector.append(buildOptions(sectors));
+            $sectorSelector.on("change", function (event) {
+                var sector = $sectorSelector.val();
+                // отсортируем полученные данные по регионам по цене энергии по возрастанию
+                regions.sort(function (a, b) {
+                    if (a.energy[sector].price > b.energy[sector].price)
+                        return 1;
+                    if (a.energy[sector].price < b.energy[sector].price)
+                        return -1;
+                    return 0;
+                });
+                $content.children().not($sectorSelector).remove();
+                for (var i = 0; i < regions.length; i++) {
+                    var reg = regions[i];
+                    $content.append("<br/><span>\u0420\u0435\u0433\u0438\u043E\u043D: " + reg.name + "    \u042D\u043D\u0435\u0440\u0433\u0438\u044F: " + reg.energy[sector].price + "</span>");
+                }
+            });
+            $content.append($sectorSelector);
+        }
+    }
+}
+function unitMain() {
+    if (!isShop()) {
+        logDebug("не магазин.");
+        return;
+    }
+    // подставляем линк на график истории посетосов и рекламы
+    var $td = $('tr:contains("Количество посетителей") td:eq(1)');
+    var $a = $("<a class='popup'>история</a>").css("cursor", "pointer");
+    $a.on("click", function (event) {
+        var myWindow = window.open("", "_blank");
+        showHistory(myWindow);
+    });
+    $td.append("<br/>").append($a);
+}
+function showHistory(wnd) {
+    var $html = $(wnd.document.body);
+    $html.append('<div id="chartContainer"><canvas id="myChart" width="400" height="400"></canvas></div>');
+    // послед версия чартов не работает. 2.0.2 работает
+    var ctx = $html.find("#myChart")[0].getContext("2d");
+    if (ctx == null)
+        throw new Error("канваса нет");
+    // как то оно сразу херачит шибко большой график на всю страницу. контейнер может ограничить его размер.
+    $html.find("#chartContainer").width(500);
+    $html.find("#chartContainer").height(500);
+    logDebug("showed");
+}
+function makeKeyValCount(items, keySelector, valueSelector) {
+    var res = {};
+    for (var i = 0; i < items.length; i++) {
+        var key = keySelector(items[i]);
+        var val = valueSelector ? valueSelector(items[i]) : key;
+        if (res[key] != null)
+            res[key].Count++;
+        else
+            res[key] = { Name: key, Value: val, Count: 1 };
+    }
+    var resArray = [];
+    for (var key in res)
+        resArray.push(res[key]);
+    resArray.sort(function (a, b) {
+        if (a.Name > b.Name)
+            return 1;
+        if (a.Name < b.Name)
+            return -1;
+        return 0;
+    });
+    return resArray;
+}
+$(document).ready(function () { return Start(); });
+//# sourceMappingURL=energySalary.user.js.map

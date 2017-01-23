@@ -110,6 +110,12 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
         (html: any) => true,
         parseEmployees],
+    energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
+        (html: any) => true,
+        parseEnergyPrices],
+    regions: [/\/[a-z]+\/main\/common\/main_page\/game_info\/bonuses\/region$/i,
+        (html: any) => true,
+        parseRegions],
 };
 
 $(document).ready(() => parseStart());

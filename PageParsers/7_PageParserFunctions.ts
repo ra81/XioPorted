@@ -1128,6 +1128,99 @@ function parseStoreSupply(html: any, url: string): IStoreSupply {
     }
 }
 
+/**
+ * Со страницы с тарифами на энергию парсит все тарифы на энергию по всем отраслям для данного региона
+ * @param html
+ * @param url
+ */
+function parseEnergyPrices(html: any, url: string): IDictionary<IEnergyPrices> {
+    let $html = $(html);
+
+    let res: IDictionary<IEnergyPrices> = {};
+
+    try {
+
+        let $rows = $html.find("tr").has("img");
+        for (let i = 0; i < $rows.length; i++) {
+            let $r = $rows.eq(i);
+
+            let $tds = $r.children("td");
+
+            let sector = $tds.eq(0).text().trim();
+            let energyPrice = numberfyOrError($tds.eq(2).text().split("/")[0], -1);
+            let products = parseProducts($tds.eq(1));
+
+            if (res[sector] != null)
+                throw new Error("Повторилась отрасль " + sector);
+
+            res[sector] = { sector: sector, price: energyPrice, products: products }
+        }
+
+        return res;
+    }
+    catch (err) {
+        throw err;
+    }
+
+    // собирает все продукты из ячейки
+    function parseProducts($td: JQuery): IProduct[] {
+        let $imgs = $td.eq(0).find("img");
+
+        let res: IProduct[] = [];
+        for (let i = 0; i < $imgs.length; i++) {
+            let $pic = $imgs.eq(i);
+
+            // название продукта Спортивное питание, Маточное молочко и так далее
+            let name = $pic.attr("title").trim();
+            if (name.length === 0)
+                throw new Error("Имя продукта пустое.");
+
+            // номер продукта
+            let m = $pic.parent("a").attr("href").match(/\d+/);
+            if (m == null)
+                throw new Error("id продукта не найден");
+
+            let id = numberfyOrError(m[0], 0);  // должно быть больше 0 полюбому
+            let img = $pic.attr("src");
+
+            res.push({
+                name: name,
+                img: img,
+                id: id
+            });
+        }
+
+        return res;
+    };
+}
+
+
+function parseRegions(html: any, url: string): IRegion[] {
+    let $html = $(html);
+
+    try {
+
+        let $tds = $html.find("td.geo");
+        let regs = $tds.map((i, e): IRegion => {
+            let $a = oneOrError($(e), "a[href*=citylist]");
+
+            let m = matchedOrError($a.attr("href"), /\d+/i);
+            return {
+                id: numberfyOrError(m, 0),
+                name: $a.text().trim(),
+                energy: {},
+                salary: -1,
+                tax: -1
+            }
+        }) as any as IRegion[];
+
+        return regs;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 function parseX(html: any, url: string) {
     //let $html = $(html);
 
