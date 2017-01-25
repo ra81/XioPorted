@@ -4,47 +4,16 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 // ==UserScript==
-// @name           parsers
-// @namespace      
-// @description    parsers
-// @version        12.1.1
-// @require        https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js
-// @include        file:///*
-// @include        https://virtonomica.ru/*/*
+// @name           Virtonomica: Profit per worker
+// @namespace      virtonomica
+// @author         ra81
+// @description    Вывод информации о прибыли на 1 рабочего для розницы
+// @include        http*://virtonomic*.*/*/main/unit/view/*
+// @include        http*://virtonomic*.*/*/main/company/view/*/unit_list
+// @include        http*://virtonomic*.*/*/main/company/view/*/finance_report/by_units
+// @require        https://code.jquery.com/jquery-1.11.1.min.js
+// @version        1.0
 // ==/UserScript== 
-//
-// Свои исключения
-// 
-var ArgumentError = (function (_super) {
-    __extends(ArgumentError, _super);
-    function ArgumentError(argument, message) {
-        var msg = argument + ". " + message;
-        _super.call(this, msg);
-    }
-    return ArgumentError;
-}(Error));
-var ArgumentNullError = (function (_super) {
-    __extends(ArgumentNullError, _super);
-    function ArgumentNullError(argument) {
-        var msg = argument + " is null";
-        _super.call(this, msg);
-    }
-    return ArgumentNullError;
-}(Error));
-var ParseError = (function (_super) {
-    __extends(ParseError, _super);
-    function ParseError(dataName, url, innerError) {
-        var msg = "Error parsing " + dataName;
-        if (url)
-            msg += "from " + url;
-        // TODO: как то плохо работает. не выводит нихрена сообщений.
-        msg += ".";
-        if (innerError)
-            msg += "\n" + innerError.message + ".";
-        _super.call(this, msg);
-    }
-    return ParseError;
-}(Error));
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
 //   /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
@@ -185,6 +154,17 @@ function extractFloatPositive(str) {
     return n;
 }
 /**
+ * из указанной строки которая должна быть ссылкой, извлекает числа. обычно это id юнита товара и так далее
+ * @param str
+ */
+function extractIntPositive(str) {
+    var m = cleanStr(str).match(/\d+/ig);
+    if (m == null)
+        return null;
+    var n = m.map(function (val, i, arr) { return numberfyOrError(val, -1); });
+    return n;
+}
+/**
  * По текстовой строке возвращает номер месяца начиная с 0 для января. Либо null
  * @param str очищенная от пробелов и лишних символов строка
  */
@@ -242,6 +222,61 @@ function dateFromShort(str) {
         throw new Error("год неправильная.");
     return new Date(y, m, d);
 }
+/**
+ * По заданному числу возвращает число с разделителями пробелами для удобства чтения
+ * @param num
+ */
+function sayNumber(num) {
+    if (num < 0)
+        return "-" + sayMoney(-num);
+    if (Math.round(num * 100) / 100 - Math.round(num))
+        num = Math.round(num * 100) / 100;
+    else
+        num = Math.round(num);
+    var s = num.toString();
+    var s1 = "";
+    var l = s.length;
+    var p = s.indexOf(".");
+    if (p > -1) {
+        s1 = s.substr(p);
+        l = p;
+    }
+    else {
+        p = s.indexOf(",");
+        if (p > -1) {
+            s1 = s.substr(p);
+            l = p;
+        }
+    }
+    p = l - 3;
+    while (p >= 0) {
+        s1 = ' ' + s.substr(p, 3) + s1;
+        p -= 3;
+    }
+    if (p > -3) {
+        s1 = s.substr(0, 3 + p) + s1;
+    }
+    if (s1.substr(0, 1) == " ") {
+        s1 = s1.substr(1);
+    }
+    return s1;
+}
+/**
+ * Для денег подставляет нужный символ при выводе на экран
+ * @param num
+ * @param symbol
+ */
+function sayMoney(num, symbol) {
+    var result = sayNumber(num);
+    if (symbol != null) {
+        if (num < 0)
+            result = '-' + symbol + sayNumber(Math.abs(num));
+        else
+            result = symbol + result;
+    }
+    return result;
+}
+var url_company_finance_rep_byUnit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units$/i;
 var url_my_unit_list_rx = /\/[a-z]+\/main\/company\/view\/\d+(\/unit_list)?$/i;
 var url_unit_main_rx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
 var url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i;
@@ -261,6 +296,9 @@ function isUnitMain() {
 }
 function isUnitFinanceReport() {
     return url_unit_finance_report.test(document.location.pathname);
+}
+function isCompanyRepByUnit() {
+    return url_company_finance_rep_byUnit.test(document.location.pathname);
 }
 function isShop() {
     var $a = $("ul.tabu a[href$=trading_hall]");
@@ -335,171 +373,22 @@ function logDebug(msg) {
  * По заданным параметрам создает уникальный ключик использую уникальный одинаковый по всем скриптам префикс
  * @param realm реалм для которого сейвить. Если кросс реалмово, тогда указать null
  * @param code строка отличающая данные скрипта от данных другого скрипта
+ * @param subid если для юнита, то указать. иначе пропустить
  */
-function buildStoreKey(realm, code) {
+function buildStoreKey(realm, code, subid) {
     if (code.length === 0)
         throw new RangeError("Параметр code не может быть равен '' ");
     if (realm != null && realm.length === 0)
         throw new RangeError("Параметр realm не может быть равен '' ");
-    var prefix = "^*"; // уникальная ботва которую добавляем ко всем своим данным
-    return realm == null ? prefix + "_" + code : prefix + "_" + realm + "_" + code;
-}
-/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
-$ = jQuery = jQuery.noConflict(true);
-$xioDebug = true;
-var urlTemplates = {
-    manager: [/\/\w+\/main\/user\/privat\/persondata\/knowledge\/?$/ig,
-        function (html) { return true; },
-        parseManager],
-    main: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi,
-        function (html) { return true; },
-        parseUnitMain],
-    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig,
-        function (html) { return true; },
-        parseAds],
-    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseSalary],
-    unitlist: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig,
-        function (html) { return true; },
-        parseUnitList],
-    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
-        function (html) { return true; },
-        parseSale],
-    saleNew: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
-        function (html) { return true; },
-        parseSaleNew],
-    salecontract: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    prodsupply: [/zzz/gi,
-        function (html) { return $(html).find(".add_contract").length === 0 && $(html).find("[name=productCategory]").length === 0; },
-        parseX],
-    consume: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    storesupply: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
-        function (html) { return $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0; },
-        parseStoreSupply],
-    tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
-        function (html) { return true; },
-        parseTradeHall],
-    service: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    servicepricehistory: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    retailreport: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    pricehistory: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    TM: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    IP: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    transport: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    CTIE: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    training: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    equipment: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    tech: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    products: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    waresupply: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    contract: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    research: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    experimentalunit: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    financeitem: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    machines: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    animals: [/zzz/gi,
-        function (html) { return true; },
-        parseX],
-    size: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseWareSize],
-    waremain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
-        function (html) { return true; },
-        parseWareMain],
-    productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
-        function (html) { return true; },
-        parseProductReport],
-    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
-        function (html) { return true; },
-        parseEmployees],
-    energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
-        function (html) { return true; },
-        parseEnergyPrices],
-    regions: [/\/[a-z]+\/main\/common\/main_page\/game_info\/bonuses\/region$/i,
-        function (html) { return true; },
-        parseRegions],
-};
-$(document).ready(function () { return parseStart(); });
-function parseStart() {
-    var href = window.location.href;
-    var url = window.location.pathname;
-    logDebug("url: ", href);
-    var realm = getRealm();
-    logDebug("realm: ", realm);
-    if (realm == null)
-        throw new Error("realm не найден.");
-    for (var key in urlTemplates) {
-        var html = $("html").html();
-        if (urlTemplates[key][0].test(url) && urlTemplates[key][1](html)) {
-            var obj = urlTemplates[key][2](html, url);
-            logDebug("parsed " + key + ": ", obj);
-        }
-    }
-}
-function zipAndMin(napArr1, napArr2) {
-    // адская функция. так и не понял нафиг она
-    if (napArr1.length > napArr2.length) {
-        return napArr1;
-    }
-    else if (napArr2.length > napArr1.length) {
-        return napArr2;
-    }
-    else {
-        var zipped = napArr1.map(function (e, i) { return [napArr1[i], napArr2[i]]; });
-        var res = zipped.map(function (e, i) {
-            if (e[0] == 0) {
-                return e[1];
-            }
-            else if (e[1] == 0) {
-                return e[0];
-            }
-            else {
-                return Math.min(e[0], e[1]);
-            }
-        });
-        return res;
-    }
+    if (subid != null && realm == null)
+        throw new RangeError("Как бы нет смысла указывать subid и не указывать realm");
+    var res = "^*"; // уникальная ботва которую добавляем ко всем своим данным
+    if (realm != null)
+        res += "_" + realm;
+    if (subid != null)
+        res += "_" + subid;
+    res += "_" + code;
+    return res;
 }
 //
 // Сюда все функции которые парсят данные со страниц
@@ -1563,4 +1452,219 @@ function parseX(html, url) {
     //    throw new ParseError("ware size", url, err);
     //}
 }
-//# sourceMappingURL=parsers.user.js.map
+//
+// Свои исключения
+// 
+var ArgumentError = (function (_super) {
+    __extends(ArgumentError, _super);
+    function ArgumentError(argument, message) {
+        var msg = argument + ". " + message;
+        _super.call(this, msg);
+    }
+    return ArgumentError;
+}(Error));
+var ArgumentNullError = (function (_super) {
+    __extends(ArgumentNullError, _super);
+    function ArgumentNullError(argument) {
+        var msg = argument + " is null";
+        _super.call(this, msg);
+    }
+    return ArgumentNullError;
+}(Error));
+var ParseError = (function (_super) {
+    __extends(ParseError, _super);
+    function ParseError(dataName, url, innerError) {
+        var msg = "Error parsing " + dataName;
+        if (url)
+            msg += "from " + url;
+        // TODO: как то плохо работает. не выводит нихрена сообщений.
+        msg += ".";
+        if (innerError)
+            msg += "\n" + innerError.message + ".";
+        _super.call(this, msg);
+    }
+    return ParseError;
+}(Error));
+/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
+/// <reference path= "../PageParsers/2_IDictionary.ts" />
+/// <reference path= "../PageParsers/7_PageParserFunctions.ts" />
+/// <reference path= "../PageParsers/1_Exceptions.ts" />
+$ = jQuery = jQuery.noConflict(true);
+$xioDebug = true;
+var realm = getRealm();
+var keyCode = "udt"; // доп ключик для создания уникального идентификатора для хранилища
+var storageKey = buildStoreKey(realm, keyCode, getSubid());
+var gameDate = parseGameDate(document, document.location.pathname);
+var Sort;
+(function (Sort) {
+    Sort[Sort["none"] = 0] = "none";
+    Sort[Sort["asc"] = 1] = "asc";
+    Sort[Sort["desc"] = 2] = "desc";
+})(Sort || (Sort = {}));
+;
+function Start() {
+    logDebug("ppw: начали");
+    if (isUnitMain())
+        unitMain();
+    if (isUnitFinanceReport())
+        showProfitPerWorker();
+    if (isCompanyRepByUnit())
+        showPPWForAll();
+    logDebug("ppw: закончили");
+}
+function unitMain() {
+    // сохраним в лок хранилище инфу по числу рабочих
+    var parsedMain = parseUnitMain(document, document.location.pathname);
+    var udt = {
+        dt: dateToShort(gameDate),
+        wk: parsedMain.employees
+    };
+    localStorage[storageKey] = JSON.stringify(udt);
+}
+function showProfitPerWorker() {
+    // читаем данные с хранилища, если они там есть конечно
+    var data = tryLoadPpw(storageKey);
+    if (data == null) {
+        logDebug("Дата данных устарела или данных нет.");
+        return;
+    }
+    var $rows = $("table.treport").find("tr");
+    var $turnoverRow = $rows.eq(1);
+    var $profitRow = $rows.eq(3);
+    $turnoverRow.add($profitRow).find("td").not(":first-child").each(function (i, e) {
+        var money = numberfy($(e).text());
+        var str = sayMoney(Math.round(money / data.wk), "$");
+        $("<br/><span>  (" + str + ")</span>").appendTo(e).css({ color: "gray" });
+    });
+}
+function showPPWForAll() {
+    var $grid = $("table.grid");
+    var $th = $grid.find("th:contains('Прибыль')");
+    var profitInd = $th.index();
+    var $clone = $th.clone();
+    $clone.css("cursor", "pointer");
+    $clone.find("td.title-ordertool").text("ppw");
+    var $asc = $clone.find("a[href*=asc]").prop("id", "ppwasc").attr("href", "#");
+    var $desc = $clone.find("a[href*=desc]").prop("id", "ppwdesc").attr("href", "#");
+    $clone.on("click", function (event) {
+        var el = $(event.target);
+        if ($clone.hasClass("asc")) {
+            $clone.removeClass("asc");
+            sort_table(Sort.none);
+        }
+        else if ($clone.hasClass("desc")) {
+            $clone.removeClass("desc");
+            $clone.addClass("asc");
+            sort_table(Sort.asc);
+        }
+        else {
+            $clone.addClass("desc");
+            sort_table(Sort.desc);
+        }
+        console.log("clicked");
+        return false;
+    });
+    $clone.insertAfter($th);
+    // сначала мы как бы спарсим данные по каждой строке то есть по юнитам
+    var $rows = closestByTagName($grid.find("img[src*='unit_types']"), "tr");
+    var subInd = $grid.find("th:contains('Предприятие')").index();
+    var data = parseRows($rows, function ($r) {
+        var $a = $r.children("td").eq(subInd).find("a");
+        var n = extractIntPositive($a.attr("href"));
+        if (n == null)
+            throw new Error("не смог определить subid для $a.attr('href')");
+        return n[0];
+    }, function ($r) { return numberfy($r.children("td").eq(profitInd).text()); });
+    if (data.length != $rows.length)
+        throw new Error("не знаю что но что то пошло не так. число данных не равно числу строк");
+    // теперь нам бы надо считать по всем юнитам дату что хранится в локальном хранилище
+    // и вывести все
+    data.forEach(function (val, i, arr) {
+        var storeKey = buildStoreKey(realm, keyCode, val.subid);
+        var ppw = tryLoadPpw(storeKey);
+        debugger;
+        if (ppw != null)
+            arr[i].ppw = Math.round(arr[i].profit / ppw.wk);
+        // ячейки добавим
+        var str = sayMoney(arr[i].ppw, "$");
+        $("<td align='right'>" + str + "</td>").insertAfter(arr[i].$r.children("td").eq(profitInd));
+    });
+    function sort_table(type) {
+        var $start = $grid.find("tbody tr").first();
+        var sorted = sortData(data, type); // исходные тоже меняется
+        // вставлять будем задом наперед. Просто начиная с шапки таблицы вставляем в самый верх
+        // сначала идут последние постепенно дойдем до первых. Самый быстрый способ вышел
+        var odd = false;
+        for (var i = sorted.length - 1; i >= 0; i--) {
+            var $r0 = sorted[i].$r;
+            $r0.removeClass('even odd').addClass(odd ? 'odd' : 'even');
+            $r0.insertAfter($start);
+            odd = odd ? false : true;
+        }
+    }
+}
+function tryLoadPpw(key) {
+    // читаем данные с хранилища, если они там есть конечно
+    var rawData = localStorage.getItem(key);
+    if (rawData == null)
+        return null;
+    var data = JSON.parse(rawData);
+    if (data.dt != dateToShort(gameDate))
+        return null;
+    return data;
+}
+function getSubid() {
+    var numbers = extractIntPositive(document.location.pathname);
+    if (numbers == null || numbers.length < 1)
+        throw new Error("Не смогли спарсить subid юнита со ссылки");
+    return numbers[0];
+}
+function parseRows($rows, subidSelector, profitSelector) {
+    var res = [];
+    for (var i = 0; i < $rows.length; i++) {
+        var $r = $rows.eq(i);
+        var subid = subidSelector($r);
+        var profit = profitSelector($r);
+        res.push({
+            place: i,
+            subid: subid,
+            profit: profit,
+            ppw: 0,
+            $r: $r
+        });
+    }
+    return res;
+}
+function sortData(items, type) {
+    switch (type) {
+        case Sort.asc:
+            items.sort(function (a, b) {
+                if (a.ppw > b.ppw)
+                    return 1;
+                if (a.ppw < b.ppw)
+                    return -1;
+                return 0;
+            });
+            break;
+        case Sort.desc:
+            items.sort(function (a, b) {
+                if (a.ppw > b.ppw)
+                    return -1;
+                if (a.ppw < b.ppw)
+                    return 1;
+                return 0;
+            });
+            break;
+        case Sort.none:
+            items.sort(function (a, b) {
+                if (a.place > b.place)
+                    return 1;
+                if (a.place < b.place)
+                    return -1;
+                return 0;
+            });
+    }
+    return items;
+}
+$(document).ready(function () { return Start(); });
+//# sourceMappingURL=ppw.user.js.map

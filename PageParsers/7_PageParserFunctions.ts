@@ -1221,6 +1221,31 @@ function parseRegions(html: any, url: string): IRegion[] {
     }
 }
 
+/**
+ * Со странички пробуем спарсить игровую дату. А так как дата есть почти везде, то можно почти везде ее спарсить
+ * @param html
+ * @param url
+ */
+function parseGameDate(html: any, url: string): Date {
+    let $html = $(html);
+
+    try {
+        // вытащим текущую дату, потому как сохранять данные будем используя ее
+        let $date = $html.find("div.date_time");
+        if ($date.length !== 1)
+            throw new Error("Не получилось получить текущую игровую дату");
+
+        let currentGameDate = extractDate(getOnlyText($date)[0].trim());
+        if (currentGameDate == null)
+            throw new Error("Не получилось получить текущую игровую дату");
+
+        return currentGameDate;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 function parseX(html: any, url: string) {
     //let $html = $(html);
 
