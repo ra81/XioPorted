@@ -7,6 +7,7 @@
 $ = jQuery = jQuery.noConflict(true);
 $xioDebug = true;
 let realm = getRealm();
+let companyId = getCompanyId();
 let keyCode = "udt";        // доп ключик для создания уникального идентификатора для хранилища
 let storageKey = buildStoreKey(realm, keyCode, getSubid());
 let gameDate = parseGameDate(document, document.location.pathname);
@@ -40,13 +41,25 @@ function Start() {
 }
 
 function unitMain() {
+
+    let subid = getSubid();
     // сохраним в лок хранилище инфу по числу рабочих
     let parsedMain = parseUnitMain(document, document.location.pathname);
-    let udt: IUnitData = {
-        dt: dateToShort(gameDate),
-        wk: parsedMain.employees
+    let empl: IEmployeesNew = {
+        empl: parsedMain.employees,
+        subid: subid,
+        eff: -1,
+        emplMax: -1,
+        holiday: false,
+        qual: -1,
+        qualRequired: -1,
+        salary: -1,
+        salaryCity: -1
     };
-    localStorage[storageKey] = JSON.stringify(udt);
+
+    let d: IDictionaryN<IEmployeesNew> = {};
+    d[subid] = empl;
+    saveEmplData(d);
 }
 
 function showProfitPerWorker() {
@@ -62,13 +75,46 @@ function showProfitPerWorker() {
     let $profitRow = $rows.eq(3);
     $turnoverRow.add($profitRow).find("td").not(":first-child").each((i, e) => {
         let money = numberfy($(e).text());
-        let str = sayMoney(Math.round(money / (<IUnitData>data).wk), "$");
+        let ppw = (<IUnitData>data).wk > 0 ? Math.round(money / (<IUnitData>data).wk) : 0;
+        let str = sayMoney(ppw, "$");
         $(`<br/><span>  (${str})</span>`).appendTo(e).css({ color: "gray" });
     });
 }
 
 function showPPWForAll() {
     let $grid = $("table.grid");
+
+    // выводим кнопку обновления данных по рабам в подразделениях
+    //
+    let $ppwPanel = $(
+        `<div id="ppwPanel">
+            <span> Прибыль на раба </span><br/>
+            <input id="ppwUpdate" type="button" value=" Обновить "></>
+        </div>`
+    );
+
+    $ppwPanel.find("#ppwUpdate").on("click", (event) => {
+        // обновим данные по рабам по всем юнитам. со страницы управления персоналом.
+        // сделаем репейдж если надо, и перезагрузим страницу.
+        let $btn = $(event.target);
+        $btn.prop("disabled", true);
+        getEmployees()
+            .done((empl: IDictionaryN<IEmployeesNew>) => {
+                logDebug("ppw: got data saving and reloading");
+                saveEmplData(empl);
+                document.location.reload();
+            })
+            .fail(() => {
+                $btn.prop("disabled", false);
+                throw new Error("ppw: Не могу получить данные по работникам.");
+            });
+    });
+
+
+    // теперь собсна отрисуем то что есть у нас сохраненное в хранилище
+    //
+    $grid.before($ppwPanel);
+
     let $th = $grid.find("th:contains('Прибыль')");
     let profitInd = $th.index();
     let $clone = $th.clone();
@@ -123,13 +169,13 @@ function showPPWForAll() {
     data.forEach((val, i, arr) => {
         let storeKey = buildStoreKey(realm, keyCode, val.subid);
         let ppw = tryLoadPpw(storeKey);
-        debugger;
+        //debugger;
         if (ppw != null)
-            arr[i].ppw = Math.round(arr[i].profit / ppw.wk);
+            arr[i].ppw = ppw.wk > 0 ? Math.round(arr[i].profit / ppw.wk) : 0;
 
         // ячейки добавим
         let str = sayMoney(arr[i].ppw, "$");
-        $(`<td align='right'>${str}</td>`).insertAfter(arr[i].$r.children("td").eq(profitInd));
+        $(`<td class='nowrap' align='right'>${str}</td>`).insertAfter(arr[i].$r.children("td").eq(profitInd));
     });
 
     function sort_table(type: Sort) {
@@ -150,8 +196,50 @@ function showPPWForAll() {
     }
 }
 
+function getEmployees() {
+    let urlEmpl = `/${realm}/main/company/view/${companyId}/unit_list/employee`;
+    let $def = $.get(urlEmpl)
+        .then((data, status, jqXHR) => {
+            let $html = $(data);
+            //debugger;
+            if (hasPages($html))
+                return repage(10000, $html);
+
+            // создаем разрешенный промис и возвращаем через него код страницы.
+            let $d = $.Deferred();
+            $d.resolve(data, status, jqXHR);
+            return $d;
+        })
+        .then((data, status, jqXHR) => {
+            let empl = parseManageEmployees(data, urlEmpl);
+            //logDebug("ppw: ", empl);
+            //debugger;
+            let $def = $.Deferred();
+            $def.resolve(empl);
+            return $def;
+        });
+
+    return $def;
+}
+
+function saveEmplData(empl: IDictionaryN<IEmployeesNew>) {
+    //debugger;
+    let dateStr = dateToShort(gameDate);
+    for (let key in empl) {
+        let item = empl[key];
+        let udt: IUnitData = {
+            dt: dateStr,
+            wk: item.empl
+        };
+
+        let storeKey = buildStoreKey(realm, keyCode, item.subid);
+        localStorage[storeKey] = JSON.stringify(udt);
+    }
+}
+
 function tryLoadPpw(key: string): IUnitData | null {
     // читаем данные с хранилища, если они там есть конечно
+    let keys = Object.keys(localStorage);
     let rawData = localStorage.getItem(key);
     if (rawData == null)
         return null;

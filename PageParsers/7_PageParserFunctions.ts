@@ -1252,6 +1252,9 @@ function parseGameDate(html: any, url: string): Date {
  * @param url
  */
 function parseManageEmployees(html: any, url: string) {
+    if (html == null)
+        throw new Error("страница пуста. парсить нечего");
+
     let $html = $(html);
 
     function getOrError<T>(n: T | null) {

@@ -11,6 +11,7 @@ var __extends = (this && this.__extends) || function (d, b) {
 // @include        http*://virtonomic*.*/*/main/unit/view/*
 // @include        http*://virtonomic*.*/*/main/company/view/*/unit_list
 // @include        http*://virtonomic*.*/*/main/company/view/*/finance_report/by_units
+// @include        http*://virtonomic*.*/*/main/company/view/*/unit_list/employee
 // @require        https://code.jquery.com/jquery-1.11.1.min.js
 // @version        1.0
 // ==/UserScript== 
@@ -68,7 +69,7 @@ function getRealm() {
     return m[1];
 }
 /**
- * Парсит id компании со страницы
+ * Парсит id компании со страницы и выдает ошибку если не может спарсить
  */
 function getCompanyId() {
     var str = matchedOrError($("a.dashboard").attr("href"), /\d+/);
@@ -276,19 +277,63 @@ function sayMoney(num, symbol) {
     }
     return result;
 }
-var url_company_finance_rep_byUnit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units$/i;
-var url_my_unit_list_rx = /\/[a-z]+\/main\/company\/view\/\d+(\/unit_list)?$/i;
-var url_unit_main_rx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
-var url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i;
-var url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;
-var url_visitors_history_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
+// РЕГУЛЯРКИ ДЛЯ ССЫЛОК ------------------------------------
+// для 1 юнита
+// 
+var url_unit_main_rx = /\/\w+\/main\/unit\/view\/\d+\/?$/i; // главная юнита
+var url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
+var url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
+var url_supply_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; // заказ товара в маг, или склад. в общем стандартный заказ товара
+var url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
+// для компании
+// 
+var url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?$/i; // список юнитов. Работает и для списка юнитов чужой компании
+var url_rep_finance_byunit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units$/i; // отчет по подразделениями из отчетов
+var url_rep_ad = /\/[a-z]+\/main\/company\/view\/\d+\/marketing_report\/by_advertising_program$/i; // отчет по рекламным акциям
+var url_manag_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)$/i; // в окне управления юнитами групповой ремонт или закупка оборудования
+var url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee\/?$/i; // управление - персонал
+// для для виртономики
+// 
+var url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
+/**
+ * Проверяет что мы именно на своей странице со списком юнитов. По ссылке и id компании
+ * Проверок по контенту не проводит.
+ */
 function isMyUnitList() {
-    if (url_my_unit_list_rx.test(document.location.pathname) === false)
+    // для своих и чужих компани ссылка одна, поэтому проверяется и id
+    if (url_unit_list_rx.test(document.location.pathname) === false)
         return false;
-    // помимо ссылки мы можем находиться на чужой странице юнитов
-    if ($("#mainContent > table.unit-top").length === 0
-        || $("#mainContent > table.unit-list-2014").length === 0)
+    // запрос id может вернуть ошибку если мы на window ссылке. значит точно у чужого васи
+    try {
+        var id = getCompanyId();
+        var urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
+        if (urlId[0] != id)
+            return false;
+    }
+    catch (err) {
         return false;
+    }
+    return true;
+}
+/**
+ * Проверяет что мы именно на чужой!! странице со списком юнитов. По ссылке.
+ * Проверок по контенту не проводит.
+ */
+function isOthersUnitList() {
+    // для своих и чужих компани ссылка одна, поэтому проверяется и id
+    if (url_unit_list_rx.test(document.location.pathname) === false)
+        return false;
+    try {
+        // для чужого списка будет разный айди в дашборде и в ссылке
+        var id = getCompanyId();
+        var urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
+        if (urlId[0] === id)
+            return false;
+    }
+    catch (err) {
+        // походу мы на чужом window списке. значит ок
+        return true;
+    }
     return true;
 }
 function isUnitMain() {
@@ -298,15 +343,16 @@ function isUnitFinanceReport() {
     return url_unit_finance_report.test(document.location.pathname);
 }
 function isCompanyRepByUnit() {
-    return url_company_finance_rep_byUnit.test(document.location.pathname);
+    return url_rep_finance_byunit.test(document.location.pathname);
 }
 function isShop() {
     var $a = $("ul.tabu a[href$=trading_hall]");
     return $a.length === 1;
 }
-function isVisitorsHistory() {
-    return url_visitors_history_rx.test(document.location.pathname);
-}
+// let url_visitors_history_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
+//function isVisitorsHistory() {
+//    return url_visitors_history_rx.test(document.location.pathname);
+//}
 // JQUERY ----------------------------------------
 /**
  * Возвращает ближайшего родителя по имени Тэга
@@ -368,6 +414,35 @@ function logDebug(msg) {
     else
         console.log(msg, args);
 }
+/**
+ * определяет есть ли на странице несколько страниц которые нужно перелистывать или все влазит на одну
+ * если не задать аргумента, будет брать текущую страницу
+ * @param $html код страницы которую надо проверить
+ */
+function hasPages($html) {
+    // если не задать данные страницы, то считаем что надо использовать текущую
+    if ($html == null)
+        $html = $(document);
+    // там не только кнопки страниц но еще и текст Страницы в первом li поэтому > 2
+    var $pageLinks = $html.find('ul.pager_list li');
+    return $pageLinks.length > 2;
+}
+/**
+ * Отправляет запрос на установку нужной пагинации. Возвращает promice дальше делай с ним что надо.
+ */
+function repage(pages, $html) {
+    // если не задать данные страницы, то считаем что надо использовать текущую
+    if ($html == null)
+        $html = $(document);
+    // снизу всегда несколько кнопок для числа страниц, НО одна может быть уже нажата мы не знаем какая
+    // берем просто любую ненажатую, извлекаем ее текст, на у далее в ссылке всегда
+    // есть число такое же как текст в кнопке. Заменяем на свое и все ок.
+    var $pager = $html.find('ul.pager_options li').has("a").last();
+    var num = $pager.text().trim();
+    var pagerUrl = $pager.find('a').attr('href').replace(num, pages.toString());
+    // запросили обновление пагинации, дальше юзер решает что ему делать с этим
+    return $.get(pagerUrl);
+}
 // SAVE & LOAD ------------------------------------
 /**
  * По заданным параметрам создает уникальный ключик использую уникальный одинаковый по всем скриптам префикс
@@ -390,6 +465,7 @@ function buildStoreKey(realm, code, subid) {
     res += "_" + code;
     return res;
 }
+;
 //
 // Сюда все функции которые парсят данные со страниц
 //
@@ -1428,6 +1504,103 @@ function parseGameDate(html, url) {
         throw err;
     }
 }
+/**
+ * Парсит данные по числу рабов со страницы управления персоналам в Управлении
+ * @param html
+ * @param url
+ */
+function parseManageEmployees(html, url) {
+    if (html == null)
+        throw new Error("страница пуста. парсить нечего");
+    var $html = $(html);
+    function getOrError(n) {
+        if (n == null)
+            throw new Error("Argument is null");
+        return n;
+    }
+    try {
+        var $rows = $html.find("tr").has("td.u-c");
+        var units_1 = {};
+        $rows.each(function (i, e) {
+            var $r = $(e);
+            var $tds = $r.children("td");
+            var n = extractIntPositive($tds.eq(2).find("a").eq(0).attr("href"));
+            if (n == null || n.length === 0)
+                throw new Error("не смог извлечь subid");
+            var _subid = n[0];
+            var _empl = numberfyOrError($tds.eq(4).text(), -1);
+            var _emplMax = numberfyOrError($tds.eq(5).text(), -1);
+            var _salary = numberfyOrError(getOnlyText($tds.eq(6))[0], -1);
+            var _salaryCity = numberfyOrError($tds.eq(7).text(), -1);
+            var $a = $tds.eq(8).find("a").eq(0);
+            var _qual = numberfyOrError($a.text(), -1);
+            var _qualRequired = numberfyOrError($tds.eq(9).text(), -1);
+            var $tdEff = $tds.eq(10);
+            var _holiday = $tdEff.find("div.in-holiday").length > 0;
+            var _eff = -1;
+            if (!_holiday)
+                _eff = numberfyOrError($tdEff.text(), -1);
+            units_1[_subid] = {
+                subid: _subid,
+                empl: _empl,
+                emplMax: _emplMax,
+                salary: _salary,
+                salaryCity: _salaryCity,
+                qual: _qual,
+                qualRequired: _qualRequired,
+                eff: _eff,
+                holiday: _holiday
+            };
+        });
+        return units_1;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
+ * Парсит страницу отчета по рекламе, собирает всю инфу по всем юнитам где реклама есть. Где рекламы нет
+ * те не выводятся в этой таблице их надо ручками парсить
+ * @param html
+ * @param url
+ */
+function parseReportAdvertising(html, url) {
+    var $html = $(html);
+    try {
+        // заберем таблицы по сервисам и по торговле, а рекламу офисов не будем брать. числануть тока по шапкам
+        var $tbls = $html.find("table.grid").has("th:contains('Город')");
+        var $rows = $tbls.find("tr").has("a[href*='unit']"); // отсекаем шапку оставляем тока чистые
+        var units_2 = {};
+        $rows.each(function (i, e) {
+            var $r = $(e);
+            var $tds = $r.children("td");
+            var n = extractIntPositive($tds.eq(1).find("a").eq(0).attr("href"));
+            if (n == null || n.length === 0)
+                throw new Error("не смог извлечь subid");
+            var _subid = n[0];
+            var _budget = numberfyOrError($tds.eq(2).text(), 0);
+            var init = $tds.length > 8 ? 4 : 3;
+            var _effAd = numberfyOrError($tds.eq(init).text(), -1);
+            var _effUnit = numberfyOrError($tds.eq(init + 1).text(), -1);
+            var _celebrity = numberfyOrError($tds.eq(init + 2).text().split("(")[0], -1);
+            var _visitors = numberfyOrError($tds.eq(init + 3).text().split("(")[0], -1);
+            var _profit = numberfy($tds.eq(init + 4).text());
+            units_2[_subid] = {
+                subid: _subid,
+                budget: _budget,
+                celebrity: _celebrity,
+                visitors: _visitors,
+                effAd: _effAd,
+                effUnit: _effUnit,
+                profit: _profit
+            };
+        });
+        return units_2;
+    }
+    catch (err) {
+        throw err;
+    }
+}
 function parseX(html, url) {
     //let $html = $(html);
     //try {
@@ -1492,6 +1665,7 @@ var ParseError = (function (_super) {
 $ = jQuery = jQuery.noConflict(true);
 $xioDebug = true;
 var realm = getRealm();
+var companyId = getCompanyId();
 var keyCode = "udt"; // доп ключик для создания уникального идентификатора для хранилища
 var storageKey = buildStoreKey(realm, keyCode, getSubid());
 var gameDate = parseGameDate(document, document.location.pathname);
@@ -1513,13 +1687,23 @@ function Start() {
     logDebug("ppw: закончили");
 }
 function unitMain() {
+    var subid = getSubid();
     // сохраним в лок хранилище инфу по числу рабочих
     var parsedMain = parseUnitMain(document, document.location.pathname);
-    var udt = {
-        dt: dateToShort(gameDate),
-        wk: parsedMain.employees
+    var empl = {
+        empl: parsedMain.employees,
+        subid: subid,
+        eff: -1,
+        emplMax: -1,
+        holiday: false,
+        qual: -1,
+        qualRequired: -1,
+        salary: -1,
+        salaryCity: -1
     };
-    localStorage[storageKey] = JSON.stringify(udt);
+    var d = {};
+    d[subid] = empl;
+    saveEmplData(d);
 }
 function showProfitPerWorker() {
     // читаем данные с хранилища, если они там есть конечно
@@ -1533,12 +1717,35 @@ function showProfitPerWorker() {
     var $profitRow = $rows.eq(3);
     $turnoverRow.add($profitRow).find("td").not(":first-child").each(function (i, e) {
         var money = numberfy($(e).text());
-        var str = sayMoney(Math.round(money / data.wk), "$");
+        var ppw = data.wk > 0 ? Math.round(money / data.wk) : 0;
+        var str = sayMoney(ppw, "$");
         $("<br/><span>  (" + str + ")</span>").appendTo(e).css({ color: "gray" });
     });
 }
 function showPPWForAll() {
     var $grid = $("table.grid");
+    // выводим кнопку обновления данных по рабам в подразделениях
+    //
+    var $ppwPanel = $("<div id=\"ppwPanel\">\n            <span> \u041F\u0440\u0438\u0431\u044B\u043B\u044C \u043D\u0430 \u0440\u0430\u0431\u0430 </span><br/>\n            <input id=\"ppwUpdate\" type=\"button\" value=\" \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \"></>\n        </div>");
+    $ppwPanel.find("#ppwUpdate").on("click", function (event) {
+        // обновим данные по рабам по всем юнитам. со страницы управления персоналом.
+        // сделаем репейдж если надо, и перезагрузим страницу.
+        var $btn = $(event.target);
+        $btn.prop("disabled", true);
+        getEmployees()
+            .done(function (empl) {
+            logDebug("ppw: got data saving and reloading");
+            saveEmplData(empl);
+            document.location.reload();
+        })
+            .fail(function () {
+            $btn.prop("disabled", false);
+            throw new Error("ppw: Не могу получить данные по работникам.");
+        });
+    });
+    // теперь собсна отрисуем то что есть у нас сохраненное в хранилище
+    //
+    $grid.before($ppwPanel);
     var $th = $grid.find("th:contains('Прибыль')");
     var profitInd = $th.index();
     var $clone = $th.clone();
@@ -1582,12 +1789,12 @@ function showPPWForAll() {
     data.forEach(function (val, i, arr) {
         var storeKey = buildStoreKey(realm, keyCode, val.subid);
         var ppw = tryLoadPpw(storeKey);
-        debugger;
+        //debugger;
         if (ppw != null)
-            arr[i].ppw = Math.round(arr[i].profit / ppw.wk);
+            arr[i].ppw = ppw.wk > 0 ? Math.round(arr[i].profit / ppw.wk) : 0;
         // ячейки добавим
         var str = sayMoney(arr[i].ppw, "$");
-        $("<td align='right'>" + str + "</td>").insertAfter(arr[i].$r.children("td").eq(profitInd));
+        $("<td class='nowrap' align='right'>" + str + "</td>").insertAfter(arr[i].$r.children("td").eq(profitInd));
     });
     function sort_table(type) {
         var $start = $grid.find("tbody tr").first();
@@ -1603,8 +1810,45 @@ function showPPWForAll() {
         }
     }
 }
+function getEmployees() {
+    var urlEmpl = "/" + realm + "/main/company/view/" + companyId + "/unit_list/employee";
+    var $def = $.get(urlEmpl)
+        .then(function (data, status, jqXHR) {
+        var $html = $(data);
+        //debugger;
+        if (hasPages($html))
+            return repage(10000, $html);
+        // создаем разрешенный промис и возвращаем через него код страницы.
+        var $d = $.Deferred();
+        $d.resolve(data, status, jqXHR);
+        return $d;
+    })
+        .then(function (data, status, jqXHR) {
+        var empl = parseManageEmployees(data, urlEmpl);
+        //logDebug("ppw: ", empl);
+        //debugger;
+        var $def = $.Deferred();
+        $def.resolve(empl);
+        return $def;
+    });
+    return $def;
+}
+function saveEmplData(empl) {
+    //debugger;
+    var dateStr = dateToShort(gameDate);
+    for (var key in empl) {
+        var item = empl[key];
+        var udt = {
+            dt: dateStr,
+            wk: item.empl
+        };
+        var storeKey = buildStoreKey(realm, keyCode, item.subid);
+        localStorage[storeKey] = JSON.stringify(udt);
+    }
+}
 function tryLoadPpw(key) {
     // читаем данные с хранилища, если они там есть конечно
+    var keys = Object.keys(localStorage);
     var rawData = localStorage.getItem(key);
     if (rawData == null)
         return null;
