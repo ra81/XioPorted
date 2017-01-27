@@ -1312,6 +1312,57 @@ function parseManageEmployees(html: any, url: string) {
     }
 }
 
+/**
+ * Парсит страницу отчета по рекламе, собирает всю инфу по всем юнитам где реклама есть. Где рекламы нет
+ * те не выводятся в этой таблице их надо ручками парсить
+ * @param html
+ * @param url
+ */
+function parseReportAdvertising(html: any, url: string) {
+    let $html = $(html);
+
+    try {
+        // заберем таблицы по сервисам и по торговле, а рекламу офисов не будем брать. числануть тока по шапкам
+        let $tbls = $html.find("table.grid").has("th:contains('Город')");
+        let $rows = $tbls.find("tr").has("a[href*='unit']");  // отсекаем шапку оставляем тока чистые
+
+        let units: IDictionaryN<IAdsNew> = {};
+        $rows.each((i, e) => {
+            let $r = $(e);
+            let $tds = $r.children("td");
+
+            let n = extractIntPositive($tds.eq(1).find("a").eq(0).attr("href"));
+            if (n == null || n.length === 0)
+                throw new Error("не смог извлечь subid");
+
+            let _subid = n[0];
+            let _budget = numberfyOrError($tds.eq(2).text(), 0);
+
+            let init = $tds.length > 8 ? 4 : 3;
+            let _effAd = numberfyOrError($tds.eq(init).text(), -1);
+            let _effUnit = numberfyOrError($tds.eq(init+1).text(), -1);
+            let _celebrity = numberfyOrError($tds.eq(init+2).text().split("(")[0], -1);
+            let _visitors = numberfyOrError($tds.eq(init+3).text().split("(")[0], -1);
+            let _profit = numberfy($tds.eq(init+4).text());
+
+            units[_subid] = {
+                subid: _subid,
+                budget: _budget,
+                celebrity: _celebrity,
+                visitors: _visitors,
+                effAd: _effAd,
+                effUnit: _effUnit,
+                profit: _profit
+            };
+        });
+
+        return units;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 function parseX(html: any, url: string) {
     //let $html = $(html);
 

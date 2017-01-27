@@ -78,6 +78,16 @@ interface IAds {
     requiredBudget: number;
 }
 
+interface IAdsNew {
+    subid: number;
+    budget: number;
+    effAd: number;
+    effUnit: number;
+    celebrity: number;
+    visitors: number;
+    profit: number;
+}
+
 interface IMachines {
     id: number[];
     subid: number[];

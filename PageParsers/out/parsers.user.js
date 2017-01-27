@@ -320,6 +320,7 @@ var url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // зак�
 // 
 var url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?$/i; // список юнитов. Работает и для списка юнитов чужой компании
 var url_rep_finance_byunit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units$/i; // отчет по подразделениями из отчетов
+var url_rep_ad = /\/[a-z]+\/main\/company\/view\/\d+\/marketing_report\/by_advertising_program$/i; // отчет по рекламным акциям
 var url_manag_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)$/i; // в окне управления юнитами групповой ремонт или закупка оборудования
 var url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee\/?$/i; // управление - персонал
 // для для виртономики
@@ -500,6 +501,9 @@ var urlTemplates = {
     ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig,
         function (html) { return true; },
         parseAds],
+    reportAds: [url_rep_ad,
+        function (html) { return true; },
+        parseReportAdvertising],
     salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
         function (html) { return true; },
         parseSalary],
@@ -1732,6 +1736,49 @@ function parseManageEmployees(html, url) {
             };
         });
         return units_1;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
+ * Парсит страницу отчета по рекламе, собирает всю инфу по всем юнитам где реклама есть. Где рекламы нет
+ * те не выводятся в этой таблице их надо ручками парсить
+ * @param html
+ * @param url
+ */
+function parseReportAdvertising(html, url) {
+    var $html = $(html);
+    try {
+        // заберем таблицы по сервисам и по торговле, а рекламу офисов не будем брать. числануть тока по шапкам
+        var $tbls = $html.find("table.grid").has("th:contains('Город')");
+        var $rows = $tbls.find("tr").has("a[href*='unit']"); // отсекаем шапку оставляем тока чистые
+        var units_2 = {};
+        $rows.each(function (i, e) {
+            var $r = $(e);
+            var $tds = $r.children("td");
+            var n = extractIntPositive($tds.eq(1).find("a").eq(0).attr("href"));
+            if (n == null || n.length === 0)
+                throw new Error("не смог извлечь subid");
+            var _subid = n[0];
+            var _budget = numberfyOrError($tds.eq(2).text(), 0);
+            var init = $tds.length > 8 ? 4 : 3;
+            var _effAd = numberfyOrError($tds.eq(init).text(), -1);
+            var _effUnit = numberfyOrError($tds.eq(init + 1).text(), -1);
+            var _celebrity = numberfyOrError($tds.eq(init + 2).text().split("(")[0], -1);
+            var _visitors = numberfyOrError($tds.eq(init + 3).text().split("(")[0], -1);
+            var _profit = numberfy($tds.eq(init + 4).text());
+            units_2[_subid] = {
+                subid: _subid,
+                budget: _budget,
+                celebrity: _celebrity,
+                visitors: _visitors,
+                effAd: _effAd,
+                effUnit: _effUnit,
+                profit: _profit
+            };
+        });
+        return units_2;
     }
     catch (err) {
         throw err;
