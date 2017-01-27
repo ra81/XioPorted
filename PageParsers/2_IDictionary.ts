@@ -48,6 +48,18 @@ interface IEmployees {
     efficiency: string[];
 }
 
+interface IEmployeesNew {
+    subid: number;      // айди юнита
+    empl: number;       // число рабов в юните
+    emplMax: number;    // макс число рабов
+    salary: number;     // зарплата
+    salaryCity: number; // зарплата в городе
+    qual: number;       // квалификация
+    qualRequired: number;   // требуемая квала
+    eff: number;        // эффективность персонала
+    holiday: boolean;   // в отпуске или нет. Если да, то eff будет -1
+};
+
 interface IUnitList {
     subids: number[];
     type: string[];

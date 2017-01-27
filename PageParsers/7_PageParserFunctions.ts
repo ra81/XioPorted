@@ -1246,6 +1246,72 @@ function parseGameDate(html: any, url: string): Date {
     }
 }
 
+/**
+ * Парсит данные по числу рабов со страницы управления персоналам в Управлении
+ * @param html
+ * @param url
+ */
+function parseManageEmployees(html: any, url: string) {
+    let $html = $(html);
+
+    function getOrError<T>(n: T | null) {
+        if (n == null)
+            throw new Error("Argument is null");
+
+        return n as T;
+    }
+
+    try {
+
+        let $rows = $html.find("tr").has("td.u-c");
+
+        let units: IDictionaryN<IEmployeesNew> = {};
+        $rows.each((i, e) => {
+            let $r = $(e);
+            let $tds = $r.children("td");
+
+            let n = extractIntPositive($tds.eq(2).find("a").eq(0).attr("href"));
+            if (n == null || n.length === 0)
+                throw new Error("не смог извлечь subid");
+
+            let _subid = n[0];
+
+            let _empl = numberfyOrError($tds.eq(4).text(), -1);
+            let _emplMax = numberfyOrError($tds.eq(5).text(), -1);
+
+            let _salary = numberfyOrError(getOnlyText($tds.eq(6))[0], -1);
+            let _salaryCity = numberfyOrError($tds.eq(7).text(), -1);
+
+            let $a = $tds.eq(8).find("a").eq(0);
+            let _qual = numberfyOrError($a.text(), -1);
+            let _qualRequired = numberfyOrError($tds.eq(9).text(), -1);
+
+            let $tdEff = $tds.eq(10);
+            let _holiday = $tdEff.find("div.in-holiday").length > 0;
+            let _eff = -1;
+            if (!_holiday)
+                _eff = numberfyOrError($tdEff.text(), -1);
+
+            units[_subid] = {
+                subid: _subid,
+                empl: _empl,
+                emplMax: _emplMax,
+                salary: _salary,
+                salaryCity: _salaryCity,
+                qual: _qual,
+                qualRequired: _qualRequired,
+                eff: _eff,
+                holiday: _holiday
+            };
+        });
+
+        return units;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 function parseX(html: any, url: string) {
     //let $html = $(html);
 

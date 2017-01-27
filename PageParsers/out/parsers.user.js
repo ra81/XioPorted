@@ -45,6 +45,7 @@ var ParseError = (function (_super) {
     }
     return ParseError;
 }(Error));
+;
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
 //   /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
@@ -99,7 +100,7 @@ function getRealm() {
     return m[1];
 }
 /**
- * Парсит id компании со страницы
+ * Парсит id компании со страницы и выдает ошибку если не может спарсить
  */
 function getCompanyId() {
     var str = matchedOrError($("a.dashboard").attr("href"), /\d+/);
@@ -185,6 +186,17 @@ function extractFloatPositive(str) {
     return n;
 }
 /**
+ * из указанной строки которая должна быть ссылкой, извлекает числа. обычно это id юнита товара и так далее
+ * @param str
+ */
+function extractIntPositive(str) {
+    var m = cleanStr(str).match(/\d+/ig);
+    if (m == null)
+        return null;
+    var n = m.map(function (val, i, arr) { return numberfyOrError(val, -1); });
+    return n;
+}
+/**
  * По текстовой строке возвращает номер месяца начиная с 0 для января. Либо null
  * @param str очищенная от пробелов и лишних символов строка
  */
@@ -242,18 +254,116 @@ function dateFromShort(str) {
         throw new Error("год неправильная.");
     return new Date(y, m, d);
 }
-var url_my_unit_list_rx = /\/[a-z]+\/main\/company\/view\/\d+(\/unit_list)?$/i;
-var url_unit_main_rx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
-var url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i;
-var url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;
-var url_visitors_history_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
+/**
+ * По заданному числу возвращает число с разделителями пробелами для удобства чтения
+ * @param num
+ */
+function sayNumber(num) {
+    if (num < 0)
+        return "-" + sayMoney(-num);
+    if (Math.round(num * 100) / 100 - Math.round(num))
+        num = Math.round(num * 100) / 100;
+    else
+        num = Math.round(num);
+    var s = num.toString();
+    var s1 = "";
+    var l = s.length;
+    var p = s.indexOf(".");
+    if (p > -1) {
+        s1 = s.substr(p);
+        l = p;
+    }
+    else {
+        p = s.indexOf(",");
+        if (p > -1) {
+            s1 = s.substr(p);
+            l = p;
+        }
+    }
+    p = l - 3;
+    while (p >= 0) {
+        s1 = ' ' + s.substr(p, 3) + s1;
+        p -= 3;
+    }
+    if (p > -3) {
+        s1 = s.substr(0, 3 + p) + s1;
+    }
+    if (s1.substr(0, 1) == " ") {
+        s1 = s1.substr(1);
+    }
+    return s1;
+}
+/**
+ * Для денег подставляет нужный символ при выводе на экран
+ * @param num
+ * @param symbol
+ */
+function sayMoney(num, symbol) {
+    var result = sayNumber(num);
+    if (symbol != null) {
+        if (num < 0)
+            result = '-' + symbol + sayNumber(Math.abs(num));
+        else
+            result = symbol + result;
+    }
+    return result;
+}
+// РЕГУЛЯРКИ ДЛЯ ССЫЛОК ------------------------------------
+// для 1 юнита
+// 
+var url_unit_main_rx = /\/\w+\/main\/unit\/view\/\d+\/?$/i; // главная юнита
+var url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
+var url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
+var url_supply_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; // заказ товара в маг, или склад. в общем стандартный заказ товара
+var url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
+// для компании
+// 
+var url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?$/i; // список юнитов. Работает и для списка юнитов чужой компании
+var url_rep_finance_byunit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units$/i; // отчет по подразделениями из отчетов
+var url_manag_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)$/i; // в окне управления юнитами групповой ремонт или закупка оборудования
+var url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee\/?$/i; // управление - персонал
+// для для виртономики
+// 
+var url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
+/**
+ * Проверяет что мы именно на своей странице со списком юнитов. По ссылке и id компании
+ * Проверок по контенту не проводит.
+ */
 function isMyUnitList() {
-    if (url_my_unit_list_rx.test(document.location.pathname) === false)
+    // для своих и чужих компани ссылка одна, поэтому проверяется и id
+    if (url_unit_list_rx.test(document.location.pathname) === false)
         return false;
-    // помимо ссылки мы можем находиться на чужой странице юнитов
-    if ($("#mainContent > table.unit-top").length === 0
-        || $("#mainContent > table.unit-list-2014").length === 0)
+    // запрос id может вернуть ошибку если мы на window ссылке. значит точно у чужого васи
+    try {
+        var id = getCompanyId();
+        var urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
+        if (urlId[0] != id)
+            return false;
+    }
+    catch (err) {
         return false;
+    }
+    return true;
+}
+/**
+ * Проверяет что мы именно на чужой!! странице со списком юнитов. По ссылке.
+ * Проверок по контенту не проводит.
+ */
+function isOthersUnitList() {
+    // для своих и чужих компани ссылка одна, поэтому проверяется и id
+    if (url_unit_list_rx.test(document.location.pathname) === false)
+        return false;
+    try {
+        // для чужого списка будет разный айди в дашборде и в ссылке
+        var id = getCompanyId();
+        var urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
+        if (urlId[0] === id)
+            return false;
+    }
+    catch (err) {
+        // походу мы на чужом window списке. значит ок
+        return true;
+    }
     return true;
 }
 function isUnitMain() {
@@ -262,13 +372,17 @@ function isUnitMain() {
 function isUnitFinanceReport() {
     return url_unit_finance_report.test(document.location.pathname);
 }
+function isCompanyRepByUnit() {
+    return url_rep_finance_byunit.test(document.location.pathname);
+}
 function isShop() {
     var $a = $("ul.tabu a[href$=trading_hall]");
     return $a.length === 1;
 }
-function isVisitorsHistory() {
-    return url_visitors_history_rx.test(document.location.pathname);
-}
+// let url_visitors_history_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
+//function isVisitorsHistory() {
+//    return url_visitors_history_rx.test(document.location.pathname);
+//}
 // JQUERY ----------------------------------------
 /**
  * Возвращает ближайшего родителя по имени Тэга
@@ -330,19 +444,48 @@ function logDebug(msg) {
     else
         console.log(msg, args);
 }
+/**
+ * определяет есть ли на странице несколько страниц которые нужно перелистывать или все влазит на одну
+ */
+function hasPages() {
+    // там не только кнопки страниц но еще и текст Страницы в первом li поэтому > 2
+    var $pageLinks = $('ul.pager_list li');
+    return $pageLinks.length > 2;
+}
+/**
+ * Отправляет запрос на установку нужной пагинации. Возвращает promice дальше делай с ним что надо.
+ */
+function repage(pages) {
+    // снизу всегда несколько кнопок для числа страниц, НО одна может быть уже нажата мы не знаем какая
+    // берем просто любую ненажатую, извлекаем ее текст, на у далее в ссылке всегда
+    // есть число такое же как текст в кнопке. Заменяем на свое и все ок.
+    var $pager = $('ul.pager_options li').has("a").last();
+    var num = $pager.text().trim();
+    var pagerUrl = $pager.find('a').attr('href').replace(num, pages.toString());
+    // запросили обновление пагинации, дальше юзер решает что ему делать с этим
+    return $.get(pagerUrl);
+}
 // SAVE & LOAD ------------------------------------
 /**
  * По заданным параметрам создает уникальный ключик использую уникальный одинаковый по всем скриптам префикс
  * @param realm реалм для которого сейвить. Если кросс реалмово, тогда указать null
  * @param code строка отличающая данные скрипта от данных другого скрипта
+ * @param subid если для юнита, то указать. иначе пропустить
  */
-function buildStoreKey(realm, code) {
+function buildStoreKey(realm, code, subid) {
     if (code.length === 0)
         throw new RangeError("Параметр code не может быть равен '' ");
     if (realm != null && realm.length === 0)
         throw new RangeError("Параметр realm не может быть равен '' ");
-    var prefix = "^*"; // уникальная ботва которую добавляем ко всем своим данным
-    return realm == null ? prefix + "_" + code : prefix + "_" + realm + "_" + code;
+    if (subid != null && realm == null)
+        throw new RangeError("Как бы нет смысла указывать subid и не указывать realm");
+    var res = "^*"; // уникальная ботва которую добавляем ко всем своим данным
+    if (realm != null)
+        res += "_" + realm;
+    if (subid != null)
+        res += "_" + subid;
+    res += "_" + code;
+    return res;
 }
 /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
 $ = jQuery = jQuery.noConflict(true);
@@ -453,6 +596,9 @@ var urlTemplates = {
     employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
         function (html) { return true; },
         parseEmployees],
+    manageEmployees: [url_manag_empl_rx,
+        function (html) { return true; },
+        parseManageEmployees],
     energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
         function (html) { return true; },
         parseEnergyPrices],
@@ -1534,6 +1680,58 @@ function parseGameDate(html, url) {
         if (currentGameDate == null)
             throw new Error("Не получилось получить текущую игровую дату");
         return currentGameDate;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
+ * Парсит данные по числу рабов со страницы управления персоналам в Управлении
+ * @param html
+ * @param url
+ */
+function parseManageEmployees(html, url) {
+    var $html = $(html);
+    function getOrError(n) {
+        if (n == null)
+            throw new Error("Argument is null");
+        return n;
+    }
+    try {
+        var $rows = $html.find("tr").has("td.u-c");
+        var units_1 = {};
+        $rows.each(function (i, e) {
+            var $r = $(e);
+            var $tds = $r.children("td");
+            var n = extractIntPositive($tds.eq(2).find("a").eq(0).attr("href"));
+            if (n == null || n.length === 0)
+                throw new Error("не смог извлечь subid");
+            var _subid = n[0];
+            var _empl = numberfyOrError($tds.eq(4).text(), -1);
+            var _emplMax = numberfyOrError($tds.eq(5).text(), -1);
+            var _salary = numberfyOrError(getOnlyText($tds.eq(6))[0], -1);
+            var _salaryCity = numberfyOrError($tds.eq(7).text(), -1);
+            var $a = $tds.eq(8).find("a").eq(0);
+            var _qual = numberfyOrError($a.text(), -1);
+            var _qualRequired = numberfyOrError($tds.eq(9).text(), -1);
+            var $tdEff = $tds.eq(10);
+            var _holiday = $tdEff.find("div.in-holiday").length > 0;
+            var _eff = -1;
+            if (!_holiday)
+                _eff = numberfyOrError($tdEff.text(), -1);
+            units_1[_subid] = {
+                subid: _subid,
+                empl: _empl,
+                emplMax: _emplMax,
+                salary: _salary,
+                salaryCity: _salaryCity,
+                qual: _qual,
+                qualRequired: _qualRequired,
+                eff: _eff,
+                holiday: _holiday
+            };
+        });
+        return units_1;
     }
     catch (err) {
         throw err;
