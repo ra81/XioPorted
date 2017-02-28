@@ -79,6 +79,15 @@ function logDebug(msg: string, ...args: any[]) {
 }
 
 /**
+ * Проверяет что элемент есть в массиве.
+ * @param item
+ * @param arr массив НЕ null
+ */
+function isOneOf<T>(item: T, arr: T[]) {
+    return arr.indexOf(item) >= 0;
+}
+
+/**
  * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
  * @param variable любая строка.
  */
@@ -94,8 +103,8 @@ function numberfy(variable: string): number {
         String(variable) === 'Nicht beschr.') {
         return Number.POSITIVE_INFINITY;
     } else {
-        return parseFloat(variable.replace(/[\s\$\%\©]/g, "")) || 0;
-        //return parseFloat(String(variable).replace(/[\s\$\%\©]/g, "")) || 0;
+        //return parseFloat(variable.replace(/[\s\$\%\©]/g, "")) || 0;
+        return parseFloat(String(variable).replace(/[\s\$\%\©]/g, "")) || 0; //- так сделано чтобы variable когда undef получалась строка "0"
     }
 };
 
@@ -369,48 +378,10 @@ function map(html: any, url: string, page: string): boolean {
         }
     }
     else if (page === "main") {
-        $mapped[url] = {
-            employees: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(0) td:eq(1)").text()),
-            salaryNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(2) td:eq(1)").text()),
-            salaryCity: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(3) td:eq(1)").text()),
-            skillNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(4) td:eq(1)").text()),
-            skillReq: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(5) td:eq(1)").text()),
-            equipNum: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(0) td:eq(1)").text()),
-            equipMax: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(1) td:eq(1)").text()),
-            equipQual: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(2) td:eq(1)").text()),
-            equipReq: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(3) td:eq(1)").text()),
-            equipWearBlack: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1)").text().split("(")[1]),
-            equipWearRed: $html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1) span").length === 1,
-            managerPic: $html.find(".unit_box:has(.fa-user) ul img").attr("src"),
-            qual: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(1) td:eq(1)").text()),
-            techLevel: numberfy($html.find(".unit_box:has(.fa-industry) tr:eq(3) td:eq(1)").text()),
-            maxEmployees: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(2) td:eq(1)").text()),
-            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0],
-            size: numberfy($html.find("#unitImage img").attr("src").split("_")[1]),
-            hasBooster: !$html.find("[src='/img/artefact/icons/color/production.gif']").length,
-            hasAgitation: !$html.find("[src='/img/artefact/icons/color/politics.gif']").length,
-            onHoliday: !!$html.find("[href$=unset]").length,
-            isStore: !!$html.find("[href$=trading_hall]").length,
-            departments: numberfy($html.find("tr:contains('Number of departments') td:eq(1)").text()),
-            visitors: numberfy($html.find("tr:contains('Number of visitors') td:eq(1)").text())
-        }
+        $mapped[url] = parseUnitMain(html, url);
     }
     else if (page === "salary") {
-        $mapped[url] = {
-            employees: numberfy($html.find("#quantity").val()),
-            form: $html.filter("form"),
-            salaryNow: numberfy($html.find("#salary").val()),
-            salaryCity: numberfy($html.find("tr:nth-child(3) > td").text().split("$")[1]),
-            skillNow: numberfy($html.find("#apprisedEmployeeLevel").text()),
-            skillCity: (() => {
-                let m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
-                return numberfy(m == null ? "0" : m[0]);
-            })(),
-            skillReq: (() => {
-                let m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
-                return numberfy(m == null ? "0" : m[0]);
-            })()
-        }
+        $mapped[url] = parseSalary(html, url);
     }
     else if (page === "training") {
         $mapped[url] = {
@@ -445,11 +416,7 @@ function map(html: any, url: string, page: string): boolean {
         }
     }
     else if (page === "manager") {
-        $mapped[url] = {
-            base: $html.find(".qual_item .mainValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            bonus: $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[],
-            pic: $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get() as any as string[]
-        }
+        $mapped[url] = parseManager(html, url);
     }
     else if (page === "tech") {
         $mapped[url] = {
@@ -926,9 +893,7 @@ function XioMaintenance(subids:number[], policyGroups:string[]) {
 
     $("div.metro_header").append(tablestring);
 
-    // вообще без понятия что это за херня, но походу парсит главную страницу юнитов.
     // походу убираем фильтры по типам, ставим 20000 страниц и тока потом чето парсим
-    // TODO: зачем парсим все если работаем чисто с юнита???? Мне сложно понять
     if (!oneUnit) {
         urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
         let filtersetting = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
@@ -1211,18 +1176,18 @@ function XioHoliday() {
     function phase() {
         xGet(url, "employees", false, function () {
             logDebug("XioHoliday: ", $mapped);
-            let employees = $mapped[url] as IEmployees;
+            let _employees = $mapped[url] as IEmployees;
             // TODO: общую ффункцию запилить для парсинга и везде вставить!
             let subids = $(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get() as any as number[];
             var $tds = $(".unit-list-2014 tr:gt(0) td:nth-child(2)");
 
             // проставляет эффективность рабочих на страницу юнитов
-            for (var i = 0; i < employees.id.length; i++) {
-                var index = subids.indexOf(employees.id[i]);
+            for (var i = 0; i < _employees.id.length; i++) {
+                var index = subids.indexOf(_employees.id[i]);
                 if (index < 0)
                     continue;
 
-                var eff = employees.efficiency[i];
+                var eff = _employees.efficiency[i];
 
                 var text = eff === "" ? "Holiday" : eff;
                 var color = text === "Holiday" ? "blue" : eff === "100.00 %" ? "green" : "red";

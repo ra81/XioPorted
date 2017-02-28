@@ -177,7 +177,7 @@ function unitList() {
 }
 
 function unitMain() {
-    if (!isShop()) {
+    if (!isShop(document)) {
         logDebug("не магазин.");
         return;
     }

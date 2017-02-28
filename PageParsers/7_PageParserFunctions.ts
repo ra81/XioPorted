@@ -13,12 +13,12 @@ function getInnerText(el: Element) {
 /**
  * Из набора HTML элементов представляющих собой tr парсит subid. Ряды должны быть стандартного формата.
  */
-function parseSubid(trList: HTMLTableRowElement[]): number[] {
-    if (trList == null)
+function parseSubid($rows: JQuery): number[] {
+    if ($rows == null)
         throw new ArgumentNullError("trList");
 
     let f = (i: number, e: Element) => numberfyOrError($(e).text());
-    return $(trList).find("td.unit_id").map(f).get() as any as number[];
+    return $rows.find("td.unit_id").map(f).get() as any as number[];
 }
 
 /**
@@ -48,25 +48,35 @@ function parseAllSavedSubid(realm: string): number[] {
  * @param html
 * @param url
  */
-function parseUnitList(html: any, url: string): IUnitList {
+function parseUnitList(html: any, url: string): IDictionaryN<IUnit> {
     let $html = $(html);
 
     try {
         let $table = $html.find("table.unit-list-2014");
 
-        let _subids = $table.find("td.unit_id").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-        let _type = $table.find("td.info").map((i, e) => {
-            let s = $(e).attr("class").split("-")[1];
-            if (s == null)
-                throw new RangeError("class attribute doesn't contains type part.");
+        let res: IDictionaryN<IUnit> = {};
+        let $rows = closestByTagName($table.find("td.unit_id"), "tr");
+        if ($rows.length === 0)
+            throw new Error("Не нашел ни одного юнита, что не может быть");
 
-            return s;
-        }).get() as any as string[];
+        $rows.each((i, el) => {
+            let $r = $(el);
 
-        if (_type.length !== _subids.length)
-            throw new Error(`Число subid:${_subids.length} не сходится с числом найденных типов юнитов ${_type.length}`);
+            let subid = numberfyOrError($r.find("td.unit_id").text());
 
-        return { subids: _subids, type: _type };
+            let typestr = $r.find("td.info").attr("class").split("-")[1];
+            if (typestr == null)
+                throw new Error("class attribute doesn't contains type part.");
+
+            // такой изврат с приведением из за компилера. надо чтобы работало
+            let type: UnitTypes = (UnitTypes as any)[typestr] ? (UnitTypes as any)[typestr] : UnitTypes.unknown;
+            if (type == UnitTypes.unknown)
+                throw new Error("Не описан тип юнита " + typestr);
+
+            res[subid] = { subid: subid, type: type };
+        });
+
+        return res;
     }
     catch (err) {
         console.log(url);
@@ -242,7 +252,7 @@ function parseSaleNew(html: any, url: string): ISaleNew {
 
         let companyName = $row.find("b").text();
         let $a = $row.find("a").eq(1);
-        let unitId = matchedOrError($a.attr("href"), new RegExp(/\d+/ig));
+        let unitId = matchedOrError($a.attr("href"), new RegExp(/\d+/));
         let $td = $a.closest("td");
         let purshased = numberfyOrError($td.next("td").text(), -1);
         let ordered = numberfyOrError($td.next("td").next("td").text(), -1);
@@ -610,7 +620,8 @@ function parseUnitMain(html: any, url: string): IMain {
                 onHoliday: _onHoliday,
                 isStore: _isStore,
                 departments: _departments,
-                visitors: _visitors
+                visitors: _visitors,
+                service: ServiceLevels.none
             };
         }
         else {
@@ -759,7 +770,48 @@ function parseUnitMain(html: any, url: string): IMain {
             let _onHoliday = !!$html.find("[href$=unset]").length;
             let _isStore = !!$html.find("[href$=trading_hall]").length;
             let _departments = numberfy($html.find('tr:contains("Количество отделов") td:eq(1)').text()) || -1;
-            let _visitors = numberfy($html.find('tr:contains("Количество посетителей") td:eq(1)').text()) || -1;
+
+            let $r = $html.find("tr:contains('Количество посетителей')");
+            let _visitors = numberfy($r.find("td:eq(1)").text()) || -1;
+
+            $r = $r.next("tr");
+            let _service: ServiceLevels = ServiceLevels.none;
+            let $hint = $r.find("div.productivity_hint");
+            if ($hint.length > 0) {
+                let txt = $hint.find("div.title").text();
+                switch (txt.toLowerCase()) {
+                    case "элитный":
+                        _service = ServiceLevels.elite;
+                        break;
+
+                    case "очень высокий":
+                        _service = ServiceLevels.higher;
+                        break;
+
+                    case "высокий":
+                        _service = ServiceLevels.high;
+                        break;
+
+                    case "нормальный":
+                        _service = ServiceLevels.normal;
+                        break;
+
+                    case "низкий":
+                        _service = ServiceLevels.low;
+                        break;
+
+                    case "очень низкий":
+                        _service = ServiceLevels.lower;
+                        break;
+
+                    case "не известен":
+                        _service = ServiceLevels.none;
+                        break;
+
+                    default:
+                        throw new Error("Не смог идентифицировать указанный уровень сервиса " + txt);
+                }
+            }
 
             return {
                 employees: _employees,
@@ -792,7 +844,8 @@ function parseUnitMain(html: any, url: string): IMain {
                 onHoliday: _onHoliday,
                 isStore: _isStore,
                 departments: _departments,
-                visitors: _visitors
+                visitors: _visitors,
+                service: _service
             };
         }
     }
@@ -1046,8 +1099,10 @@ function parseTradeHall(html: any, url: string): ITradeHall {
             throw new Error("что то пошло не так. Количество данных различается");
 
         return {
-            history: _history,
-            report: _report,
+            historyUrl: _history,
+            reportUrl: _report,
+            history: [],
+            report: [],
             img: _img,
             name: _name,
             stock: _stock,
@@ -1194,6 +1249,29 @@ function parseEnergyPrices(html: any, url: string): IDictionary<IEnergyPrices> {
     };
 }
 
+function parseCountries(html: any, url: string): ICountry[] {
+    let $html = $(html);
+
+    try {
+
+        let $tds = $html.find("td.geo");
+        let countries = $tds.map((i, e): ICountry => {
+            let $a = oneOrError($(e), "a[href*=regionlist]");
+
+            let m = matchedOrError($a.attr("href"), /\d+/i);
+            return {
+                id: numberfyOrError(m, 0),
+                name: $a.text().trim(),
+                regions: {}
+            };
+        }) as any as ICountry[];
+
+        return countries;
+    }
+    catch (err) {
+        throw err;
+    }
+}
 
 function parseRegions(html: any, url: string): IRegion[] {
     let $html = $(html);
@@ -1221,8 +1299,32 @@ function parseRegions(html: any, url: string): IRegion[] {
     }
 }
 
+function parseCities(html: any, url: string): ICity[] {
+    let $html = $(html);
+
+    try {
+
+        let $tds = $html.find("td.geo");
+        let regs = $tds.map((i, e): ICity => {
+            let $a = oneOrError($(e), "a[href*=city]");
+
+            let m = matchedOrError($a.attr("href"), /\d+/i);
+            return {
+                id: numberfyOrError(m, 0),
+                name: $a.text().trim(),
+            }
+        }) as any as ICity[];
+
+        return regs;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 /**
  * Со странички пробуем спарсить игровую дату. А так как дата есть почти везде, то можно почти везде ее спарсить
+ * Вывалит ошибку если не сможет спарсить дату со странички
  * @param html
  * @param url
  */
@@ -1360,6 +1462,184 @@ function parseReportAdvertising(html: any, url: string) {
         });
 
         return units;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * Со страницы со всеми продуктами игры парсит их список
+ * /lien/main/common/main_page/game_info/products
+ * Брендовые товары здесь НЕ отображены и парсены НЕ БУДУТ
+ * @param html
+ * @param url
+ */
+function parseProducts(html: any, url: string): IProduct[] {
+    let $html = $(html);
+
+    try {
+
+        let $items = $html.find("table.list").find("a").has("img");
+        if ($items.length === 0)
+            throw new Error("не смогли найти ни одного продукта на " + url);
+
+        let products = $items.map((i, e): IProduct => {
+            let $a = $(e);
+
+            let _img = $a.find("img").eq(0).attr("src");
+
+            // название продукта Спортивное питание, Маточное молочко и так далее
+            let _name = $a.attr("title").trim();
+            if (_name.length === 0)
+                throw new Error("Имя продукта пустое.");
+
+            // номер продукта
+            let m = matchedOrError($a.attr("href"), /\d+/);
+            let _id = numberfyOrError(m, 0);  // должно быть больше 0 полюбому
+
+            return {
+                id: _id,
+                name: _name,
+                img: _img
+            };
+        }) as any as IProduct[];
+
+        return products;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+interface IUnitFinance {
+    income: number;     // доходы
+    expense: number;    // расходы
+    profit: number;     // прибыль
+    tax: number;        // налоги
+}
+/**
+ * /olga/main/company/view/6383588/finance_report/by_units/
+ * @param html
+ * @param url
+ */
+function parseFinanceRepByUnits(html: any, url: string): IDictionaryN<IUnitFinance> {
+    let $html = $(html);
+
+    try {
+        let $grid = $html.find("table.grid");
+        if ($grid.length === 0)
+            throw new Error("Не найдена таблица с юнитами.");
+
+        let $rows = closestByTagName($grid.find("img[src*='unit_types']"), "tr");
+        let res: IDictionaryN<IUnitFinance> = {};
+        $rows.each((i, el) => {
+            let $r = $(el);
+
+            let unithref = $r.find("a").attr("href");
+            let n = extractIntPositive(unithref);
+            if (n == null)
+                throw new Error("не смог определить subid для " + unithref);
+
+            let subid = n[0];
+
+            let incomInd = $grid.find("th:contains('Доходы')").index();
+            let expInd = $grid.find("th:contains('Расходы')").index();
+            let profitInd = $grid.find("th:contains('Прибыль')").index();
+            let taxInd = $grid.find("th:contains('Налоги')").index();
+            if (incomInd < 0 || expInd < 0 || profitInd < 0 || taxInd < 0)
+                throw new Error("не нашли колонки с прибыль, убыток, налоги");
+
+            let income = numberfy($r.children("td").eq(incomInd).text());
+            let exp = numberfy($r.children("td").eq(expInd).text());
+            let profit = numberfy($r.children("td").eq(profitInd).text());
+            let tax = numberfyOrError($r.children("td").eq(taxInd).text(), -1);  // налоги всегда плюсовыве
+
+            res[subid] = {
+                expense: exp,
+                income: income,
+                profit: profit,
+                tax: tax
+            };
+        });
+
+        return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * история цен в рознице /lien/window/unit/view/4038828/product_history/15742/
+ * элементы в массиве расположены так же как в таблице. самый новый в 0 ячейке, самый старый в последней.
+ * @param html
+ * @param url
+ */
+function parseRetailPriceHistory(html: any, url: string): IPriceHistoryItem[] {
+    let $html = $(html);
+
+    try {
+        // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
+        // такие дни просто вылетают из списка.
+        // сегодняшний день ВСЕГДА есть в списке.
+        // если продаж сегодня не было, то в строке будут тока бренд 0 а остальное пусто.
+        // если сегодня продажи были, то там будут числа и данная строка запомнится как история продаж.
+        // причина по которой продаж не было пофиг. Не было товара, цена стояла 0 или стояла очень большая. Похер!
+
+        // так же бывает что последний день задваивается. надо убирать дубли если они есть
+        // поэтому кладем в словарь по дате. Потом перегоняем в массив сортируя по дате по убыванию. самая новая первая
+        let $rows = $html.find("table.list").find("tr.even, tr.odd");
+        let dict: IDictionary<IPriceHistoryItem> = {};
+        $rows.each((i, el) => {
+            let $td = $(el).children();
+
+            let _date = extractDate($td.eq(0).text());
+            if (!_date)
+                throw new Error("не смог отпарсить дату " + $td.eq(0).text());
+
+            // если количества нет, значит продаж не было строка тупо пустая
+            // забиваем в словарь пустую строку
+            let _quant = numberfy($td.eq(1).text());
+            if (_quant <= 0) {
+                dict[dateToShort(_date)] = {
+                    date: _date,
+                    quantity: 0,
+                    quality: 0,
+                    price: 0,
+                    brand: 0
+                };
+                return;
+            }
+
+            let _qual = numberfyOrError($td.eq(2).text(), 0);
+            let _price = numberfyOrError($td.eq(3).text(), 0);
+            let _brand = numberfyOrError($td.eq(4).text(), -1); // бренд может быть и 0
+
+            dict[dateToShort(_date)] = {
+                date: _date,
+                quantity: _quant,
+                quality: _qual,
+                price: _price,
+                brand: _brand
+            };
+        });
+
+        // переводим в массив и сортируем по дате. в 0, самое последнее
+        let res: IPriceHistoryItem[] = [];
+        for (let key in dict)
+            res.push(dict[key]);
+
+        let sorted = res.sort((a, b) => {
+            if (a.date > b.date)
+                return -1;
+
+            if (a.date < b.date)
+                return 1;
+
+            return 0;
+        });
+        return sorted;
     }
     catch (err) {
         throw err;

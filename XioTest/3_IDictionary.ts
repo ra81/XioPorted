@@ -37,20 +37,28 @@ type MappedPage = IContract | IWareSupply | IWareSize | IWareMain | ITraining | 
 
 interface IMain {
     employees: number;
+    totalEmployees: number;
+    employeesDemand: number;
+
     salaryNow: number;
     salaryCity: number;
+
     skillNow: number;
+    skillCity: number,
     skillReq: number;
+
     equipNum: number;
     equipMax: number;
     equipQual: number;
     equipReq: number;
+
+    equipBroken: number;
     equipWearBlack: number;
     equipWearRed: boolean;
+
     managerPic: string;
     qual: number;
     techLevel: number;
-    maxEmployees: number;
     img: string;
     size: number;
     hasBooster: boolean;
@@ -127,6 +135,7 @@ interface IEquipment {
 
 interface ISalary {
     employees: number;
+    maxEmployees: number;
     form: JQuery;
     salaryNow: number;
     salaryCity: number;

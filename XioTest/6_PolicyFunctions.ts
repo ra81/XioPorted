@@ -1,6 +1,7 @@
 ﻿//
 // сюда кладем все функции которые собсна выполняют политики
 //
+// Done
 function advertisement(policyName: string, subid: number, choices: number[]) {
 
     let url = "/" + $realm + "/main/unit/view/" + subid + "/virtasement";
@@ -1367,8 +1368,9 @@ function retailPrice(policyName: string, subid: number, choices: number[]) {
                 if (share > 6 && share < 7.5)
                     price = stock > deliver ? priceOld * (1 + 0.01) : priceOld * (1 + 0.03);
 
+                let k = share / 6;
                 if (share > 7.5)
-                    price = stock > deliver ? priceOld * (1 + 0.03) : priceOld * (1 + 0.05);
+                    price = stock > deliver ? priceOld * (1 + 0.03*k) : priceOld * (1 + 0.05*k);
             }
         }
         // если цена уже минимальна а продажи 0, алармить об этом
@@ -1492,169 +1494,142 @@ function retailPrice(policyName: string, subid: number, choices: number[]) {
 }
 
 function salary(policyName: string, subid: number, choices: number[]) {
-    var url = "/" + $realm + "/window/unit/employees/engage/" + subid;
-    var urlMain = "/" + $realm + "/main/unit/view/" + subid;
-    var urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
-    var getcount = 0;
+    let url = "/" + $realm + "/window/unit/employees/engage/" + subid;
+    let urlMain = "/" + $realm + "/main/unit/view/" + subid;
+    let urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
+    // [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"], 
+    //  ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
 
+    let getcount = 0;
     if (choices[0] === 1) {
         getcount++;
-        xGet(url, "salary", true, function () {
-            !--getcount && post();
-        });
-    }
-    else if (choices[0] >= 2) {
-        getcount += 3;
-        xGet(urlMain, "main", true, function () {
-            !--getcount && post();
-        });
-        xGet(urlManager, "manager", false, function () {
-            !--getcount && post();
-        });
-        xGet(url, "salary", true, function () {
-            !--getcount && post();
-        });
+        xGet(url, "salary", true, () => !--getcount && post());
     }
 
-    //choices[1]: ["min 80% max 500%", "max 500%", "min 80%", "No bound"]
+    if (choices[0] >= 2) {
+        getcount += 3;
+        xGet(urlMain,    "main",    true,  () => !--getcount && post());
+        xGet(urlManager, "manager", false, () => !--getcount && post());
+        xGet(url,        "salary",  true,  () => !--getcount && post());
+    }
+
     function post() {
         $("[id='x" + "Salary" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
 
-        var change = false;
         let _salary = $mapped[url] as ISalary;
-        let _main = $mapped[urlMain] as IMain;
-        let _top = $mapped[urlManager] as ITopManager;
+        let change = false;
+        let newSalary = _salary.salaryNow;
+        debugger;
+        // [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"], 
+        //  ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
 
+        // ситуация когда установлена зарплата 0, невозможна, система ставит 1 автоматом. Но пусть будет
         if (_salary.salaryNow === 0) {
             change = true;
             _salary.form.find("#salary").val(_salary.salaryCity);
         }
-        else if (choices[0] === 1 && (_salary.skillNow !== _salary.skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8))) {
-            //"Required"
-            change = true;
-            _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, _salary.skillReq);
-            if (choices[1] !== 3 && choices[1] !== 1) {
-                _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-            }
-            if (choices[1] !== 3 && choices[1] !== 2) {
-                _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-            }
-            _salary.form.find("#salary").val(_salary.salaryNow);
-        }
-        else if (choices[0] === 2) {
-            //"Target"
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[managerIndex]);
-
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-
-        }
-        else if (choices[0] === 3) {
-            //"Maximum"
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[managerIndex] + _top.bonus[managerIndex]);
-
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-        }
-        else if (choices[0] === 4) {
-            //"Overflow"
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var manager = _top.base[managerIndex] + _top.bonus[managerIndex];
-            var factor3 = subType[_main.img][1];
-            var managerNew = manager * calcOverflowTop1(_main.maxEmployees, factor3, manager);
-            var skillReq = calcSkill(_salary.employees, subType[_main.img][0], managerNew);
-
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-        }
-        else if (choices[0] >= 5 && choices[0] <= 13) {
-            //"20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"
-            var loadPercent = 20;
-            if (choices[0] === 6) {
-                loadPercent = 30;
-            }
-            else if (choices[0] === 7) {
-                loadPercent = 39;
-            }
-            else if (choices[0] === 8) {
-                loadPercent = 50;
-            }
-            else if (choices[0] === 9) {
-                loadPercent = 60;
-            }
-            else if (choices[0] === 10) {
-                loadPercent = 69;
-            }
-            else if (choices[0] === 11) {
-                loadPercent = 119;
-            }
-            else if (choices[0] === 12) {
-                loadPercent = 139;
-            }
-            else if (choices[0] === 13) {
-                loadPercent = 130;
-            }
-
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var skillReq = _salary.skillReq;
-            var load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], _top.base[managerIndex] + _top.bonus[managerIndex]) * 100;
-            while (load < loadPercent) {
-                skillReq += 0.01;
-                load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], _top.base[managerIndex] + _top.bonus[managerIndex]) * 100;
-            }
-            skillReq -= 0.01;
-            skillReq = Math.max(skillReq, _salary.skillReq);
-
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-        }
-
-        if (change) {
-            xPost(url, _salary.form.serialize(), function () {
-                xTypeDone(policyName);
-            });
-        }
         else {
-            xTypeDone(policyName);
+            let maxSalary = (_salary.salaryCity - .005) * 5;
+            let minSalary = (_salary.salaryCity + .005) * 0.8;
+            switch (choices[0]) {
+                case 1: //"Required"
+                    if (_salary.skillNow !== _salary.skillReq) {
+                        change = true;
+                        newSalary =  calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, _salary.skillReq);
+                    }
+                    break;
+
+                case 2: //"Target"
+                    var _main = $mapped[urlMain] as IMain;
+                    var _top = $mapped[urlManager] as ITopManager;
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[qualIndex]);
+
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary =  calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+                    // TODO: переписать все нах. для запроса текущей зарплаты запрашивать главную страницу а не адажкс форму. там 0 может стоять нах оно надо
+                case 3: //"Maximum"
+                    var _main = $mapped[urlMain] as IMain;
+                    var _top = $mapped[urlManager] as ITopManager;
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[qualIndex] + _top.bonus[qualIndex]);
+
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary =  calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+
+                case 4: //"Overflow"
+                    var _main = $mapped[urlMain] as IMain;
+                    var _top = $mapped[urlManager] as ITopManager;
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var manager = _top.base[qualIndex] + _top.bonus[qualIndex];
+                    var factor3 = subType[_main.img][1];
+                    var managerNew = manager * calcOverflowTop1(_main.totalEmployees, factor3, manager);
+                    var skillReq = calcSkill(_salary.employees, subType[_main.img][0], managerNew);
+
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary =  calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+
+                case 5:
+                case 6:
+                case 7:
+                case 8:
+                case 9:
+                case 10:
+                case 11:
+                case 12:
+                case 13:
+                    //"20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"
+                    var _main = $mapped[urlMain] as IMain;
+                    var _top = $mapped[urlManager] as ITopManager;
+                    let loadPercent = numberfy(policyJSON["es"].save[0][choices[0]]);
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var skillReq = _salary.skillReq;
+                    var maxTopQual = _top.base[qualIndex] + _top.bonus[qualIndex];
+
+                    // подбираем зарплату чтобы нагрузка стала необходимой
+                    var load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], maxTopQual) * 100;
+                    while (load < loadPercent) {
+                        skillReq += 0.01;
+                        load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], maxTopQual) * 100;
+                    }
+                    skillReq -= 0.01;
+                    skillReq = Math.max(skillReq, _salary.skillReq);
+
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary =  calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+            }
+
+            // корректировка на мин величину
+            if (isOneOf(choices[1], [0, 2]) && _salary.salaryNow < minSalary) {
+                change = true;
+                newSalary =  Math.max(_salary.salaryNow, minSalary);
+            }
+
+            // корректировка на макс величину
+            if (isOneOf(choices[1], [0, 1]) && _salary.salaryNow > maxSalary) {
+                change = true;
+                newSalary =  Math.min(_salary.salaryNow, maxSalary);
+            }
+
+            _salary.form.find("#salary").val(newSalary);
         }
+  
+        if (change)
+            xPost(url, _salary.form.serialize(), () => xTypeDone(policyName));
+        else
+            xTypeDone(policyName);
     }
 }
 

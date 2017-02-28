@@ -311,6 +311,14 @@ function logDebug(msg) {
         console.log(msg, args);
 }
 /**
+ * Проверяет что элемент есть в массиве.
+ * @param item
+ * @param arr массив НЕ null
+ */
+function isOneOf(item, arr) {
+    return arr.indexOf(item) >= 0;
+}
+/**
  * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
  * @param variable любая строка.
  */
@@ -326,7 +334,8 @@ function numberfy(variable) {
         return Number.POSITIVE_INFINITY;
     }
     else {
-        return parseFloat(variable.replace(/[\s\$\%\©]/g, "")) || 0;
+        //return parseFloat(variable.replace(/[\s\$\%\©]/g, "")) || 0;
+        return parseFloat(String(variable).replace(/[\s\$\%\©]/g, "")) || 0; //- так сделано чтобы variable когда undef получалась строка "0"
     }
 }
 ;
@@ -579,48 +588,10 @@ function map(html, url, page) {
         };
     }
     else if (page === "main") {
-        $mapped[url] = {
-            employees: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(0) td:eq(1)").text()),
-            salaryNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(2) td:eq(1)").text()),
-            salaryCity: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(3) td:eq(1)").text()),
-            skillNow: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(4) td:eq(1)").text()),
-            skillReq: numberfy($html.find(".unit_box:has(.fa-users) tr:eq(5) td:eq(1)").text()),
-            equipNum: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(0) td:eq(1)").text()),
-            equipMax: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(1) td:eq(1)").text()),
-            equipQual: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(2) td:eq(1)").text()),
-            equipReq: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(3) td:eq(1)").text()),
-            equipWearBlack: numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1)").text().split("(")[1]),
-            equipWearRed: $html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1) span").length === 1,
-            managerPic: $html.find(".unit_box:has(.fa-user) ul img").attr("src"),
-            qual: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(1) td:eq(1)").text()),
-            techLevel: numberfy($html.find(".unit_box:has(.fa-industry) tr:eq(3) td:eq(1)").text()),
-            maxEmployees: numberfy($html.find(".unit_box:has(.fa-user) tr:eq(2) td:eq(1)").text()),
-            img: $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0],
-            size: numberfy($html.find("#unitImage img").attr("src").split("_")[1]),
-            hasBooster: !$html.find("[src='/img/artefact/icons/color/production.gif']").length,
-            hasAgitation: !$html.find("[src='/img/artefact/icons/color/politics.gif']").length,
-            onHoliday: !!$html.find("[href$=unset]").length,
-            isStore: !!$html.find("[href$=trading_hall]").length,
-            departments: numberfy($html.find("tr:contains('Number of departments') td:eq(1)").text()),
-            visitors: numberfy($html.find("tr:contains('Number of visitors') td:eq(1)").text())
-        };
+        $mapped[url] = parseUnitMain(html, url);
     }
     else if (page === "salary") {
-        $mapped[url] = {
-            employees: numberfy($html.find("#quantity").val()),
-            form: $html.filter("form"),
-            salaryNow: numberfy($html.find("#salary").val()),
-            salaryCity: numberfy($html.find("tr:nth-child(3) > td").text().split("$")[1]),
-            skillNow: numberfy($html.find("#apprisedEmployeeLevel").text()),
-            skillCity: (function () {
-                var m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
-                return numberfy(m == null ? "0" : m[0]);
-            })(),
-            skillReq: (function () {
-                var m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
-                return numberfy(m == null ? "0" : m[0]);
-            })()
-        };
+        $mapped[url] = parseSalary(html, url);
     }
     else if (page === "training") {
         $mapped[url] = {
@@ -655,11 +626,7 @@ function map(html, url, page) {
         };
     }
     else if (page === "manager") {
-        $mapped[url] = {
-            base: $html.find(".qual_item .mainValue").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            bonus: $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get(),
-            pic: $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get()
-        };
+        $mapped[url] = parseManager(html, url);
     }
     else if (page === "tech") {
         $mapped[url] = {
@@ -1026,6 +993,8 @@ function XioMaintenance(subids, policyGroups) {
     blackmail = [];
     equipfilter = [];
     logDebug("mapped: ", $mapped);
+    // если нам надо отработать 1 юнит, нах грузить все юниты ниже по коду???
+    var oneUnit = subids && subids.length === 1;
     if (!subids || subids.length === 0)
         subids = parseAllSavedSubid($realm);
     if (!policyGroups || policyGroups.length === 0) {
@@ -1067,22 +1036,24 @@ function XioMaintenance(subids, policyGroups) {
         + "</table>"
         + "<div id=XMproblem class=XioProperty style='font-size: 18px; color:gold;'></div>";
     $("div.metro_header").append(tablestring);
-    // вообще без понятия что это за херня, но походу парсит главную страницу юнитов.
     // походу убираем фильтры по типам, ставим 20000 страниц и тока потом чето парсим
-    // TODO: зачем парсим все если работаем чисто с юнита???? Мне сложно понять
-    urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
-    var filtersetting = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
-    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/20000", "none", false, function () {
-        xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/type=0", "none", false, function () {
-            xGet(urlUnitlist, "unitlist", false, function () {
-                xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
-                    xGet(filtersetting, "none", false, function () {
-                        further($mapped[urlUnitlist].subids);
+    if (!oneUnit) {
+        urlUnitlist = "/" + $realm + "/main/company/view/" + companyid + "/unit_list";
+        var filtersetting_1 = $(".u-s").attr("href") || "/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/size=0/type=" + $(".unittype").val();
+        xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/20000", "none", false, function () {
+            xGet("/" + $realm + "/main/common/util/setfiltering/dbunit/unitListWithProduction/class=0/type=0", "none", false, function () {
+                xGet(urlUnitlist, "unitlist", false, function () {
+                    xGet("/" + $realm + "/main/common/util/setpaging/dbunit/unitListWithProduction/400", "none", false, function () {
+                        xGet(filtersetting_1, "none", false, function () {
+                            further($mapped[urlUnitlist].subids);
+                        });
                     });
                 });
             });
         });
-    });
+    }
+    else
+        further(subids);
     function further(realsubids) {
         var startedPolicies = [];
         var xgroup = {};
@@ -1306,16 +1277,16 @@ function XioHoliday() {
     function phase() {
         xGet(url, "employees", false, function () {
             logDebug("XioHoliday: ", $mapped);
-            var employees = $mapped[url];
+            var _employees = $mapped[url];
             // TODO: общую ффункцию запилить для парсинга и везде вставить!
             var subids = $(".unit-list-2014 td:nth-child(1)").map(function (i, e) { return numberfy($(e).text()); }).get();
             var $tds = $(".unit-list-2014 tr:gt(0) td:nth-child(2)");
             // проставляет эффективность рабочих на страницу юнитов
-            for (var i = 0; i < employees.id.length; i++) {
-                var index = subids.indexOf(employees.id[i]);
+            for (var i = 0; i < _employees.id.length; i++) {
+                var index = subids.indexOf(_employees.id[i]);
                 if (index < 0)
                     continue;
-                var eff = employees.efficiency[i];
+                var eff = _employees.efficiency[i];
                 var text = eff === "" ? "Holiday" : eff;
                 var color = text === "Holiday" ? "blue" : eff === "100.00 %" ? "green" : "red";
                 $tds.eq(index).append("<br><span style='color:" + color + ";'>" + text + "</span>");
@@ -1965,6 +1936,7 @@ function calcOverflowTop3(employees, qualification, techLevel, factor1, manager)
 //
 // сюда кладем все функции которые собсна выполняют политики
 //
+// Done
 function advertisement(policyName, subid, choices) {
     var url = "/" + $realm + "/main/unit/view/" + subid + "/virtasement";
     var urlFame = "/" + $realm + "/ajax/unit/virtasement/" + subid + "/fame";
@@ -3105,8 +3077,9 @@ function retailPrice(policyName, subid, choices) {
                     price = stock > deliver ? priceOld * (1 - 0.01) : priceOld * (1 + 0.03);
                 if (share > 6 && share < 7.5)
                     price = stock > deliver ? priceOld * (1 + 0.01) : priceOld * (1 + 0.03);
+                var k = share / 6;
                 if (share > 7.5)
-                    price = stock > deliver ? priceOld * (1 + 0.03) : priceOld * (1 + 0.05);
+                    price = stock > deliver ? priceOld * (1 + 0.03 * k) : priceOld * (1 + 0.05 * k);
             }
         }
         // если цена уже минимальна а продажи 0, алармить об этом
@@ -3204,155 +3177,122 @@ function salary(policyName, subid, choices) {
     var url = "/" + $realm + "/window/unit/employees/engage/" + subid;
     var urlMain = "/" + $realm + "/main/unit/view/" + subid;
     var urlManager = "/" + $realm + "/main/user/privat/persondata/knowledge";
+    // [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"], 
+    //  ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
     var getcount = 0;
     if (choices[0] === 1) {
         getcount++;
-        xGet(url, "salary", true, function () {
-            !--getcount && post();
-        });
+        xGet(url, "salary", true, function () { return !--getcount && post(); });
     }
-    else if (choices[0] >= 2) {
+    if (choices[0] >= 2) {
         getcount += 3;
-        xGet(urlMain, "main", true, function () {
-            !--getcount && post();
-        });
-        xGet(urlManager, "manager", false, function () {
-            !--getcount && post();
-        });
-        xGet(url, "salary", true, function () {
-            !--getcount && post();
-        });
+        xGet(urlMain, "main", true, function () { return !--getcount && post(); });
+        xGet(urlManager, "manager", false, function () { return !--getcount && post(); });
+        xGet(url, "salary", true, function () { return !--getcount && post(); });
     }
-    //choices[1]: ["min 80% max 500%", "max 500%", "min 80%", "No bound"]
     function post() {
         $("[id='x" + "Salary" + "current']").html('<a href="/' + $realm + '/main/unit/view/' + subid + '">' + subid + '</a>');
-        var change = false;
         var _salary = $mapped[url];
-        var _main = $mapped[urlMain];
-        var _top = $mapped[urlManager];
+        var change = false;
+        var newSalary = _salary.salaryNow;
+        debugger;
+        // [["-", "Required", "Target", "Maximum", "Overflow", "20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"], 
+        //  ["min 80% max 500%", "max 500%", "min 80%", "No bound"]],
+        // ситуация когда установлена зарплата 0, невозможна, система ставит 1 автоматом. Но пусть будет
         if (_salary.salaryNow === 0) {
             change = true;
             _salary.form.find("#salary").val(_salary.salaryCity);
         }
-        else if (choices[0] === 1 && (_salary.skillNow !== _salary.skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8))) {
-            //"Required"
-            change = true;
-            _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, _salary.skillReq);
-            if (choices[1] !== 3 && choices[1] !== 1) {
-                _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-            }
-            if (choices[1] !== 3 && choices[1] !== 2) {
-                _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-            }
-            _salary.form.find("#salary").val(_salary.salaryNow);
-        }
-        else if (choices[0] === 2) {
-            //"Target"
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[managerIndex]);
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-        }
-        else if (choices[0] === 3) {
-            //"Maximum"
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[managerIndex] + _top.bonus[managerIndex]);
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-        }
-        else if (choices[0] === 4) {
-            //"Overflow"
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var manager = _top.base[managerIndex] + _top.bonus[managerIndex];
-            var factor3 = subType[_main.img][1];
-            var managerNew = manager * calcOverflowTop1(_main.maxEmployees, factor3, manager);
-            var skillReq = calcSkill(_salary.employees, subType[_main.img][0], managerNew);
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-        }
-        else if (choices[0] >= 5 && choices[0] <= 13) {
-            //"20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"
-            var loadPercent = 20;
-            if (choices[0] === 6) {
-                loadPercent = 30;
-            }
-            else if (choices[0] === 7) {
-                loadPercent = 39;
-            }
-            else if (choices[0] === 8) {
-                loadPercent = 50;
-            }
-            else if (choices[0] === 9) {
-                loadPercent = 60;
-            }
-            else if (choices[0] === 10) {
-                loadPercent = 69;
-            }
-            else if (choices[0] === 11) {
-                loadPercent = 119;
-            }
-            else if (choices[0] === 12) {
-                loadPercent = 139;
-            }
-            else if (choices[0] === 13) {
-                loadPercent = 130;
-            }
-            var managerIndex = _top.pic.indexOf(subType[_main.img][2]);
-            var skillReq = _salary.skillReq;
-            var load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], _top.base[managerIndex] + _top.bonus[managerIndex]) * 100;
-            while (load < loadPercent) {
-                skillReq += 0.01;
-                load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], _top.base[managerIndex] + _top.bonus[managerIndex]) * 100;
-            }
-            skillReq -= 0.01;
-            skillReq = Math.max(skillReq, _salary.skillReq);
-            if (_salary.skillNow !== skillReq || (choices[1] !== 3 && choices[1] !== 2 && _salary.salaryNow > (_salary.salaryCity - .005) * 5) || (choices[1] !== 3 && choices[1] !== 1 && _salary.salaryNow < (_salary.salaryCity + .005) * 0.8)) {
-                change = true;
-                _salary.salaryNow = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
-                if (choices[1] !== 3 && choices[1] !== 1) {
-                    _salary.salaryNow = Math.max(_salary.salaryNow, (_salary.salaryCity + .005) * 0.8);
-                }
-                if (choices[1] !== 3 && choices[1] !== 2) {
-                    _salary.salaryNow = Math.min(_salary.salaryNow, (_salary.salaryCity - .005) * 5);
-                }
-                _salary.form.find("#salary").val(_salary.salaryNow);
-            }
-        }
-        if (change) {
-            xPost(url, _salary.form.serialize(), function () {
-                xTypeDone(policyName);
-            });
-        }
         else {
-            xTypeDone(policyName);
+            var maxSalary = (_salary.salaryCity - .005) * 5;
+            var minSalary = (_salary.salaryCity + .005) * 0.8;
+            switch (choices[0]) {
+                case 1:
+                    if (_salary.skillNow !== _salary.skillReq) {
+                        change = true;
+                        newSalary = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, _salary.skillReq);
+                    }
+                    break;
+                case 2:
+                    var _main = $mapped[urlMain];
+                    var _top = $mapped[urlManager];
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[qualIndex]);
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+                // TODO: переписать все нах. для запроса текущей зарплаты запрашивать главную страницу а не адажкс форму. там 0 может стоять нах оно надо
+                case 3:
+                    var _main = $mapped[urlMain];
+                    var _top = $mapped[urlManager];
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var skillReq = calcSkill(_salary.employees, subType[_main.img][0], _top.base[qualIndex] + _top.bonus[qualIndex]);
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+                case 4:
+                    var _main = $mapped[urlMain];
+                    var _top = $mapped[urlManager];
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var manager = _top.base[qualIndex] + _top.bonus[qualIndex];
+                    var factor3 = subType[_main.img][1];
+                    var managerNew = manager * calcOverflowTop1(_main.totalEmployees, factor3, manager);
+                    var skillReq = calcSkill(_salary.employees, subType[_main.img][0], managerNew);
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+                case 5:
+                case 6:
+                case 7:
+                case 8:
+                case 9:
+                case 10:
+                case 11:
+                case 12:
+                case 13:
+                    //"20%top1", "30%top1", "39%top1", "50%top1", "60%top1", "69%top1", "119%top1", "139%top1", "130%top1"
+                    var _main = $mapped[urlMain];
+                    var _top = $mapped[urlManager];
+                    var loadPercent = numberfy(policyJSON["es"].save[0][choices[0]]);
+                    var qualIndex = _top.pic.indexOf(subType[_main.img][2]);
+                    var skillReq = _salary.skillReq;
+                    var maxTopQual = _top.base[qualIndex] + _top.bonus[qualIndex];
+                    // подбираем зарплату чтобы нагрузка стала необходимой
+                    var load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], maxTopQual) * 100;
+                    while (load < loadPercent) {
+                        skillReq += 0.01;
+                        load = _salary.employees / calcEmployees(skillReq, subType[_main.img][0], maxTopQual) * 100;
+                    }
+                    skillReq -= 0.01;
+                    skillReq = Math.max(skillReq, _salary.skillReq);
+                    if (_salary.skillNow !== skillReq) {
+                        change = true;
+                        newSalary = calcSalary(_salary.salaryNow, _salary.salaryCity, _salary.skillNow, _salary.skillCity, skillReq);
+                    }
+                    break;
+            }
+            // корректировка на мин величину
+            if (isOneOf(choices[1], [0, 2]) && _salary.salaryNow < minSalary) {
+                change = true;
+                newSalary = Math.max(_salary.salaryNow, minSalary);
+            }
+            // корректировка на макс величину
+            if (isOneOf(choices[1], [0, 1]) && _salary.salaryNow > maxSalary) {
+                change = true;
+                newSalary = Math.min(_salary.salaryNow, maxSalary);
+            }
+            _salary.form.find("#salary").val(newSalary);
         }
+        if (change)
+            xPost(url, _salary.form.serialize(), function () { return xTypeDone(policyName); });
+        else
+            xTypeDone(policyName);
     }
 }
 function salePolicy(policyName, subid, choices) {
@@ -4489,7 +4429,7 @@ function parseSaleContracts(html, url) {
         return { category: _categorys, contractprice: _contractprices };
     }
     catch (err) {
-        throw new ParseError("unit list", url, err);
+        throw new ParseError("sale contracts", url, err);
     }
 }
 /**
@@ -4515,8 +4455,8 @@ function parseAds(html, url) {
         // ["не менее ©110.25  в неделю для ТВ-рекламы"] здесь может быть и $110.25
         // данный бюжет тоже может быть 0 если известность 0
         var _requiredBudget = numberfy($html.find(".infoblock tr:eq(1) td:eq(1)").text().split(/[$©]/g)[1]);
-        if (_celebrity > 0 && _requiredBudget === 0)
-            throw new Error("required budget can't be 0 for celebrity" + _celebrity);
+        //if (_celebrity > 0 && _requiredBudget === 0)  такое может быть при хреновой известности
+        //    throw new Error("required budget can't be 0 for celebrity" + _celebrity);
         return {
             celebrity: _celebrity,
             pop: _pop,
@@ -4525,8 +4465,283 @@ function parseAds(html, url) {
         };
     }
     catch (err) {
+        throw new ParseError("ads", url, err);
+    }
+}
+/**
+ * Парсим данные  с формы зарплаты /window/unit/employees/engage/" + subid
+ * @param html
+ * @param url
+ */
+function parseSalary(html, url) {
+    var $html = $(html);
+    try {
+        var _form = $html.filter("form");
+        var _employees = numberfy($html.find("#quantity").val());
+        var _maxEmployees = numberfy($html.find("tr.even:contains('Максимальное количество')").find("td.text_to_left").text());
+        if (_maxEmployees <= 0)
+            throw new RangeError("Макс число рабов не может быть 0.");
+        var _salaryNow = numberfy($html.find("#salary").val());
+        var _salaryCity = numberfyOrError($html.find("tr:nth-child(3) > td").text().split(/[$©]/g)[1]);
+        var _skillNow = numberfy($html.find("#apprisedEmployeeLevel").text());
+        var _skillCity = (function () {
+            var m = $html.find("div span[id]:eq(1)").text().match(/[0-9]+(\.[0-9]+)?/);
+            if (m == null)
+                throw new Error("city skill not found.");
+            return numberfyOrError(m[0]);
+        })();
+        var _skillReq = (function () {
+            var m = $html.find("div span[id]:eq(1)").text().split(",")[1].match(/(\d|\.)+/);
+            if (m == null)
+                throw new Error("skill req not found.");
+            return numberfy(m[0]);
+        })();
+        return {
+            form: _form,
+            employees: _employees,
+            maxEmployees: _maxEmployees,
+            salaryNow: _salaryNow,
+            salaryCity: _salaryCity,
+            skillNow: _skillNow,
+            skillCity: _skillCity,
+            skillReq: _skillReq
+        };
+    }
+    catch (err) {
         throw new ParseError("unit list", url, err);
     }
+}
+/**
+ * /main/user/privat/persondata/knowledge
+ * @param html
+ * @param url
+ */
+function parseManager(html, url) {
+    var $html = $(html);
+    try {
+        var _base = $html.find(".qual_item .mainValue").map(function (i, e) { return numberfyOrError($(e).text()); }).get();
+        var _bonus = $html.find(".qual_item .bonusValue").map(function (i, e) { return numberfy($(e).text()); }).get();
+        var _pic = $html.find(".qual_item img").map(function (i, e) { return $(e).attr("src"); }).get();
+        return {
+            base: _base,
+            bonus: _bonus,
+            pic: _pic
+        };
+    }
+    catch (err) {
+        throw new ParseError("top manager", url, err);
+    }
+}
+/**
+ * /main/unit/view/ + subid
+ * @param html
+ * @param url
+ */
+function parseUnitMain(html, url) {
+    var $html = $(html);
+    try {
+        var newInterf = $html.find(".unit_box").length > 0;
+        if (newInterf) {
+            var _employees = numberfy($html.find(".unit_box:has(.fa-users) tr:eq(0) td:eq(1)").text());
+            var _salaryNow = numberfy($html.find(".unit_box:has(.fa-users) tr:eq(2) td:eq(1)").text());
+            var _salaryCity = numberfy($html.find(".unit_box:has(.fa-users) tr:eq(3) td:eq(1)").text());
+            var _skillNow = numberfy($html.find(".unit_box:has(.fa-users) tr:eq(4) td:eq(1)").text());
+            var _skillReq = numberfy($html.find(".unit_box:has(.fa-users) tr:eq(5) td:eq(1)").text());
+            // TODO: в новом интерфейсе не все гладко. проверить как оборудование ищет
+            var _equipNum = numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(0) td:eq(1)").text());
+            var _equipMax = numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(1) td:eq(1)").text());
+            var _equipQual = numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(2) td:eq(1)").text());
+            var _equipReq = numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(3) td:eq(1)").text());
+            var _equipWearBlack = numberfy($html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1)").text().split("(")[1]);
+            var _equipWearRed = $html.find(".unit_box:has(.fa-cogs) tr:eq(4) td:eq(1) span").length === 1;
+            var _managerPic = $html.find(".unit_box:has(.fa-user) ul img").attr("src");
+            var _qual = numberfy($html.find(".unit_box:has(.fa-user) tr:eq(1) td:eq(1)").text());
+            var _techLevel = numberfy($html.find(".unit_box:has(.fa-industry) tr:eq(3) td:eq(1)").text());
+            // общее число подчиненных по профилю
+            var _totalEmployees = numberfy($html.find(".unit_box:has(.fa-user) tr:eq(2) td:eq(1)").text());
+            var _img = $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0];
+            var _size = numberfy($html.find("#unitImage img").attr("src").split("_")[1]);
+            var _hasBooster = !$html.find("[src='/img/artefact/icons/color/production.gif']").length;
+            var _hasAgitation = !$html.find("[src='/img/artefact/icons/color/politics.gif']").length;
+            var _onHoliday = !!$html.find("[href$=unset]").length;
+            var _isStore = !!$html.find("[href$=trading_hall]").length;
+            var _departments = numberfy($html.find("tr:contains('Количество отделов') td:eq(1)").text());
+            var _visitors = numberfy($html.find("tr:contains('Количество посетителей') td:eq(1)").text());
+            return {
+                employees: _employees,
+                totalEmployees: _totalEmployees,
+                employeesDemand: -1,
+                salaryNow: _salaryNow,
+                salaryCity: _salaryCity,
+                skillNow: _skillNow,
+                skillCity: -1,
+                skillReq: _skillReq,
+                equipNum: _equipNum,
+                equipMax: _equipMax,
+                equipQual: _equipQual,
+                equipReq: _equipReq,
+                equipBroken: -1,
+                equipWearBlack: _equipWearBlack,
+                equipWearRed: _equipWearRed,
+                managerPic: _managerPic,
+                qual: _qual,
+                techLevel: _techLevel,
+                img: _img,
+                size: _size,
+                hasBooster: _hasBooster,
+                hasAgitation: _hasAgitation,
+                onHoliday: _onHoliday,
+                isStore: _isStore,
+                departments: _departments,
+                visitors: _visitors
+            };
+        }
+        else {
+            var rxFloat_1 = new RegExp(/\d+\.\d+/g);
+            var rxInt_1 = new RegExp(/\d+/g);
+            var $block_1 = $html.find("table.infoblock");
+            // Количество рабочих. может быть 0 для складов.
+            var empl = (function () {
+                // Возможные варианты для рабочих будут
+                // 10(требуется ~ 1)
+                // 10(максимум:1)
+                // 10 ед. (максимум:1) это уже не включать
+                var emplRx = new RegExp(/\d+\s*\(.+\d+.*\)/g);
+                var jq = $block_1.find("td.title:contains('Количество')").next("td").filter(function (i, el) { return emplRx.test($(el).text()); });
+                if (jq.length !== 1)
+                    return ["-1", "-1"];
+                var m = jq.text().match(rxInt_1);
+                if (!m || m.length !== 2)
+                    return ["-1", "-1"];
+                return m;
+            })();
+            var _employees = numberfy(empl[0]);
+            var _employeesDemand = numberfy(empl[1]);
+            // общее число подчиненных по профилю
+            var _totalEmployees = numberfy($block_1.find("td:contains('Суммарное количество подчинённых')").next("td").text());
+            var salary_1 = (function () {
+                //let rx = new RegExp(/\d+\.\d+.+в неделю\s*\(в среднем по городу.+?\d+\.\d+\)/ig);
+                var jq = $block_1.find("td.title:contains('Зарплата')").next("td");
+                if (jq.length !== 1)
+                    return ["-1", "-1"];
+                var m = jq.text().match(rxFloat_1);
+                if (!m || m.length !== 2)
+                    return ["-1", "-1"];
+                return m;
+            })();
+            var _salaryNow = numberfy(salary_1[0]);
+            var _salaryCity = numberfy(salary_1[1]);
+            var skill = (function () {
+                var jq = $block_1.find("td.title:contains('Уровень квалификации')").next("td");
+                if (jq.length !== 1)
+                    return ["-1", "-1", "-1"];
+                // возможные варианты результата
+                // 10.63 (в среднем по городу 9.39, требуется по технологии 6.74)
+                // 9.30(в среднем по городу 16.62 )
+                var m = jq.text().match(rxFloat_1);
+                if (!m || m.length < 2)
+                    return ["-1", "-1", "-1"];
+                return [m[0], m[1], m[2] || "-1"];
+            })();
+            var _skillNow = numberfy(skill[0]);
+            var _skillCity = numberfy(skill[1]);
+            var _skillReq = numberfy(skill[2]); // для лаб требования может и не быть
+            var equip = (function () {
+                var res = [-1, -1, -1, -1, -1, -1, -1];
+                // число оборудования тупо не ищем. гемор  не надо
+                // качество оборудования и треб по технологии
+                var jq = $block_1.find("td.title:contains('Качество')").next("td");
+                if (jq.length === 1) {
+                    // 8.40 (требуется по технологии 1.00)
+                    // или просто 8.40 если нет требований
+                    var m = jq.text().match(rxFloat_1);
+                    if (m && m.length > 0) {
+                        res[2] = parseFloat(m[0]) || -1;
+                        res[3] = parseFloat(m[1]) || -1;
+                    }
+                }
+                // красный и черный и % износа
+                // 1.28 % (25+1 ед.)
+                // 0.00 % (0 ед.)
+                jq = $block_1.find("td.title:contains('Износ')").next("td");
+                if (jq.length === 1) {
+                    var rx = new RegExp(/(\d+\.\d+)\s*%\s*\((\d+)(?:\+(\d+))*.*\)/ig);
+                    var m = rx.exec(jq.text());
+                    if (m) {
+                        // первым идет сама исходная строка
+                        res[4] = parseFloat(m[1]); // 0  или float.
+                        res[5] = parseInt(m[2]); // 0 или целое
+                        res[6] = parseInt(m[3]) || -1; // красного может не быть будет undefined
+                    }
+                }
+                return res;
+            })();
+            var _equipNum = equip[0];
+            var _equipMax = equip[1];
+            var _equipQual = equip[2];
+            var _equipReq = equip[3];
+            // % износа 
+            var _equipBroken = equip[4];
+            // кол-во черного оборудования
+            var _equipWearBlack = equip[5];
+            // есть ли красное оборудование или нет
+            var _equipWearRed = equip[6] > 0;
+            var _managerPic = "";
+            var _qual = (function () {
+                var jq = $block_1.find("td.title:contains('Квалификация игрока')").next("td");
+                if (jq.length !== 1)
+                    return -1;
+                return numberfy(jq.text());
+            })();
+            var _techLevel = (function () {
+                var jq = $block_1.find("td.title:contains('Уровень технологии')").next("td");
+                if (jq.length !== 1)
+                    return -1;
+                return numberfy(jq.text());
+            })();
+            var _img = $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0];
+            var _size = numberfy($html.find("#unitImage img").attr("src").split("_")[1]);
+            var _hasBooster = !$html.find("[src='/img/artefact/icons/color/production.gif']").length;
+            var _hasAgitation = !$html.find("[src='/img/artefact/icons/color/politics.gif']").length;
+            var _onHoliday = !!$html.find("[href$=unset]").length;
+            var _isStore = !!$html.find("[href$=trading_hall]").length;
+            var _departments = numberfy($html.find("tr:contains('Количество отделов') td:eq(1)").text()) || -1;
+            var _visitors = numberfy($html.find("tr:contains('Количество посетителей') td:eq(1)").text()) || -1;
+            return {
+                employees: _employees,
+                totalEmployees: _totalEmployees,
+                employeesDemand: _employeesDemand,
+                salaryNow: _salaryNow,
+                salaryCity: _salaryCity,
+                skillNow: _skillNow,
+                skillCity: _skillCity,
+                skillReq: _skillReq,
+                equipNum: _equipNum,
+                equipMax: _equipMax,
+                equipQual: _equipQual,
+                equipReq: _equipReq,
+                equipBroken: _equipBroken,
+                equipWearBlack: _equipWearBlack,
+                equipWearRed: _equipWearRed,
+                managerPic: _managerPic,
+                qual: _qual,
+                techLevel: _techLevel,
+                img: _img,
+                size: _size,
+                hasBooster: _hasBooster,
+                hasAgitation: _hasAgitation,
+                onHoliday: _onHoliday,
+                isStore: _isStore,
+                departments: _departments,
+                visitors: _visitors
+            };
+        }
+    }
+    catch (err) {
+        throw new ParseError("unit main page", url, err);
+    }
+}
+function parseX(html, url) {
 }
 //
 // Свои исключения

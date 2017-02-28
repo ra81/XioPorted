@@ -2,7 +2,12 @@
 
 
 // алиас для группы типов.
-type MappedPage = ISaleNew | IWareSupply | IWareSize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistory | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
+type MappedPage = ISaleNew | IWareSupply | IWareSize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistoryItem | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
+
+interface IUnit {
+    subid: number;
+    type: UnitTypes;
+}
 
 interface IMain {
     employees: number;
@@ -36,6 +41,7 @@ interface IMain {
     isStore: boolean;
     departments: number;
     visitors: number;
+    service: ServiceLevels;
 }
 
 interface IEmployees {
@@ -138,7 +144,8 @@ interface ISalary {
 interface ITradeHall {
     stock: number[];
     deliver: number[];
-    report: string[];
+    reportUrl: string[];
+    report: IRetailReport[];
     img: string[];
     quality: number[];
     purch: number[];
@@ -147,7 +154,8 @@ interface ITradeHall {
     share: number[];
     cityprice: number[];
     cityquality: number[];
-    history: string[];
+    historyUrl: string[];
+    history: (IPriceHistoryItem[])[];
 }
 
 interface IProdSupply {
@@ -252,9 +260,12 @@ interface IExperimentalUnit {
     id: number[];
 }
 
-interface IPriceHistory {
-    quantity: number[];
-    price: number[];
+interface IPriceHistoryItem {
+    date: Date;
+    quantity: number;
+    quality: number;
+    price: number;
+    brand: number;
 }
 
 interface IRetailReport {
@@ -405,7 +416,7 @@ interface IStorageData {
 // товар в игре. Имя, картинка и номер. Уникально идентифицирует
 interface IProduct {
     name: string;
-    img: string;
+    img: string;    // полный путь картинки /img/products/clay.gif
     id: number
 }
 
@@ -446,4 +457,15 @@ interface IRegion {
     energy: IDictionary<IEnergyPrices>;     // словарь с ценами на энергию. для всех отраслей
     salary: number;     // средняя зарплата в городе    
     tax: number;        // налоги. пока так заготовка лишь
+}
+
+interface ICountry {
+    id: number;         // номер страны
+    name: string;       // имя. Азербайджан и т.д
+    regions: IDictionary<IRegion>;     // все регионы если спарсили
+}
+
+interface ICity {
+    id: number;         // номер страны
+    name: string;       // имя. Азербайджан и т.д
 }
