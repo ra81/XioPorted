@@ -271,6 +271,7 @@ function numberfy(str) {
 /**
  * Пробуем оцифровать данные но если они выходят как Number.POSITIVE_INFINITY или <= minVal, валит ошибку.
    смысл в быстром вываливании ошибки если парсинг текста должен дать число
+   Нужно понимать что если оцифровка не удалась, то получится -1 и при minVal=0 выдаст ошибку конечно
  * @param value строка являющая собой число больше minVal
  * @param minVal ограничение снизу. Число.
  * @param infinity разрешена ли бесконечность
@@ -1036,7 +1037,10 @@ let urlTemplates = {
         parseX],
     storesupply: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
             (html) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
-        parseStoreSupply],
+        parseRetailSupply],
+    storesupplyNew: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
+            (html) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
+        parseRetailSupplyNew],
     tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
             (html) => true,
         parseTradeHall],
@@ -2113,12 +2117,17 @@ function parseTradeHall(html, url) {
         throw new ParseError("trading hall", url, err);
     }
 }
+var ConstraintTypes;
+(function (ConstraintTypes) {
+    ConstraintTypes[ConstraintTypes["abs"] = 0] = "abs";
+    ConstraintTypes[ConstraintTypes["rel"] = 1] = "rel";
+})(ConstraintTypes || (ConstraintTypes = {}));
 /**
  * Снабжение магазина
  * @param html
  * @param url
  */
-function parseStoreSupply(html, url) {
+function parseRetailSupply(html, url) {
     let $html = $(html);
     try {
         //  по идее на 1 товар может быть несколько поставщиков и следовательно парселов будет много а стока мало
@@ -2164,6 +2173,117 @@ function parseStoreSupply(html, url) {
     }
     catch (err) {
         throw new ParseError("store supply", url, err);
+    }
+}
+function parseRetailSupplyNew(html, url) {
+    let $html = $(html);
+    try {
+        // для 1 товара может быть несколько поставщиков, поэтому к 1 продукту будет идти массив контрактов
+        let $rows = $html.find("tr.product_row");
+        let res = [];
+        $rows.each((i, el) => {
+            let $r = $(el); // это основной ряд, но если контрактов несколько то будут еще субряды
+            let $subs = $r.nextUntil("tr.product_row", "tr.sub_row");
+            // собираем продукт
+            let id = (() => {
+                let items = $r.prop("id").split("_"); // product_row_422200-0
+                items = items[2].split("-"); // 422200-0
+                let res = numberfyOrError(items[0]);
+                return res;
+            })();
+            let img = oneOrError($r, "th img:eq(0)").attr("src");
+            let product = { id: id, img: img, name: "" };
+            // собираем текущее состояние склада
+            let stock = $r.children("td").eq(0).map((i, el) => {
+                let $td = $(el);
+                // если склад пуст, то количество будет 0, продано 0, а остальные показатели будут прочерки, то есть спарсит -1
+                let quantity = numberfy($td.find("td:contains('Количество')").next("td").text());
+                let price = numberfy($td.find("td:contains('Себестоимость')").next("td").text());
+                let quality = numberfy($td.find("td:contains('Качество')").next("td").text());
+                let brand = numberfy($td.find("td:contains('Бренд')").next("td").text());
+                let pp = { price: price, quality: quality, brand: brand };
+                let sold = numberfy($td.find("td:contains('Продано')").next("td").text());
+                let res = {
+                    available: quantity,
+                    sold: sold,
+                    product: pp
+                };
+                return res;
+            }).get(0);
+            // собираем контракты
+            let contracts = $r.add($subs).map((i, el) => {
+                let $r = $(el);
+                // контракт, имя юнита и его айди
+                //
+                let $td = oneOrError($r, `td[id^=name_${product.id}]`);
+                let url = $td.find("a").eq(-2).attr("href");
+                let numbers = extractIntPositive(url);
+                if (!numbers || numbers.length !== 1)
+                    throw new Error("не смог взять subid юнита из ссылки " + url);
+                let contrId = numberfyOrError($td.find("input[name^='supplyContractData']").val());
+                let subid = numbers[0];
+                let name = $td.find("span").attr("title");
+                let unit = { subid: subid, type: UnitTypes.unknown };
+                // ограничения контракта
+                //
+                $td = oneOrError($r, `td[id^=constraint_${product.id}]`);
+                let type;
+                let val = oneOrError($td, "select.contractConstraintPriceType").val();
+                switch (val) {
+                    case "Rel":
+                        type = ConstraintTypes.rel;
+                        break;
+                    case "Abs":
+                        type = ConstraintTypes.abs;
+                        break;
+                    default:
+                        throw new Error("неизвестный тип ограничения контракта " + val);
+                }
+                // должно быть 0 или больше
+                let minQ = numberfyOrError(oneOrError($td, "input[name^='supplyContractData[quality_constraint_min]']").val(), -1);
+                let maxPrice = numberfyOrError(oneOrError($td, "input.contractConstraintPriceAbs").val(), -1);
+                let relPriceMarkUp = numberfyOrError(oneOrError($td, "select.contractConstraintPriceRel").val(), -1);
+                let constraints = {
+                    type: type,
+                    minQuality: minQ,
+                    price: type === ConstraintTypes.rel ? relPriceMarkUp : maxPrice
+                };
+                // характеристики его товара
+                //
+                $td = oneOrError($r, `td[id^=totalPrice_${product.id}]`);
+                // цена кач бренд могут быть пустыми если товара у поставщика нет
+                let price = numberfy($td.find("td:contains('Цена')").next("td").text());
+                let quality = numberfy($td.find("td:contains('Качество')").next("td").text());
+                let brand = numberfy($td.find("td:contains('Бренд')").next("td").text());
+                let productProps = { price: price, quality: quality, brand: brand };
+                // состояние склада поставщика
+                //
+                // все цифры должны быть 0 или больше
+                let purchased = numberfyOrError(oneOrError($r, `td[id^="dispatch_quantity_${product.id}"]`).text(), -1);
+                let total = numberfyOrError(oneOrError($r, `td[id^="quantity_${product.id}"]`).text(), -1);
+                let available = numberfyOrError(oneOrError($r, `td[id^="free_${product.id}"]`).text(), -1);
+                let stockSuppl = {
+                    available: available,
+                    total: total,
+                    purchased: purchased,
+                    product: productProps
+                };
+                // формируем результат
+                let res = {
+                    id: contrId,
+                    unit: unit,
+                    constraints: constraints,
+                    stock: stockSuppl
+                };
+                return res;
+            }).get();
+            // [IProduct, [IProductProperties, number], IBuyContract[]]
+            res.push([product, stock, contracts]);
+        });
+        return res;
+    }
+    catch (err) {
+        throw err;
     }
 }
 /**

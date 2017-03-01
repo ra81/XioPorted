@@ -395,7 +395,7 @@ interface IWareSupply {
     typeAdd: string[];
 }
 
-interface IBuyContract {
+interface IBuyContractOld {
     available: number[];
     offer: number[];
     price: number[];
