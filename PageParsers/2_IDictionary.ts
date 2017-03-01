@@ -10,6 +10,7 @@ interface IUnit {
 }
 
 interface IMain {
+    type: UnitTypes;
     employees: number;
     totalEmployees: number;
     employeesReq: number;

@@ -133,6 +133,21 @@ function dict2String(dict) {
     return newItems.join(", ");
 }
 /**
+ * Фильтрует заданный словарь. Выбирает из него только те элементы которые проходят фильтр.
+ * В любом раскладе возвращает пустой словарь
+ * @param dict
+ * @param selector
+ */
+function filterDictVal(dict, selector) {
+    let res = {};
+    for (let key in dict) {
+        let item = dict[key];
+        if (selector(item))
+            res[key] = item;
+    }
+    return res;
+}
+/**
  * Проверяет что элемент есть в массиве.
  * @param item
  * @param arr массив НЕ null
@@ -162,6 +177,41 @@ function toDictionaryN(arr, keySelector) {
         res[k] = el;
     }
     return res;
+}
+/**
+ * Возвращает только уникальные значения массива. Для объектов идет сравнение ссылок, само содержимое не сравнивается
+ * @param array
+ */
+function unique(array) {
+    let res = [];
+    for (let i = 0; i < array.length; i++) {
+        let item = array[i];
+        if (array.indexOf(item) === i)
+            res.push(item);
+    }
+    return res;
+}
+/**
+ * Находит пересечение двух массивов. Объекты сравнивать будет по ссылкам. Дубли удаляются.
+ * Возвращает массив уникальных значений имеющихся в обоих массивах
+ * @param a
+ * @param b
+ */
+function intersect(a, b) {
+    // чтобы быстрее бегал indexOf в A кладем более длинный массив
+    if (b.length > a.length) {
+        let t = b;
+        b = a;
+        a = t;
+    }
+    // находим пересечение с дублями
+    let intersect = [];
+    for (let item of a) {
+        if (b.indexOf(item) >= 0)
+            intersect.push(item);
+    }
+    // если надо удалить дубли, удаляем
+    return unique(intersect);
 }
 // PARSE -------------------------------------------
 /**
@@ -722,19 +772,33 @@ function tryGet(url, retries = 10, timeout = 1000) {
  * @param url
  * @param retries число попыток загрузки
  * @param timeout таймаут между попытками
- * @param notify вызывается перед каждым новым запросом. То есть число вызовов равно числу запросов. Каждый раз вызывается с урлом которые запрашивается.
+ * @param beforeGet вызывается перед каждым новым запросом. То есть число вызовов равно числу запросов. Каждый раз вызывается с урлом которые запрашивается.
  */
-function tryGet_async(url, retries = 10, timeout = 1000, notify) {
+function tryGet_async(url, retries = 10, timeout = 1000, beforeGet, onError) {
     return __awaiter(this, void 0, void 0, function* () {
         // сам метод пришлось делать Promise<any> потому что string | Error не работало какого то хуя не знаю. Из за стрик нулл чек
         let $deffered = $.Deferred();
-        if (notify)
-            notify(url);
+        if (beforeGet) {
+            try {
+                beforeGet(url);
+            }
+            catch (err) {
+                logDebug("beforeGet вызвал исключение", err);
+            }
+        }
         $.ajax({
             url: url,
             type: "GET",
             success: (data, status, jqXHR) => $deffered.resolve(data),
             error: function (jqXHR, textStatus, errorThrown) {
+                if (onError) {
+                    try {
+                        onError(url);
+                    }
+                    catch (err) {
+                        logDebug("onError вызвал исключение", err);
+                    }
+                }
                 retries--;
                 if (retries <= 0) {
                     let err = new Error(`can't get ${this.url}\nstatus: ${jqXHR.status}\ntextStatus: ${jqXHR.statusText}\nerror: ${errorThrown}`);
@@ -744,8 +808,14 @@ function tryGet_async(url, retries = 10, timeout = 1000, notify) {
                 //logDebug(`ошибка запроса ${this.url} осталось ${retries} попыток`);
                 let _this = this;
                 setTimeout(() => {
-                    if (notify)
-                        notify(url); // уведомляем об очередном запросе
+                    if (beforeGet) {
+                        try {
+                            beforeGet(url);
+                        }
+                        catch (err) {
+                            logDebug("beforeGet вызвал исключение", err);
+                        }
+                    }
                     $.ajax(_this);
                 }, timeout);
             }
@@ -759,20 +829,34 @@ function tryGet_async(url, retries = 10, timeout = 1000, notify) {
  * @param form данные для отправки на сервер
  * @param retries
  * @param timeout
- * @param notify
+ * @param beforePost
  */
-function tryPost_async(url, form, retries = 10, timeout = 1000, notify) {
+function tryPost_async(url, form, retries = 10, timeout = 1000, beforePost, onError) {
     return __awaiter(this, void 0, void 0, function* () {
         // сам метод пришлось делать Promise<any> потому что string | Error не работало какого то хуя не знаю. Из за стрик нулл чек
         let $deferred = $.Deferred();
-        if (notify)
-            notify(url);
+        if (beforePost) {
+            try {
+                beforePost(url);
+            }
+            catch (err) {
+                logDebug("beforePost вызвал исключение", err);
+            }
+        }
         $.ajax({
             url: url,
             data: form,
             type: "POST",
             success: (data, status, jqXHR) => $deferred.resolve(data),
             error: function (jqXHR, textStatus, errorThrown) {
+                if (onError) {
+                    try {
+                        onError(url);
+                    }
+                    catch (err) {
+                        logDebug("onError вызвал исключение", err);
+                    }
+                }
                 retries--;
                 if (retries <= 0) {
                     let err = new Error(`can't post ${this.url}\nstatus: ${jqXHR.status}\ntextStatus: ${jqXHR.statusText}\nerror: ${errorThrown}`);
@@ -782,8 +866,14 @@ function tryPost_async(url, form, retries = 10, timeout = 1000, notify) {
                 //logDebug(`ошибка запроса ${this.url} осталось ${retries} попыток`);
                 let _this = this;
                 setTimeout(() => {
-                    if (notify)
-                        notify(url); // уведомляем об очередном запросе
+                    if (beforePost) {
+                        try {
+                            beforePost(url);
+                        }
+                        catch (err) {
+                            logDebug("beforePost вызвал исключение", err);
+                        }
+                    }
                     $.ajax(_this);
                 }, timeout);
             }
@@ -1573,6 +1663,7 @@ function parseUnitMain(html, url) {
             let _departments = numberfy($html.find("tr:contains('Количество отделов') td:eq(1)").text());
             let _visitors = numberfy($html.find("tr:contains('Количество посетителей') td:eq(1)").text());
             return {
+                type: UnitTypes.unknown,
                 employees: _employees,
                 totalEmployees: _totalEmployees,
                 employeesReq: -1,
@@ -1717,6 +1808,10 @@ function parseUnitMain(html, url) {
             })();
             let _img = $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0];
             let _size = numberfy($html.find("#unitImage img").attr("src").split("_")[1]);
+            // такой изврат с приведением из за компилера. надо чтобы работало
+            let _type = UnitTypes[_img] ? UnitTypes[_img] : UnitTypes.unknown;
+            if (_type == UnitTypes.unknown)
+                throw new Error("Не описан тип юнита " + _img);
             //  есть ли возможность вкорячить бустер производства типо солнечных панелей или нет. если не занято то втыкает
             let _hasBooster = !$html.find("[src='/img/artefact/icons/color/production.gif']").length;
             // хз что это вообще
@@ -1758,6 +1853,7 @@ function parseUnitMain(html, url) {
                 }
             }
             return {
+                type: _type,
                 employees: _employees,
                 totalEmployees: _totalEmployees,
                 employeesReq: _employeesReq,

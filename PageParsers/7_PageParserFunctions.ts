@@ -591,6 +591,7 @@ function parseUnitMain(html: any, url: string): IMain {
             let _visitors = numberfy($html.find("tr:contains('Количество посетителей') td:eq(1)").text());
 
             return {
+                type: UnitTypes.unknown,
                 employees: _employees,
                 totalEmployees: _totalEmployees,
                 employeesReq: -1,
@@ -761,6 +762,11 @@ function parseUnitMain(html: any, url: string): IMain {
             let _img = $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0];
             let _size = numberfy($html.find("#unitImage img").attr("src").split("_")[1]);
 
+            // такой изврат с приведением из за компилера. надо чтобы работало
+            let _type: UnitTypes = (UnitTypes as any)[_img] ? (UnitTypes as any)[_img] : UnitTypes.unknown;
+            if (_type == UnitTypes.unknown)
+                throw new Error("Не описан тип юнита " + _img);
+
             //  есть ли возможность вкорячить бустер производства типо солнечных панелей или нет. если не занято то втыкает
             let _hasBooster = !$html.find("[src='/img/artefact/icons/color/production.gif']").length;
 
@@ -814,6 +820,7 @@ function parseUnitMain(html: any, url: string): IMain {
             }
 
             return {
+                type: _type,
                 employees: _employees,
                 totalEmployees: _totalEmployees,
                 employeesReq: _employeesReq,
