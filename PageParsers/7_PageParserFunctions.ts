@@ -1140,6 +1140,7 @@ interface IStock {
 
 interface IRetailStock extends IStock {
     sold: number;
+    deliver: number;
 }
 
 interface ISupplyStock extends IStock {
@@ -1259,11 +1260,13 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 let brand = numberfy($td.find("td:contains('Бренд')").next("td").text());
                 let pp: IProductProperties = { price: price, quality: quality, brand: brand };
 
-                let sold = numberfy($td.find("td:contains('Продано')").next("td").text());
+                let sold = numberfyOrError($td.find("td:contains('Продано')").next("td").text(), -1);
+                let deliver = numberfyOrError($td.next("td").next("td").text(), -1);
 
                 let res: IRetailStock = {
                     available: quantity,
                     sold: sold,
+                    deliver: deliver,
                     product: pp
                 };
                 return res;
@@ -1275,13 +1278,13 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
 
                 // контракт, имя юнита и его айди
                 //
+                let contrId = numberfyOrError(oneOrError($r, "input.destroy").val());
+
                 let $td = oneOrError($r, `td[id^=name_${product.id}]`);
                 let url = $td.find("a").eq(-2).attr("href");
                 let numbers = extractIntPositive(url);
                 if (!numbers || numbers.length !== 1)
                     throw new Error("не смог взять subid юнита из ссылки " + url);
-
-                let contrId = numberfyOrError($td.find("input[name^='supplyContractData']").val());
 
                 let subid = numbers[0];
                 let name = $td.find("span").attr("title");
