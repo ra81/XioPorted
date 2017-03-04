@@ -321,11 +321,11 @@ function extractFloatPositive(str) {
     let m = cleanStr(str).match(/\d+\.\d+/ig);
     if (m == null)
         return null;
-    let n = m.map((i, e) => numberfyOrError($(e).text(), -1));
+    let n = m.map((val, i, arr) => numberfyOrError(val, -1));
     return n;
 }
 /**
- * из указанной строки которая должна быть ссылкой, извлекает числа. обычно это id юнита товара и так далее
+ * из указанной строки, извлекает числа. обычно это id юнита товара и так далее
  * @param str
  */
 function extractIntPositive(str) {
@@ -467,6 +467,20 @@ function getUnitType($html) {
     if (type == UnitTypes.unknown)
         throw new Error("Не описан тип юнита " + typeStr);
     return type;
+}
+/**
+ * Форматирует строки в соответствии с форматом в C#. Плейсхолдеры {0}, {1} заменяет на аргументы.
+   если аргумента НЕТ а плейсхолдер есть, вывалит исключение, как и в сишарпе.
+ * @param str шаблон строки
+ * @param args аргументы которые подставить
+ */
+function formatStr(str, ...args) {
+    let res = str.replace(/{(\d+)}/g, (match, number) => {
+        if (args[number] == null)
+            throw new Error(`плейсхолдер ${number} не имеет значения`);
+        return args[number];
+    });
+    return res;
 }
 // РЕГУЛЯРКИ ДЛЯ ССЫЛОК ------------------------------------
 // для 1 юнита
@@ -1041,6 +1055,9 @@ let urlTemplates = {
     storesupplyNew: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
             (html) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
         parseRetailSupplyNew],
+    supplyCreate: [/\/[a-z]+\/window\/unit\/supply\/create\/\d+\/step2$/gi,
+            (html) => true,
+        parseSupplyCreate],
     tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
             (html) => true,
         parseTradeHall],
@@ -1628,7 +1645,7 @@ function parseManager(html, url) {
         };
     }
     catch (err) {
-        throw new ParseError("top manager", url, err);
+        throw err;
     }
 }
 /**
@@ -2654,6 +2671,71 @@ function parseRetailPriceHistory(html, url) {
             return 0;
         });
         return sorted;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+function parseSupplyCreate(html, url) {
+    let $html = $(html);
+    try {
+        let $rows = $html.find("table.unit-list-2014 tr[id^='r']");
+        let res = [];
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+            let isIndependent = $tds.eq(1).text().toLowerCase().indexOf("независимый поставщик") >= 0;
+            //
+            let offer = numberfyOrError($r.prop("id").substr(1));
+            let self = $r.hasClass("myself");
+            // для независимого поставщика номера юнита нет
+            let subid = 0;
+            if (!isIndependent) {
+                let str = $tds.eq(1).find("a").attr("href");
+                let nums = extractIntPositive(str);
+                if (nums == null || nums.length < 1)
+                    throw new Error("невозможно subid для " + $tds.eq(1).text());
+                subid = nums[0];
+            }
+            // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
+            let available = isIndependent ? Number.MAX_SAFE_INTEGER : 0;
+            let total = isIndependent ? Number.MAX_SAFE_INTEGER : 0;
+            if (!isIndependent) {
+                let nums = extractIntPositive($tds.eq(3).html());
+                if (nums == null || nums.length < 2)
+                    throw new Error("невозможно получить количество на складе и свободное для покупки для " + $tds.eq(1).text());
+                available = nums[0];
+                total = nums[1];
+            }
+            //
+            let nums = extractFloatPositive($tds.eq(5).html());
+            if (nums == null || nums.length < 1)
+                throw new Error("невозможно получить цену.");
+            let price = nums[0];
+            // бренда може и не быть если это не розничные товары, поэтому последнее может быть -1 или 0 как повезет
+            let quality = numberfyOrError($tds.eq(6).text()); // не может быть меньше 1 по факту
+            let brand = numberfy($tds.eq(7).text()); // не может быть меньше 1 по факту
+            brand = brand < 0 ? 0 : brand;
+            let productProp = {
+                price: price,
+                quality: quality,
+                brand: brand
+            };
+            let supp = {
+                offer: offer,
+                self: self,
+                isIndependend: isIndependent,
+                subid: subid,
+                stock: {
+                    available: available,
+                    total: total,
+                    purchased: 0,
+                    product: productProp
+                }
+            };
+            res.push(supp);
+        });
+        return res;
     }
     catch (err) {
         throw err;
