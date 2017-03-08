@@ -213,6 +213,51 @@ function intersect(a, b) {
     // если надо удалить дубли, удаляем
     return unique(intersect);
 }
+// NUMBER ------------------------------------------
+/**
+ * round до заданного числа знаков. Может дать погрешность на округлении но похрен
+ * @param n
+ * @param decimals
+ */
+function roundTo(n, decimals) {
+    if (isNaN(n) || isNaN(decimals))
+        throw new Error(`числа должны быть заданы. n:${n}, decimals:${decimals}`);
+    if (decimals < 0)
+        throw new Error(`decimals: ${decimals} не может быть меньше 0`);
+    decimals = Math.round(decimals); // делаем ставку на косяки округления откуда может прилететь 1.00000001
+    let f = Math.pow(10, decimals);
+    return Math.round(n * f) / f;
+}
+/**
+ * floor до заданного числа знаков. Может дать погрешность если будет число вида x.99999999999
+   так как при расчетах прибавляет 1е-10. Но это очень редкий случай когда округлит вверх
+ * @param n
+ * @param decimals
+ */
+function floorTo(n, decimals) {
+    if (isNaN(n) || isNaN(decimals))
+        throw new Error(`числа должны быть заданы. n:${n}, decimals:${decimals}`);
+    if (decimals < 0)
+        throw new Error(`decimals: ${decimals} не может быть меньше 0`);
+    decimals = Math.round(decimals); // делаем ставку на косяки округления откуда может прилететь 1.00000001
+    let f = Math.pow(10, decimals);
+    return Math.floor(n * f + 1e-10) / f;
+}
+/**
+ * ceil до заданного числа знаков. Может дать погрешность если будет число вида x.00000000000001
+   так как при расчетах вычитает 1е-10. Но это очень редкий случай когда округлит вверх
+ * @param n
+ * @param decimals
+ */
+function ceilTo(n, decimals) {
+    if (isNaN(n) || isNaN(decimals))
+        throw new Error(`числа должны быть заданы. n:${n}, decimals:${decimals}`);
+    if (decimals < 0)
+        throw new Error(`decimals: ${decimals} не может быть меньше 0`);
+    decimals = Math.round(decimals); // делаем ставку на косяки округления откуда может прилететь 1.00000001
+    let f = Math.pow(10, decimals);
+    return Math.ceil(n * f - 1e-10) / f;
+}
 // PARSE -------------------------------------------
 /**
  * удаляет из строки все денежные и специальные символы типо процента и пробелы между цифрами
@@ -505,6 +550,7 @@ let url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee
 // 
 let url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
 let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i; // страница со всеми товарами игры
+let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
  * Если на задавать ссылку и хтмл то берет текущий документ.
@@ -896,15 +942,71 @@ function tryPost_async(url, form, retries = 10, timeout = 1000, beforePost, onEr
         return $deferred.promise();
     });
 }
+/**
+ * Отправляет данные на сервер запросом POST. В остальном работает как и гет. Так же вернет промис который ресолвит с возвращенными данными
+ * @param url
+ * @param data данные для отправки на сервер
+ * @param retries
+ * @param timeout
+ * @param beforePost
+ */
+function tryPostJSON_async(url, data, retries = 10, timeout = 1000, beforePost, onError) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // сам метод пришлось делать Promise<any> потому что string | Error не работало какого то хуя не знаю. Из за стрик нулл чек
+        let $deferred = $.Deferred();
+        if (beforePost) {
+            try {
+                beforePost(url);
+            }
+            catch (err) {
+                logDebug("beforePost вызвал исключение", err);
+            }
+        }
+        $.ajax({
+            url: url,
+            data: data,
+            type: "POST",
+            dataType: 'JSON',
+            success: (data, status, jqXHR) => $deferred.resolve(data),
+            error: function (jqXHR, textStatus, errorThrown) {
+                if (onError) {
+                    try {
+                        onError(url);
+                    }
+                    catch (err) {
+                        logDebug("onError вызвал исключение", err);
+                    }
+                }
+                retries--;
+                if (retries <= 0) {
+                    let err = new Error(`can't post ${this.url}\nstatus: ${jqXHR.status}\ntextStatus: ${jqXHR.statusText}\nerror: ${errorThrown}`);
+                    $deferred.reject(err);
+                    return;
+                }
+                //logDebug(`ошибка запроса ${this.url} осталось ${retries} попыток`);
+                let _this = this;
+                setTimeout(() => {
+                    if (beforePost) {
+                        try {
+                            beforePost(url);
+                        }
+                        catch (err) {
+                            logDebug("beforePost вызвал исключение", err);
+                        }
+                    }
+                    $.ajax(_this);
+                }, timeout);
+            }
+        });
+        return $deferred.promise();
+    });
+}
 // COMMON ----------------------------------------
 let $xioDebug = false;
 function logDebug(msg, ...args) {
     if (!$xioDebug)
         return;
-    if (args.length === 0)
-        console.log(msg);
-    else
-        console.log(msg, args);
+    console.log(msg, ...args);
 }
 /**
  * определяет есть ли на странице несколько страниц которые нужно перелистывать или все влазит на одну
@@ -1058,6 +1160,9 @@ let urlTemplates = {
     supplyCreate: [/\/[a-z]+\/window\/unit\/supply\/create\/\d+\/step2$/gi,
             (html) => true,
         parseSupplyCreate],
+    tradehallOld: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
+            (html) => true,
+        parseTradeHallOld],
     tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
             (html) => true,
         parseTradeHall],
@@ -1067,9 +1172,9 @@ let urlTemplates = {
     servicepricehistory: [/zzz/gi,
             (html) => true,
         parseX],
-    retailreport: [/zzz/gi,
+    cityRetailReport: [url_city_retail_report_rx,
             (html) => true,
-        parseX],
+        parseCityRetailReport],
     pricehistory: [url_price_history_rx,
             (html) => true,
         parseRetailPriceHistory],
@@ -2083,12 +2188,7 @@ function parseEmployees(html, url) {
         throw new ParseError("ware size", url, err);
     }
 }
-/**
- * \/.*\/main\/unit\/view\/[0-9]+\/trading_hall$
- * @param html
- * @param url
- */
-function parseTradeHall(html, url) {
+function parseTradeHallOld(html, url) {
     let $html = $(html);
     try {
         let _history = $html.find("a.popup").map(function (i, e) { return $(e).attr("href"); }).get();
@@ -2132,6 +2232,68 @@ function parseTradeHall(html, url) {
     }
     catch (err) {
         throw new ParseError("trading hall", url, err);
+    }
+}
+/**
+ * \/.*\/main\/unit\/view\/[0-9]+\/trading_hall$
+ * @param html
+ * @param url
+ */
+function parseTradeHall(html, url) {
+    let $html = $(html);
+    try {
+        let $rows = closestByTagName($html.find("a.popup"), "tr");
+        let res = [];
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+            let cityRepUrl = oneOrError($tds.eq(2), "a").attr("href");
+            let historyUrl = oneOrError($r, "a.popup").attr("href");
+            // продукт
+            let img = oneOrError($tds.eq(2), "img").attr("src");
+            let nums = extractIntPositive(cityRepUrl);
+            if (nums == null)
+                throw new Error("не получилось извлечь id продукта из ссылки " + cityRepUrl);
+            let prodID = nums[0];
+            let prodName = $tds.eq(2).attr("title").split("(")[0].trim();
+            let product = { id: prodID, img: img, name: prodName };
+            // склад. может быть -- вместо цены, кач, бренд так что -1 допускается
+            let stock = {
+                available: numberfyOrError($tds.eq(5).text(), -1),
+                deliver: numberfyOrError($tds.eq(4).text().split("[")[1], -1),
+                sold: numberfyOrError(oneOrError($tds.eq(3), "a.popup").text(), -1),
+                purchased: numberfyOrError(oneOrError($tds.eq(4), "a").text(), -1),
+                product: {
+                    price: numberfy($tds.eq(8).text()),
+                    quality: numberfy($tds.eq(6).text()),
+                    brand: numberfy($tds.eq(7).text())
+                }
+            };
+            // прочее "productData[price][{37181683}]" а не то что вы подумали
+            let name = oneOrError($tds.eq(9), "input").attr("name");
+            let currentPrice = numberfyOrError(oneOrError($tds.eq(9), "input").val(), -1);
+            // среднегородские цены
+            let share = numberfyOrError($tds.eq(10).text(), -1);
+            let city = {
+                price: numberfyOrError($tds.eq(11).text()),
+                quality: numberfyOrError($tds.eq(12).text()),
+                brand: numberfyOrError($tds.eq(13).text(), -1)
+            };
+            res.push({
+                product: product,
+                stock: stock,
+                price: currentPrice,
+                city: city,
+                share: share,
+                historyUrl: historyUrl,
+                reportUrl: cityRepUrl,
+                name: name
+            });
+        });
+        return res;
+    }
+    catch (err) {
+        throw err;
     }
 }
 var ConstraintTypes;
@@ -2225,6 +2387,7 @@ function parseRetailSupplyNew(html, url) {
                     available: quantity,
                     sold: sold,
                     deliver: deliver,
+                    purchased: 0,
                     product: pp
                 };
                 return res;
@@ -2676,6 +2839,12 @@ function parseRetailPriceHistory(html, url) {
         throw err;
     }
 }
+/**
+ * Парсит страничку со снабжением магазинов, складов и так далее.
+   /lien/window/unit/supply/create/4038828/step2
+ * @param html
+ * @param url
+ */
 function parseSupplyCreate(html, url) {
     let $html = $(html);
     try {
@@ -2688,14 +2857,16 @@ function parseSupplyCreate(html, url) {
             //
             let offer = numberfyOrError($r.prop("id").substr(1));
             let self = $r.hasClass("myself");
-            // для независимого поставщика номера юнита нет
+            // для независимого поставщика номера юнита нет и нет имени компании
             let subid = 0;
+            let company = "";
             if (!isIndependent) {
                 let str = $tds.eq(1).find("a").attr("href");
                 let nums = extractIntPositive(str);
                 if (nums == null || nums.length < 1)
                     throw new Error("невозможно subid для " + $tds.eq(1).text());
                 subid = nums[0];
+                company = $tds.eq(1).find("b").text();
             }
             // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
             let available = isIndependent ? Number.MAX_SAFE_INTEGER : 0;
@@ -2707,13 +2878,18 @@ function parseSupplyCreate(html, url) {
                 available = nums[0];
                 total = nums[1];
             }
-            //
+            // цены ВСЕГДА ЕСТЬ. Даже если на складе пусто
+            // это связано с тем что если склад открыт для покупки у него цена больше 0 должна стоять
             let nums = extractFloatPositive($tds.eq(5).html());
             if (nums == null || nums.length < 1)
                 throw new Error("невозможно получить цену.");
             let price = nums[0];
-            // бренда може и не быть если это не розничные товары, поэтому последнее может быть -1 или 0 как повезет
-            let quality = numberfyOrError($tds.eq(6).text()); // не может быть меньше 1 по факту
+            // кача и бренда может не быть если объем на складе у нас 0, иначе быть обязан для розницы
+            // для НЕ розницы бренда не будет, поэтому последнее может быть -1 или 0 как повезет
+            let quality = numberfy($tds.eq(6).text());
+            quality = quality < 0 ? 0 : quality;
+            if (available > 0 && quality < 1)
+                throw new Error(`качество поставщика ${offer} не найдено`);
             let brand = numberfy($tds.eq(7).text()); // не может быть меньше 1 по факту
             brand = brand < 0 ? 0 : brand;
             let productProp = {
@@ -2722,10 +2898,11 @@ function parseSupplyCreate(html, url) {
                 brand: brand
             };
             let supp = {
-                offer: offer,
+                id: offer,
+                companyName: company,
                 self: self,
                 isIndependend: isIndependent,
-                subid: subid,
+                unit: { subid: subid, type: UnitTypes.unknown },
                 stock: {
                     available: available,
                     total: total,
@@ -2736,6 +2913,88 @@ function parseSupplyCreate(html, url) {
             res.push(supp);
         });
         return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+var MarketIndex;
+(function (MarketIndex) {
+    MarketIndex[MarketIndex["None"] = -1] = "None";
+    MarketIndex[MarketIndex["E"] = 0] = "E";
+    MarketIndex[MarketIndex["D"] = 1] = "D";
+    MarketIndex[MarketIndex["C"] = 2] = "C";
+    MarketIndex[MarketIndex["B"] = 3] = "B";
+    MarketIndex[MarketIndex["A"] = 4] = "A";
+    MarketIndex[MarketIndex["AA"] = 5] = "AA";
+    MarketIndex[MarketIndex["AAA"] = 6] = "AAA";
+})(MarketIndex || (MarketIndex = {}));
+function parseCityRetailReport(html, url) {
+    let $html = $(html);
+    try {
+        // какой то косяк верстки страниц и страница приходит кривая без второй таблицы, поэтому 
+        // строку с индексом находим по слову Индекс
+        let $r = oneOrError($html, "tr:contains('Индекс')");
+        let $tds = $r.children("td");
+        // продукт, индекс, объем рынка, число продавцов и компаний
+        let $img = oneOrError($tds.eq(0), "img");
+        let img = $img.attr("src");
+        let name = $img.attr("alt");
+        let nums = extractIntPositive(url);
+        if (nums == null)
+            throw new Error("Не получилось извлечь id товара из " + url);
+        let id = nums[0];
+        let indexStr = $tds.eq(2).text().trim();
+        let index = MarketIndex.None;
+        switch (indexStr) {
+            case "AAA":
+                index = MarketIndex.AAA;
+                break;
+            case "AA":
+                index = MarketIndex.AA;
+                break;
+            case "A":
+                index = MarketIndex.A;
+                break;
+            case "B":
+                index = MarketIndex.B;
+                break;
+            case "C":
+                index = MarketIndex.C;
+                break;
+            case "D":
+                index = MarketIndex.D;
+                break;
+            case "E":
+                index = MarketIndex.E;
+                break;
+            case "?":
+                index = MarketIndex.None;
+                break;
+            default:
+                throw new Error(`Неизвестный индекс рынка: ${indexStr}`);
+        }
+        let quant = numberfyOrError($tds.eq(4).text(), -1);
+        let sellersCnt = numberfyOrError($tds.eq(6).text(), -1);
+        let companiesCnt = numberfyOrError($tds.eq(8).text(), -1);
+        let $priceTbl = oneOrError($html, "table.grid");
+        // местные
+        let localPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(0).text());
+        let localQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text());
+        let localBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text(), -1); // может быть равен -
+        // магазины
+        let shopPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(1).text());
+        let shopQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text());
+        let shopBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text(), -1); // может быть равен -
+        return {
+            product: { id: id, img: img, name: name },
+            index: index,
+            quantity: quant,
+            sellerCount: sellersCnt,
+            companyCount: companiesCnt,
+            locals: { price: localPrice, quality: localQual, brand: localBrand },
+            shops: { price: shopPrice, quality: shopQual, brand: shopBrand },
+        };
     }
     catch (err) {
         throw err;

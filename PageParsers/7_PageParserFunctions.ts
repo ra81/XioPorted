@@ -1070,12 +1070,8 @@ function parseEmployees(html: any, url: string): IEmployees {
     }
 }
 
-/**
- * \/.*\/main\/unit\/view\/[0-9]+\/trading_hall$
- * @param html
- * @param url
- */
-function parseTradeHall(html: any, url: string): ITradeHall {
+
+function parseTradeHallOld(html: any, url: string): ITradeHall {
     let $html = $(html);
 
     try {
@@ -1127,6 +1123,95 @@ function parseTradeHall(html: any, url: string): ITradeHall {
     }
 }
 
+interface ITradeHallItem {
+    product: IProduct;
+    stock: IRetailStock;
+
+    reportUrl: string;
+    historyUrl: string;
+
+    name: string;    // это name аттрибут текстбокса с ценой, чтобы удобно обновлять цены запросом
+    share: number;
+    price: number;  // текущая цена продажи
+    city: IProductProperties;
+}
+
+/**
+ * \/.*\/main\/unit\/view\/[0-9]+\/trading_hall$
+ * @param html
+ * @param url
+ */
+function parseTradeHall(html: any, url: string): ITradeHallItem[] {
+    let $html = $(html);
+
+    try {
+
+        let $rows = closestByTagName($html.find("a.popup"), "tr");
+        let res: ITradeHallItem[] = [];
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+
+            let cityRepUrl = oneOrError($tds.eq(2), "a").attr("href");
+            let historyUrl = oneOrError($r, "a.popup").attr("href");
+
+            // продукт
+            let img = oneOrError($tds.eq(2), "img").attr("src");
+
+            let nums = extractIntPositive(cityRepUrl); 
+            if (nums == null)
+                throw new Error("не получилось извлечь id продукта из ссылки " + cityRepUrl);
+
+            let prodID = nums[0];
+            let prodName = $tds.eq(2).attr("title").split("(")[0].trim();
+
+            let product: IProduct = { id: prodID, img: img, name: prodName };
+
+            // склад. может быть -- вместо цены, кач, бренд так что -1 допускается
+            let stock: IRetailStock = {
+                available: numberfyOrError($tds.eq(5).text(), -1), // 0 или больше всегда должно быть,
+                deliver: numberfyOrError($tds.eq(4).text().split("[")[1], -1),
+                sold: numberfyOrError(oneOrError($tds.eq(3), "a.popup").text(), -1),
+                purchased: numberfyOrError(oneOrError($tds.eq(4), "a").text(), -1),
+                product: {
+                    price: numberfy($tds.eq(8).text()),
+                    quality: numberfy($tds.eq(6).text()),
+                    brand: numberfy($tds.eq(7).text())
+                }
+            };
+
+            // прочее "productData[price][{37181683}]" а не то что вы подумали
+            let name = oneOrError($tds.eq(9), "input").attr("name");
+            let currentPrice = numberfyOrError(oneOrError($tds.eq(9), "input").val(), -1);
+
+            // среднегородские цены
+            let share = numberfyOrError($tds.eq(10).text(), -1)
+            let city: IProductProperties = {
+                price: numberfyOrError($tds.eq(11).text()),
+                quality: numberfyOrError($tds.eq(12).text()),
+                brand: numberfyOrError($tds.eq(13).text(), -1)
+            };
+
+            res.push({
+                product: product,
+                stock: stock,
+                price: currentPrice,
+                city: city,
+                share: share,
+                historyUrl: historyUrl,
+                reportUrl: cityRepUrl,
+                name: name
+            });
+        });
+
+        return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+
 interface IProductProperties {
     price: number;
     quality: number;
@@ -1141,6 +1226,7 @@ interface IStock {
 interface IRetailStock extends IStock {
     sold: number;
     deliver: number;
+    purchased: number;
 }
 
 interface ISupplyStock extends IStock {
@@ -1262,11 +1348,13 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
 
                 let sold = numberfyOrError($td.find("td:contains('Продано')").next("td").text(), -1);
                 let deliver = numberfyOrError($td.next("td").next("td").text(), -1);
+                let purchased = numberfyOrError($td.next("td").text(), -1);
 
                 let res: IRetailStock = {
                     available: quantity,
                     sold: sold,
                     deliver: deliver,
+                    purchased: purchased,
                     product: pp
                 };
                 return res;
@@ -1831,6 +1919,7 @@ function parseRetailPriceHistory(html: any, url: string): IPriceHistoryItem[] {
 
 interface IOffer {
     id: number;
+    companyName: string;
     isIndependend: boolean; // независимых пометим особой меткой
     unit: IUnit;    // по юниту уже можно понять чей это склад лично мой или нет
     self: boolean;  // это не говорит о том что мой юнит, либо мой либо в корпе либо мне открыл кто то
@@ -1860,8 +1949,9 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
             let offer = numberfyOrError(($r.prop("id") as string).substr(1));
             let self = $r.hasClass("myself");
 
-            // для независимого поставщика номера юнита нет
+            // для независимого поставщика номера юнита нет и нет имени компании
             let subid = 0;
+            let company = "";
             if (!isIndependent) {
                 let str = $tds.eq(1).find("a").attr("href");
                 let nums = extractIntPositive(str);
@@ -1869,6 +1959,7 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                     throw new Error("невозможно subid для " + $tds.eq(1).text());
 
                 subid = nums[0];
+                company = $tds.eq(1).find("b").text();
             }
 
             // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
@@ -1883,15 +1974,21 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                 total = nums[1];
             }
 
-            //
+            // цены ВСЕГДА ЕСТЬ. Даже если на складе пусто
+            // это связано с тем что если склад открыт для покупки у него цена больше 0 должна стоять
             let nums = extractFloatPositive($tds.eq(5).html());
             if (nums == null || nums.length < 1)
                 throw new Error("невозможно получить цену.");
 
             let price = nums[0];
 
-            // бренда може и не быть если это не розничные товары, поэтому последнее может быть -1 или 0 как повезет
-            let quality = numberfyOrError($tds.eq(6).text());   // не может быть меньше 1 по факту
+            // кача и бренда может не быть если объем на складе у нас 0, иначе быть обязан для розницы
+            // для НЕ розницы бренда не будет, поэтому последнее может быть -1 или 0 как повезет
+            let quality = numberfy($tds.eq(6).text());
+            quality = quality < 0 ? 0 : quality;
+            if (available > 0 && quality < 1)
+                throw new Error(`качество поставщика ${offer} не найдено`);
+
             let brand = numberfy($tds.eq(7).text());   // не может быть меньше 1 по факту
             brand = brand < 0 ? 0 : brand;
 
@@ -1903,6 +2000,7 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
 
             let supp: IOffer = {
                 id: offer,
+                companyName: company,
                 self: self,
                 isIndependend: isIndependent,
                 unit: { subid: subid, type: UnitTypes.unknown },
@@ -1918,6 +2016,108 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
         });
 
         return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+enum MarketIndex {
+    None = -1, E, D, C, B, A, AA, AAA
+}
+
+interface ICityRetailReport {
+    product: IProduct;
+    index: MarketIndex;
+    quantity: number;
+    sellerCount: number;
+    companyCount: number;
+    locals: IProductProperties;
+    shops: IProductProperties;
+}
+
+function parseCityRetailReport(html: any, url: string): ICityRetailReport {
+    let $html = $(html);
+
+    try {
+        // какой то косяк верстки страниц и страница приходит кривая без второй таблицы, поэтому 
+        // строку с индексом находим по слову Индекс
+        let $r = oneOrError($html, "tr:contains('Индекс')");
+        let $tds = $r.children("td");
+
+        // продукт, индекс, объем рынка, число продавцов и компаний
+        let $img = oneOrError($tds.eq(0), "img");
+        let img = $img.attr("src");
+        let name = $img.attr("alt");
+        let nums = extractIntPositive(url);
+        if (nums == null)
+            throw new Error("Не получилось извлечь id товара из " + url);
+
+        let id = nums[0];
+        let indexStr = $tds.eq(2).text().trim();
+        let index = MarketIndex.None;
+        switch (indexStr) {
+            case "AAA":
+                index = MarketIndex.AAA;
+                break;
+
+            case "AA":
+                index = MarketIndex.AA;
+                break;
+
+            case "A":
+                index = MarketIndex.A;
+                break;
+
+            case "B":
+                index = MarketIndex.B;
+                break;
+
+            case "C":
+                index = MarketIndex.C;
+                break;
+
+            case "D":
+                index = MarketIndex.D;
+                break;
+
+            case "E":
+                index = MarketIndex.E;
+                break;
+
+            case "?":
+                index = MarketIndex.None;
+                break;
+
+            default:
+                throw new Error(`Неизвестный индекс рынка: ${indexStr}`);
+        }
+
+        let quant = numberfyOrError($tds.eq(4).text(), -1);
+        let sellersCnt = numberfyOrError($tds.eq(6).text(), -1);
+        let companiesCnt = numberfyOrError($tds.eq(8).text(), -1);
+
+
+        let $priceTbl = oneOrError($html, "table.grid");
+        // местные
+        let localPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(0).text());
+        let localQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text());
+        let localBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text(), -1);   // может быть равен -
+
+        // магазины
+        let shopPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(1).text());
+        let shopQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text());
+        let shopBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text(), -1);   // может быть равен -
+
+        return {
+            product: { id: id, img: img, name: name},
+            index: index,
+            quantity: quant,
+            sellerCount: sellersCnt,
+            companyCount: companiesCnt,
+            locals: { price: localPrice, quality: localQual, brand: localBrand },
+            shops: { price: shopPrice, quality: shopQual, brand: shopBrand },
+        };
     }
     catch (err) {
         throw err;
