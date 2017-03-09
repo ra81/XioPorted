@@ -2303,10 +2303,11 @@ function parseTradeHall(html, url) {
         throw err;
     }
 }
+// буквы большие обязательны. иначе не работает отправка на сервер
 var ConstraintTypes;
 (function (ConstraintTypes) {
-    ConstraintTypes[ConstraintTypes["abs"] = 0] = "abs";
-    ConstraintTypes[ConstraintTypes["rel"] = 1] = "rel";
+    ConstraintTypes[ConstraintTypes["Abs"] = 0] = "Abs";
+    ConstraintTypes[ConstraintTypes["Rel"] = 1] = "Rel";
 })(ConstraintTypes || (ConstraintTypes = {}));
 /**
  * Снабжение магазина
@@ -2415,9 +2416,20 @@ function parseRetailSupplyNew(html, url) {
                 let $a = oneOrError($td, "a[href*='/unit/']");
                 let $span = $a.find("span");
                 let unitName = $span.length ? $span.attr("title") : $a.text();
-                $a = oneOrError($td, "a[href*='/company/']");
-                $span = $a.find("span");
-                let companyName = $span.length ? $span.attr("title") : $a.text();
+                // для чужих магов имя идет линком, а для своих выделено strong тегом
+                let self = false;
+                let companyName = "";
+                $a = $td.find("a[href*='/company/']");
+                if ($a.length === 1) {
+                    $span = $a.find("span");
+                    companyName = $span.length ? $span.attr("title") : $a.text();
+                }
+                else if ($a.length > 1)
+                    throw new Error(`нашли ${$a.length} ссылок на компанию вместо 1`);
+                else {
+                    companyName = oneOrError($td, "strong").text();
+                    self = true;
+                }
                 // ограничения контракта и заказ
                 // 
                 let ordered = numberfyOrError(oneOrError($r, `td[id^=quantityField_${product.id}] input`).val(), -1);
@@ -2426,10 +2438,10 @@ function parseRetailSupplyNew(html, url) {
                 let val = oneOrError($td, "select.contractConstraintPriceType").val();
                 switch (val) {
                     case "Rel":
-                        ctype = ConstraintTypes.rel;
+                        ctype = ConstraintTypes.Rel;
                         break;
                     case "Abs":
-                        ctype = ConstraintTypes.abs;
+                        ctype = ConstraintTypes.Abs;
                         break;
                     default:
                         throw new Error("неизвестный тип ограничения контракта " + val);
@@ -2463,13 +2475,14 @@ function parseRetailSupplyNew(html, url) {
                         },
                         companyName: companyName,
                         isIndependend: false,
-                        self: false
+                        self: self
                     },
                     ordered: ordered,
                     constraints: {
                         type: ctype,
                         minQuality: cminQ,
-                        price: ctype === ConstraintTypes.rel ? relPriceMarkUp : maxPrice
+                        price: maxPrice,
+                        priceMarkUp: relPriceMarkUp
                     }
                 };
             }).get();
@@ -3006,7 +3019,7 @@ function parseCityRetailReport(html, url) {
         return {
             product: { id: id, img: img, name: name },
             index: index,
-            quantity: quant,
+            size: quant,
             sellerCount: sellersCnt,
             companyCount: companiesCnt,
             locals: { price: localPrice, quality: localQual, brand: localBrand },

@@ -1242,15 +1242,16 @@ interface ISupplyStock extends IStock {
     purchased: number;
 }
 
+// буквы большие обязательны. иначе не работает отправка на сервер
 enum ConstraintTypes {
-    abs, rel
+    Abs, Rel
 }
 interface IContractConstraints {
     type: ConstraintTypes;      // тип. Abs, Rel берется тупо из селекта
-    price: number;              // при Abs это ценник, а при Rel номер опции.
+    price: number;              // при Abs это ценник
+    priceMarkUp: number;        // а при Rel номер опции.
     minQuality: number;
 }
-// TODO: перелопатить все на IOffer
 interface IBuyContract {
     offer: IOffer;
     ordered: number;
@@ -1387,9 +1388,21 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 let $span = $a.find("span");
                 let unitName = $span.length ? $span.attr("title") : $a.text();
 
-                $a = oneOrError($td, "a[href*='/company/']");
-                $span = $a.find("span");
-                let companyName = $span.length ? $span.attr("title") : $a.text();
+                // для чужих магов имя идет линком, а для своих выделено strong тегом
+                let self = false;
+                let companyName = "";
+                $a = $td.find("a[href*='/company/']");
+                if ($a.length === 1) {
+                    $span = $a.find("span");
+                    companyName = $span.length ? $span.attr("title") : $a.text();
+                }
+                else if ($a.length > 1)
+                    throw new Error(`нашли ${$a.length} ссылок на компанию вместо 1`);
+                else {
+                    companyName = oneOrError($td, "strong").text();
+                    self = true;
+                }
+                
 
                 // ограничения контракта и заказ
                 // 
@@ -1400,11 +1413,11 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 let val = oneOrError($td, "select.contractConstraintPriceType").val() as string;
                 switch (val) {
                     case "Rel":
-                        ctype = ConstraintTypes.rel;
+                        ctype = ConstraintTypes.Rel;
                         break;
 
                     case "Abs":
-                        ctype = ConstraintTypes.abs;
+                        ctype = ConstraintTypes.Abs;
                         break;
 
                     default:
@@ -1446,13 +1459,14 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                         },
                         companyName: companyName,
                         isIndependend: false,
-                        self: false
+                        self: self
                     },
                     ordered: ordered,
                     constraints: {
                         type: ctype,
                         minQuality: cminQ,
-                        price: ctype === ConstraintTypes.rel ? relPriceMarkUp : maxPrice
+                        price: maxPrice,
+                        priceMarkUp: relPriceMarkUp
                     }
                 };
             }).get() as any as IBuyContract[];
@@ -2046,7 +2060,7 @@ enum MarketIndex {
 interface ICityRetailReport {
     product: IProduct;
     index: MarketIndex;
-    quantity: number;
+    size: number;
     sellerCount: number;
     companyCount: number;
     locals: IProductProperties;
@@ -2129,7 +2143,7 @@ function parseCityRetailReport(html: any, url: string): ICityRetailReport {
         return {
             product: { id: id, img: img, name: name},
             index: index,
-            quantity: quant,
+            size: quant,
             sellerCount: sellersCnt,
             companyCount: companiesCnt,
             locals: { price: localPrice, quality: localQual, brand: localBrand },
