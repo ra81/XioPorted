@@ -73,7 +73,15 @@ function parseUnitList(html: any, url: string): IDictionaryN<IUnit> {
             if (type == UnitTypes.unknown)
                 throw new Error("Не описан тип юнита " + typestr);
 
-            res[subid] = { subid: subid, type: type };
+            let name = oneOrError($r, "td.info a").text().trim();
+            let size = oneOrError($r, "td.size").find("div.graybox").length; // >= 0
+
+            res[subid] = {
+                subid: subid,
+                type: type,
+                name: name,
+                size: size
+            };
         });
 
         return res;
@@ -1172,7 +1180,7 @@ function parseTradeHall(html: any, url: string): ITradeHallItem[] {
                 available: numberfyOrError($tds.eq(5).text(), -1), // 0 или больше всегда должно быть,
                 deliver: numberfyOrError($tds.eq(4).text().split("[")[1], -1),
                 sold: numberfyOrError(oneOrError($tds.eq(3), "a.popup").text(), -1),
-                purchased: numberfyOrError(oneOrError($tds.eq(4), "a").text(), -1),
+                ordered: numberfyOrError(oneOrError($tds.eq(4), "a").text(), -1),
                 product: {
                     price: numberfy($tds.eq(8).text()),
                     quality: numberfy($tds.eq(6).text()),
@@ -1226,7 +1234,7 @@ interface IStock {
 interface IRetailStock extends IStock {
     sold: number;
     deliver: number;
-    purchased: number;
+    ordered: number;
 }
 
 interface ISupplyStock extends IStock {
@@ -1244,10 +1252,9 @@ interface IContractConstraints {
 }
 // TODO: перелопатить все на IOffer
 interface IBuyContract {
-    id: number;
-    unit: IUnit;
+    offer: IOffer;
+    ordered: number;
     constraints: IContractConstraints;
-    stock: ISupplyStock;
 }
 
 /**
@@ -1336,7 +1343,7 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
             let product: IProduct = { id: id, img: img, name: "" };
 
             // собираем текущее состояние склада
-            let stock = $r.children("td").eq(0).map((i, el) => {
+            let stock = $r.children("td").eq(0).map((i, el): IRetailStock => {
                 let $td = $(el);
 
                 // если склад пуст, то количество будет 0, продано 0, а остальные показатели будут прочерки, то есть спарсит -1
@@ -1344,52 +1351,60 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 let price = numberfy($td.find("td:contains('Себестоимость')").next("td").text());
                 let quality = numberfy($td.find("td:contains('Качество')").next("td").text());
                 let brand = numberfy($td.find("td:contains('Бренд')").next("td").text());
-                let pp: IProductProperties = { price: price, quality: quality, brand: brand };
 
                 let sold = numberfyOrError($td.find("td:contains('Продано')").next("td").text(), -1);
                 let deliver = numberfyOrError($td.next("td").next("td").text(), -1);
-                let purchased = numberfyOrError($td.next("td").text(), -1);
+                let ordered = numberfyOrError($td.next("td").text(), -1);
 
-                let res: IRetailStock = {
+                return {
                     available: quantity,
                     sold: sold,
                     deliver: deliver,
-                    purchased: purchased,
-                    product: pp
+                    ordered: ordered,
+                    product: { price: price, quality: quality, brand: brand }
                 };
-                return res;
             }).get(0) as any as IRetailStock;
 
             // собираем контракты
-            let contracts = $r.add($subs).map((i, el) => {
+            let contracts = $r.add($subs).map((i, el): IBuyContract => {
                 let $r = $(el);
 
                 // контракт, имя юнита и его айди
                 //
-                let contrId = numberfyOrError(oneOrError($r, "input.destroy").val());
+                let offerID = numberfyOrError(oneOrError($r, "input.destroy").val());
 
                 let $td = oneOrError($r, `td[id^=name_${product.id}]`);
-                let url = $td.find("a").eq(-2).attr("href");
+                let url = oneOrError($td, "a[href*='/unit/']").attr("href");
                 let numbers = extractIntPositive(url);
                 if (!numbers || numbers.length !== 1)
                     throw new Error("не смог взять subid юнита из ссылки " + url);
 
                 let subid = numbers[0];
-                let name = $td.find("span").attr("title");
-                let unit: IUnit = { subid: subid, type: UnitTypes.unknown };
 
-                // ограничения контракта
-                //
+                // если имя юнита короткое, оно сразу в <a> теге, иначе добавляется внутрь span с титлом
+                // так же дело обстоит и с компанией
+                let $a = oneOrError($td, "a[href*='/unit/']");
+                let $span = $a.find("span");
+                let unitName = $span.length ? $span.attr("title") : $a.text();
+
+                $a = oneOrError($td, "a[href*='/company/']");
+                $span = $a.find("span");
+                let companyName = $span.length ? $span.attr("title") : $a.text();
+
+                // ограничения контракта и заказ
+                // 
+                let ordered = numberfyOrError(oneOrError($r, `td[id^=quantityField_${product.id}] input`).val(), -1);
+
                 $td = oneOrError($r, `td[id^=constraint_${product.id}]`);
-                let type: ConstraintTypes;
+                let ctype: ConstraintTypes;
                 let val = oneOrError($td, "select.contractConstraintPriceType").val() as string;
                 switch (val) {
                     case "Rel":
-                        type = ConstraintTypes.rel;
+                        ctype = ConstraintTypes.rel;
                         break;
 
                     case "Abs":
-                        type = ConstraintTypes.abs;
+                        ctype = ConstraintTypes.abs;
                         break;
 
                     default:
@@ -1397,15 +1412,10 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 }
 
                 // должно быть 0 или больше
-                let minQ = numberfyOrError(oneOrError($td, "input[name^='supplyContractData[quality_constraint_min]']").val(), -1);
+                let cminQ = numberfyOrError(oneOrError($td, "input[name^='supplyContractData[quality_constraint_min]']").val(), -1);
                 let maxPrice = numberfyOrError(oneOrError($td, "input.contractConstraintPriceAbs").val(), -1);
                 let relPriceMarkUp = numberfyOrError(oneOrError($td, "select.contractConstraintPriceRel").val(), -1);
 
-                let constraints: IContractConstraints = {
-                    type: type,
-                    minQuality: minQ,
-                    price: type === ConstraintTypes.rel ? relPriceMarkUp : maxPrice
-                }; 
 
                 // характеристики его товара
                 //
@@ -1416,7 +1426,6 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 let quality = numberfy($td.find("td:contains('Качество')").next("td").text());
                 let brand = numberfy($td.find("td:contains('Бренд')").next("td").text());
 
-                let productProps: IProductProperties = { price: price, quality: quality, brand: brand };
 
                 // состояние склада поставщика
                 //
@@ -1425,21 +1434,27 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 let total = numberfyOrError(oneOrError($r, `td[id^="quantity_${product.id}"]`).text(), -1);
                 let available = numberfyOrError(oneOrError($r, `td[id^="free_${product.id}"]`).text(), -1);
 
-                let stockSuppl: ISupplyStock = {
-                    available: available,
-                    total: total,
-                    purchased: purchased,
-                    product: productProps
+                return {
+                    offer: {
+                        id: offerID,
+                        unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
+                        stock: {
+                            available: available,
+                            total: total,
+                            purchased: purchased,
+                            product: { price: price, quality: quality, brand: brand }
+                        },
+                        companyName: companyName,
+                        isIndependend: false,
+                        self: false
+                    },
+                    ordered: ordered,
+                    constraints: {
+                        type: ctype,
+                        minQuality: cminQ,
+                        price: ctype === ConstraintTypes.rel ? relPriceMarkUp : maxPrice
+                    }
                 };
-
-                // формируем результат
-                let res: IBuyContract = {
-                    id: contrId,
-                    unit: unit,
-                    constraints: constraints,
-                    stock: stockSuppl
-                };
-                return res;
             }).get() as any as IBuyContract[];
 
             // [IProduct, [IProductProperties, number], IBuyContract[]]
@@ -1926,7 +1941,7 @@ interface IOffer {
     stock: ISupplyStock;
 }
 
-
+// TODO: запилить парсинг имени юнита везде где он используется
 /**
  * Парсит страничку со снабжением магазинов, складов и так далее.
    /lien/window/unit/supply/create/4038828/step2
@@ -1951,7 +1966,8 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
 
             // для независимого поставщика номера юнита нет и нет имени компании
             let subid = 0;
-            let company = "";
+            let companyName = "Независимый поставщик";
+            let unitName = "Независимый поставщик";
             if (!isIndependent) {
                 let str = $tds.eq(1).find("a").attr("href");
                 let nums = extractIntPositive(str);
@@ -1959,7 +1975,8 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                     throw new Error("невозможно subid для " + $tds.eq(1).text());
 
                 subid = nums[0];
-                company = $tds.eq(1).find("b").text();
+                companyName = $tds.eq(1).find("b").text();
+                unitName = oneOrError($tds.eq(1), "a").text();
             }
 
             // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
@@ -2000,10 +2017,10 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
 
             let supp: IOffer = {
                 id: offer,
-                companyName: company,
+                companyName: companyName,
                 self: self,
                 isIndependend: isIndependent,
-                unit: { subid: subid, type: UnitTypes.unknown },
+                unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
                 stock: {
                     available: available,
                     total: total,

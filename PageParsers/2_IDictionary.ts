@@ -6,7 +6,9 @@ type MappedPage = ISaleNew | IWareSupply | IWareSize | IWareMain | ITraining | I
 
 interface IUnit {
     subid: number;
+    name: string;
     type: UnitTypes;
+    size: number;
 }
 
 interface IMain {
