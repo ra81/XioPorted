@@ -482,7 +482,7 @@ function sayNumber(num) {
  * @param num
  * @param symbol
  */
-function sayMoney(num, symbol) {
+function sayMoney(num, symbol = "$") {
     let result = sayNumber(num);
     if (symbol != null) {
         if (num < 0)
@@ -1301,6 +1301,15 @@ function zipAndMin(napArr1, napArr2) {
 //
 // Сюда все функции которые парсят данные со страниц
 //
+/**
+ * По пути картинки выявляется ТМ товар или нет. Обычно в ТМ у нас есть /brand/ кусок
+ * @param product
+ */
+function isTM(product) {
+    if (product.img.length <= 0)
+        throw new Error(`Нельзя определить брандовость продукта ${product.id} => ${product.name}`);
+    return product.img.indexOf("/brand/") >= 0;
+}
 /**
  * Возвращает ТОЛЬКО текст элемента БЕЗ его наследников
  * @param el
@@ -2257,6 +2266,7 @@ function parseTradeHall(html, url) {
             let cityRepUrl = oneOrError($tds.eq(2), "a").attr("href");
             let historyUrl = oneOrError($r, "a.popup").attr("href");
             // продукт
+            // картинка может быть просто от /products/ так и ТМ /products/brand/ типа
             let img = oneOrError($tds.eq(2), "img").attr("src");
             let nums = extractIntPositive(cityRepUrl);
             if (nums == null)
@@ -2380,6 +2390,8 @@ function parseRetailSupplyNew(html, url) {
             })();
             let img = oneOrError($r, "th img:eq(0)").attr("src");
             let product = { id: id, img: img, name: "" };
+            // для ТМ учитываем факт ТМности
+            let tmImg = isTM(product) ? img : "";
             // собираем текущее состояние склада
             let stock = $r.children("td").eq(0).map((i, el) => {
                 let $td = $(el);
@@ -2475,7 +2487,8 @@ function parseRetailSupplyNew(html, url) {
                         },
                         companyName: companyName,
                         isIndependend: false,
-                        self: self
+                        self: self,
+                        tmImg: tmImg
                     },
                     ordered: ordered,
                     constraints: {
@@ -2882,6 +2895,8 @@ function parseSupplyCreate(html, url) {
             let $r = $(el);
             let $tds = $r.children("td");
             let isIndependent = $tds.eq(1).text().toLowerCase().indexOf("независимый поставщик") >= 0;
+            // ТМ товары идет отдельным списком и их надо выделять
+            let tmImg = $tds.eq(0).find("img").attr("src") || "";
             //
             let offer = numberfyOrError($r.prop("id").substr(1));
             let self = $r.hasClass("myself");
@@ -2938,7 +2953,8 @@ function parseSupplyCreate(html, url) {
                     total: total,
                     purchased: 0,
                     product: productProp
-                }
+                },
+                tmImg: tmImg
             };
             res.push(supp);
         });

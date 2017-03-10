@@ -419,7 +419,7 @@ interface IStorageData {
 // товар в игре. Имя, картинка и номер. Уникально идентифицирует
 interface IProduct {
     name: string;
-    img: string;    // полный путь картинки /img/products/clay.gif
+    img: string;    // полный путь картинки /img/products/clay.gif или /img/products/brand/clay.gif
     id: number
 }
 
