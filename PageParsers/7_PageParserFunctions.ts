@@ -547,7 +547,8 @@ function parseManager(html: any, url: string): ITopManager {
                 if (bonusSpan.length === 0)
                     return 0;
 
-                return numberfy(bonusSpan.text());
+                let n = numberfy(bonusSpan.text());
+                return n < 0 ? 0: n;
             }).get() as any as number[];
 
             return [main, bonus];

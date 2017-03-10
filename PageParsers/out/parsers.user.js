@@ -537,6 +537,7 @@ let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // 
 let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?$/i; // история продаж в магазине по товару
 let url_supp_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i; // снабжение
 let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale/i; // продажа склад/завод
+let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i; // реклама
 let url_supply_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; // заказ товара в маг, или склад. в общем стандартный заказ товара
 let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
 // для компании
@@ -1750,7 +1751,8 @@ function parseManager(html, url) {
                 let bonusSpan = $(e).next("span.bonusValue");
                 if (bonusSpan.length === 0)
                     return 0;
-                return numberfy(bonusSpan.text());
+                let n = numberfy(bonusSpan.text());
+                return n < 0 ? 0 : n;
             }).get();
             return [main, bonus];
         })();
