@@ -2289,8 +2289,10 @@ function parseTradeHall(html, url) {
                 }
             };
             // прочее "productData[price][{37181683}]" а не то что вы подумали
-            let name = oneOrError($tds.eq(9), "input").attr("name");
-            let currentPrice = numberfyOrError(oneOrError($tds.eq(9), "input").val(), -1);
+            let $input = oneOrError($tds.eq(9), "input");
+            let name = $input.attr("name");
+            let currentPrice = numberfyOrError($input.val(), -1);
+            let dontSale = $tds.eq(9).find("span").text().indexOf("продавать") >= 0;
             // среднегородские цены
             let share = numberfyOrError($tds.eq(10).text(), -1);
             let city = {
@@ -2306,7 +2308,8 @@ function parseTradeHall(html, url) {
                 share: share,
                 historyUrl: historyUrl,
                 reportUrl: cityRepUrl,
-                name: name
+                name: name,
+                dontSale: dontSale
             });
         });
         return res;

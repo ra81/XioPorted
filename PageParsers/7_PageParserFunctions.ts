@@ -1150,6 +1150,7 @@ interface ITradeHallItem {
     reportUrl: string;
     historyUrl: string;
 
+    dontSale: boolean;  // флаг говорящий что товар НЕ продается
     name: string;    // это name аттрибут текстбокса с ценой, чтобы удобно обновлять цены запросом
     share: number;
     price: number;  // текущая цена продажи
@@ -1202,8 +1203,11 @@ function parseTradeHall(html: any, url: string): ITradeHallItem[] {
             };
 
             // прочее "productData[price][{37181683}]" а не то что вы подумали
-            let name = oneOrError($tds.eq(9), "input").attr("name");
-            let currentPrice = numberfyOrError(oneOrError($tds.eq(9), "input").val(), -1);
+            let $input = oneOrError($tds.eq(9), "input");
+            let name = $input.attr("name");
+            let currentPrice = numberfyOrError($input.val(), -1);
+            let dontSale = $tds.eq(9).find("span").text().indexOf("продавать") >= 0;
+
 
             // среднегородские цены
             let share = numberfyOrError($tds.eq(10).text(), -1)
@@ -1221,7 +1225,8 @@ function parseTradeHall(html: any, url: string): ITradeHallItem[] {
                 share: share,
                 historyUrl: historyUrl,
                 reportUrl: cityRepUrl,
-                name: name
+                name: name,
+                dontSale: dontSale
             });
         });
 
