@@ -42,7 +42,10 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
         (html: any) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
         parseRetailSupply],
     storesupplyNew: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
-        (html: any) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
+        (html: any) => {
+            return $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0 ||
+                $(html).find("#unitImage img").attr("src").indexOf("/fuel_") >= 0;
+        },
         parseRetailSupplyNew],
     supplyCreate: [/\/[a-z]+\/window\/unit\/supply\/create\/\d+\/step2$/gi,
         (html: any) => true,

@@ -74,15 +74,16 @@ var UnitTypes;
     UnitTypes[UnitTypes["power"] = 22] = "power";
     UnitTypes[UnitTypes["coal_power"] = 23] = "coal_power";
     UnitTypes[UnitTypes["incinerator_power"] = 24] = "incinerator_power";
-    UnitTypes[UnitTypes["fuel"] = 25] = "fuel";
-    UnitTypes[UnitTypes["repair"] = 26] = "repair";
-    UnitTypes[UnitTypes["apiary"] = 27] = "apiary";
-    UnitTypes[UnitTypes["educational"] = 28] = "educational";
-    UnitTypes[UnitTypes["kindergarten"] = 29] = "kindergarten";
-    UnitTypes[UnitTypes["sun_power"] = 30] = "sun_power";
-    UnitTypes[UnitTypes["network"] = 31] = "network";
-    UnitTypes[UnitTypes["it"] = 32] = "it";
-    UnitTypes[UnitTypes["cellular"] = 33] = "cellular";
+    UnitTypes[UnitTypes["oil_power"] = 25] = "oil_power";
+    UnitTypes[UnitTypes["fuel"] = 26] = "fuel";
+    UnitTypes[UnitTypes["repair"] = 27] = "repair";
+    UnitTypes[UnitTypes["apiary"] = 28] = "apiary";
+    UnitTypes[UnitTypes["educational"] = 29] = "educational";
+    UnitTypes[UnitTypes["kindergarten"] = 30] = "kindergarten";
+    UnitTypes[UnitTypes["sun_power"] = 31] = "sun_power";
+    UnitTypes[UnitTypes["network"] = 32] = "network";
+    UnitTypes[UnitTypes["it"] = 33] = "it";
+    UnitTypes[UnitTypes["cellular"] = 34] = "cellular";
 })(UnitTypes || (UnitTypes = {}));
 // уровни сервиса
 var ServiceLevels;
@@ -534,7 +535,7 @@ let url_unit_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+/i; // внутри
 let url_unit_main_rx = /\/\w+\/(?:main|window)\/unit\/view\/\d+\/?$/i; // главная юнита
 let url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
 let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
-let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?$/i; // история продаж в магазине по товару
+let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
 let url_supp_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i; // снабжение
 let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale/i; // продажа склад/завод
 let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i; // реклама
@@ -1156,7 +1157,10 @@ let urlTemplates = {
             (html) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
         parseRetailSupply],
     storesupplyNew: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
-            (html) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
+            (html) => {
+            return $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0 ||
+                $(html).find("#unitImage img").attr("src").indexOf("/fuel_") >= 0;
+        },
         parseRetailSupplyNew],
     supplyCreate: [/\/[a-z]+\/window\/unit\/supply\/create\/\d+\/step2$/gi,
             (html) => true,
@@ -1368,6 +1372,8 @@ function parseUnitList(html, url) {
             if (type == UnitTypes.unknown)
                 throw new Error("Не описан тип юнита " + typestr);
             let name = oneOrError($r, "td.info a").text().trim();
+            if (name.length <= 0)
+                throw new Error(`имя юнита ${subid} не спарсилось.`);
             let size = oneOrError($r, "td.size").find("div.graybox").length; // >= 0
             res[subid] = {
                 subid: subid,
@@ -2433,6 +2439,8 @@ function parseRetailSupplyNew(html, url) {
                 let $a = oneOrError($td, "a[href*='/unit/']");
                 let $span = $a.find("span");
                 let unitName = $span.length ? $span.attr("title") : $a.text();
+                if (unitName.length <= 0)
+                    throw new Error(`имя поставщика юнит ${subid} не спарсилось`);
                 // для чужих магов имя идет линком, а для своих выделено strong тегом
                 let self = false;
                 let companyName = "";
@@ -2449,7 +2457,17 @@ function parseRetailSupplyNew(html, url) {
                 }
                 // ограничения контракта и заказ
                 // 
-                let ordered = numberfyOrError(oneOrError($r, `td[id^=quantityField_${product.id}] input`).val(), -1);
+                $td = oneOrError($r, `td[id^=quantityField_${product.id}]`);
+                let ordered = numberfyOrError(oneOrError($td, "input").val(), -1);
+                // ограничение по количеству
+                let maxLimit = 0;
+                $span = $td.find("span");
+                if ($span.length) {
+                    let n = extractIntPositive($span.text());
+                    if (!n || !n[0])
+                        throw new Error(`не смог извлеч ограничение по объему закупки из ячейки ${$td.html()}`);
+                    maxLimit = n[0];
+                }
                 $td = oneOrError($r, `td[id^=constraint_${product.id}]`);
                 let ctype;
                 let val = oneOrError($td, "select.contractConstraintPriceType").val();
@@ -2484,6 +2502,7 @@ function parseRetailSupplyNew(html, url) {
                     offer: {
                         id: offerID,
                         unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
+                        maxLimit: maxLimit > 0 ? maxLimit : null,
                         stock: {
                             available: available,
                             total: total,
@@ -2822,6 +2841,7 @@ function parseFinanceRepByUnits(html, url) {
 /**
  * история цен в рознице /lien/window/unit/view/4038828/product_history/15742/
  * элементы в массиве расположены так же как в таблице. самый новый в 0 ячейке, самый старый в последней.
+   строка с 0 продажами последняя в рознице вырезается, а в заправках ее нет вообще
  * @param html
  * @param url
  */
@@ -2830,12 +2850,14 @@ function parseRetailPriceHistory(html, url) {
     try {
         // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
         // такие дни просто вылетают из списка.
-        // сегодняшний день ВСЕГДА есть в списке.
+        // сегодняшний день ВСЕГДА есть в списке. КРОМЕ ЗАПРАВОК
         // если продаж сегодня не было, то в строке будут тока бренд 0 а остальное пусто.
         // если сегодня продажи были, то там будут числа и данная строка запомнится как история продаж.
         // причина по которой продаж не было пофиг. Не было товара, цена стояла 0 или стояла очень большая. Похер!
         // так же бывает что последний день задваивается. надо убирать дубли если они есть
         // поэтому кладем в словарь по дате. Потом перегоняем в массив сортируя по дате по убыванию. самая новая первая
+        // продажи с 0, вырезаем нахуй чтобы и маги и заправки были идентичны. 
+        // отсутствие продаж будем брать со страницы трейдхолла
         let $rows = $html.find("table.list").find("tr.even, tr.odd");
         let dict = {};
         $rows.each((i, el) => {
@@ -2844,18 +2866,10 @@ function parseRetailPriceHistory(html, url) {
             if (!_date)
                 throw new Error("не смог отпарсить дату " + $td.eq(0).text());
             // если количества нет, значит продаж не было строка тупо пустая
-            // забиваем в словарь пустую строку
+            // удаляем ее нахуй
             let _quant = numberfy($td.eq(1).text());
-            if (_quant <= 0) {
-                dict[dateToShort(_date)] = {
-                    date: _date,
-                    quantity: 0,
-                    quality: 0,
-                    price: 0,
-                    brand: 0
-                };
+            if (_quant <= 0)
                 return;
-            }
             let _qual = numberfyOrError($td.eq(2).text(), 0);
             let _price = numberfyOrError($td.eq(3).text(), 0);
             let _brand = numberfyOrError($td.eq(4).text(), -1); // бренд может быть и 0
@@ -2916,17 +2930,26 @@ function parseSupplyCreate(html, url) {
                     throw new Error("невозможно subid для " + $tds.eq(1).text());
                 subid = nums[0];
                 companyName = $tds.eq(1).find("b").text();
+                if (companyName.length <= 0)
+                    throw new Error(`имя компании поставщика юнит ${subid} не спарсилось`);
                 unitName = oneOrError($tds.eq(1), "a").text();
+                if (unitName.length <= 0)
+                    throw new Error(`имя поставщика ${companyName} юнит ${subid} не спарсилось`);
             }
             // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
             let available = isIndependent ? Number.MAX_SAFE_INTEGER : 0;
             let total = isIndependent ? Number.MAX_SAFE_INTEGER : 0;
+            let maxLimit = 0;
             if (!isIndependent) {
                 let nums = extractIntPositive($tds.eq(3).html());
                 if (nums == null || nums.length < 2)
                     throw new Error("невозможно получить количество на складе и свободное для покупки для " + $tds.eq(1).text());
                 available = nums[0];
                 total = nums[1];
+                // на окне снабжения мы точно не видим сколько же реальный лимит если товара меньше чем лимит
+                // реальный лимит мы увидим тока в магазине когда подцепим поставщика
+                if ($tds.eq(3).find("u").length > 0)
+                    maxLimit = available;
             }
             // цены ВСЕГДА ЕСТЬ. Даже если на складе пусто
             // это связано с тем что если склад открыт для покупки у него цена больше 0 должна стоять
@@ -2953,6 +2976,7 @@ function parseSupplyCreate(html, url) {
                 self: self,
                 isIndependend: isIndependent,
                 unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
+                maxLimit: maxLimit > 0 ? maxLimit : null,
                 stock: {
                     available: available,
                     total: total,

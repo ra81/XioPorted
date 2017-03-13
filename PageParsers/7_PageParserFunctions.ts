@@ -85,6 +85,9 @@ function parseUnitList(html: any, url: string): IDictionaryN<IUnit> {
                 throw new Error("Не описан тип юнита " + typestr);
 
             let name = oneOrError($r, "td.info a").text().trim();
+            if (name.length <= 0)
+                throw new Error(`имя юнита ${subid} не спарсилось.`);
+
             let size = oneOrError($r, "td.size").find("div.graybox").length; // >= 0
 
             res[subid] = {
@@ -1408,6 +1411,8 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 let $a = oneOrError($td, "a[href*='/unit/']");
                 let $span = $a.find("span");
                 let unitName = $span.length ? $span.attr("title") : $a.text();
+                if (unitName.length <= 0)
+                    throw new Error(`имя поставщика юнит ${subid} не спарсилось`);
 
                 // для чужих магов имя идет линком, а для своих выделено strong тегом
                 let self = false;
@@ -1427,7 +1432,19 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
 
                 // ограничения контракта и заказ
                 // 
-                let ordered = numberfyOrError(oneOrError($r, `td[id^=quantityField_${product.id}] input`).val(), -1);
+                $td = oneOrError($r, `td[id^=quantityField_${product.id}]`);
+                let ordered = numberfyOrError(oneOrError($td, "input").val(), -1);
+
+                // ограничение по количеству
+                let maxLimit = 0;
+                $span = $td.find("span");
+                if ($span.length) {
+                    let n = extractIntPositive($span.text());
+                    if (!n || !n[0])
+                        throw new Error(`не смог извлеч ограничение по объему закупки из ячейки ${$td.html()}`);
+
+                    maxLimit = n[0];
+                }
 
                 $td = oneOrError($r, `td[id^=constraint_${product.id}]`);
                 let ctype: ConstraintTypes;
@@ -1472,6 +1489,7 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                     offer: {
                         id: offerID,
                         unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
+                        maxLimit: maxLimit > 0 ? maxLimit : null,
                         stock: {
                             available: available,
                             total: total,
@@ -1895,6 +1913,7 @@ function parseFinanceRepByUnits(html: any, url: string): IDictionaryN<IUnitFinan
 /**
  * история цен в рознице /lien/window/unit/view/4038828/product_history/15742/
  * элементы в массиве расположены так же как в таблице. самый новый в 0 ячейке, самый старый в последней.
+   строка с 0 продажами последняя в рознице вырезается, а в заправках ее нет вообще  
  * @param html
  * @param url
  */
@@ -1904,13 +1923,15 @@ function parseRetailPriceHistory(html: any, url: string): IPriceHistoryItem[] {
     try {
         // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
         // такие дни просто вылетают из списка.
-        // сегодняшний день ВСЕГДА есть в списке.
+        // сегодняшний день ВСЕГДА есть в списке. КРОМЕ ЗАПРАВОК
         // если продаж сегодня не было, то в строке будут тока бренд 0 а остальное пусто.
         // если сегодня продажи были, то там будут числа и данная строка запомнится как история продаж.
         // причина по которой продаж не было пофиг. Не было товара, цена стояла 0 или стояла очень большая. Похер!
 
         // так же бывает что последний день задваивается. надо убирать дубли если они есть
         // поэтому кладем в словарь по дате. Потом перегоняем в массив сортируя по дате по убыванию. самая новая первая
+        // продажи с 0, вырезаем нахуй чтобы и маги и заправки были идентичны. 
+        // отсутствие продаж будем брать со страницы трейдхолла
         let $rows = $html.find("table.list").find("tr.even, tr.odd");
         let dict: IDictionary<IPriceHistoryItem> = {};
         $rows.each((i, el) => {
@@ -1921,18 +1942,10 @@ function parseRetailPriceHistory(html: any, url: string): IPriceHistoryItem[] {
                 throw new Error("не смог отпарсить дату " + $td.eq(0).text());
 
             // если количества нет, значит продаж не было строка тупо пустая
-            // забиваем в словарь пустую строку
+            // удаляем ее нахуй
             let _quant = numberfy($td.eq(1).text());
-            if (_quant <= 0) {
-                dict[dateToShort(_date)] = {
-                    date: _date,
-                    quantity: 0,
-                    quality: 0,
-                    price: 0,
-                    brand: 0
-                };
+            if (_quant <= 0)
                 return;
-            }
 
             let _qual = numberfyOrError($td.eq(2).text(), 0);
             let _price = numberfyOrError($td.eq(3).text(), 0);
@@ -1974,6 +1987,7 @@ interface IOffer {
     isIndependend: boolean; // независимых пометим особой меткой
     unit: IUnit;    // по юниту уже можно понять чей это склад лично мой или нет
     self: boolean;  // это не говорит о том что мой юнит, либо мой либо в корпе либо мне открыл кто то
+    maxLimit: number|null; // ограничение на макс закупку у поставщика
     stock: ISupplyStock;
     tmImg: string;  // если предлагает ТМ то путь на картинку ТМ товара либо ""
 }
@@ -2016,12 +2030,18 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
 
                 subid = nums[0];
                 companyName = $tds.eq(1).find("b").text();
+                if (companyName.length <= 0)
+                    throw new Error(`имя компании поставщика юнит ${subid} не спарсилось`);
+
                 unitName = oneOrError($tds.eq(1), "a").text();
+                if (unitName.length <= 0)
+                    throw new Error(`имя поставщика ${companyName} юнит ${subid} не спарсилось`);
             }
 
             // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
             let available = isIndependent ? Number.MAX_SAFE_INTEGER: 0;
             let total = isIndependent ? Number.MAX_SAFE_INTEGER : 0;
+            let maxLimit = 0;
             if (!isIndependent) {
                 let nums = extractIntPositive($tds.eq(3).html());
                 if (nums == null || nums.length < 2)
@@ -2029,6 +2049,11 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
 
                 available = nums[0];
                 total = nums[1];
+
+                // на окне снабжения мы точно не видим сколько же реальный лимит если товара меньше чем лимит
+                // реальный лимит мы увидим тока в магазине когда подцепим поставщика
+                if ($tds.eq(3).find("u").length > 0)
+                    maxLimit = available;
             }
 
             // цены ВСЕГДА ЕСТЬ. Даже если на складе пусто
@@ -2061,6 +2086,7 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                 self: self,
                 isIndependend: isIndependent,
                 unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
+                maxLimit: maxLimit > 0 ? maxLimit : null,
                 stock: {
                     available: available,
                     total: total,
