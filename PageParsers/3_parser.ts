@@ -80,9 +80,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     CTIE: [/zzz/gi,
         (html: any) => true,
         parseX],
-    training: [/zzz/gi,
+    training: [url_education_rx,
         (html: any) => true,
-        parseX],
+        parseEducation],
     equipment: [/zzz/gi,
         (html: any) => true,
         parseX],
@@ -146,6 +146,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     financeRepByUnits: [url_rep_finance_byunit,
         (html: any) => true,
         parseFinanceRepByUnits],
+    unitFinRep: [url_unit_finance_report,
+        (html: any) => true,
+        parseUnitFinRep],
 };
 
 $(document).ready(() => parseStart());

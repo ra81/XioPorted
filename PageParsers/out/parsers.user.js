@@ -97,6 +97,19 @@ var ServiceLevels;
     ServiceLevels[ServiceLevels["elite"] = 5] = "elite";
 })(ServiceLevels || (ServiceLevels = {}));
 /**
+ * Простенький конвертер, который из множества формирует массив значений множества. По факту массив чисел.
+   используется внутреннее представление множеств и как бы может сломаться в будущем
+ * @param enumType тип множества
+ */
+function enum2Arr(enumType) {
+    let res = [];
+    for (let key in enumType) {
+        if (typeof enumType[key] === "number")
+            res.push(enumType[key]);
+    }
+    return res;
+}
+/**
  * Простой счетчик. Увеличивается на 1 при каждом вызове метода Next. Нужен для подсчета числа запросов
  */
 class Counter {
@@ -479,7 +492,8 @@ function sayNumber(num) {
     return s1;
 }
 /**
- * Для денег подставляет нужный символ при выводе на экран
+ * Для денег подставляет нужный символ при выводе на экран. Округляет до 2 знаков,
+   так же вставляет пробелы как разделитель для тысяч
  * @param num
  * @param symbol
  */
@@ -539,6 +553,7 @@ let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_
 let url_supp_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i; // снабжение
 let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale/i; // продажа склад/завод
 let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i; // реклама
+let url_education_rx = /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i; // обучение
 let url_supply_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; // заказ товара в маг, или склад. в общем стандартный заказ товара
 let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
 // для компании
@@ -1068,7 +1083,11 @@ function buildStoreKey(realm, code, subid) {
 function Export($place, test) {
     if ($place.length <= 0)
         return false;
-    let $txt = $('<textarea style="width: 800px; height: 200px"></textarea>');
+    if ($place.find("#txtExport").length > 0) {
+        $place.find("#txtExport").remove();
+        return;
+    }
+    let $txt = $('<textarea id="txtExport" style="display:block;width: 800px; height: 200px"></textarea>');
     let string = "";
     for (let key in localStorage) {
         if (!test(key))
@@ -1078,7 +1097,7 @@ function Export($place, test) {
         string += `${key}=${localStorage[key]}`;
     }
     $txt.text(string);
-    $place.append("<br>").append($txt);
+    $place.append($txt);
     return true;
 }
 /**
@@ -1090,30 +1109,41 @@ function Export($place, test) {
 function Import($place) {
     if ($place.length <= 0)
         return false;
-    let $txt = $('<textarea style="width: 800px; height: 200px"></textarea>');
-    let $saveBtn = $(`<input type=button disabled="true" value="Save!">`);
+    if ($place.find("#txtImport").length > 0) {
+        $place.find("#txtImport").remove();
+        $place.find("#saveImport").remove();
+        return;
+    }
+    let $txt = $('<textarea id="txtImport" style="display:block;width: 800px; height: 200px"></textarea>');
+    let $saveBtn = $(`<input id="saveImport" type=button disabled="true" value="Save!">`);
     $txt.on("input propertychange", (event) => $saveBtn.prop("disabled", false));
     $saveBtn.on("click", (event) => {
         let items = $txt.val().split("|"); // элементы вида Ключ=значение
         logDebug(`загружено ${items.length} элементов`);
-        items.forEach((val, i, arr) => {
-            let item = val.trim();
-            if (item.length <= 0)
-                throw new Error(`получили пустую строку для элемента ${i}, невозможно импортировать.`);
-            let kvp = item.split("="); // пара ключ значение
-            if (kvp.length !== 2)
-                throw new Error("Должен быть только ключ и значение а по факту не так. " + item);
-            let storeKey = kvp[0].trim();
-            let storeVal = kvp[1].trim();
-            if (storeKey.length <= 0 || storeVal.length <= 0)
-                throw new Error("Длина ключа или данных равна 0 " + item);
-            if (localStorage[storeKey])
-                logDebug(`Ключ ${storeKey} существует. Перезаписываем.`);
-            localStorage[storeKey] = storeVal;
-        });
-        logDebug("импорт завершен");
+        try {
+            items.forEach((val, i, arr) => {
+                let item = val.trim();
+                if (item.length <= 0)
+                    throw new Error(`получили пустую строку для элемента ${i}, невозможно импортировать.`);
+                let kvp = item.split("="); // пара ключ значение
+                if (kvp.length !== 2)
+                    throw new Error("Должен быть только ключ и значение а по факту не так. " + item);
+                let storeKey = kvp[0].trim();
+                let storeVal = kvp[1].trim();
+                if (storeKey.length <= 0 || storeVal.length <= 0)
+                    throw new Error("Длина ключа или данных равна 0 " + item);
+                if (localStorage[storeKey])
+                    logDebug(`Ключ ${storeKey} существует. Перезаписываем.`);
+                localStorage[storeKey] = storeVal;
+            });
+            alert("импорт завершен");
+        }
+        catch (err) {
+            let msg = err.message;
+            alert(msg);
+        }
     });
-    $place.append("<br>").append($txt).append("<br>").append($saveBtn);
+    $place.append($txt).append($saveBtn);
     return true;
 }
 /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
@@ -1195,9 +1225,9 @@ let urlTemplates = {
     CTIE: [/zzz/gi,
             (html) => true,
         parseX],
-    training: [/zzz/gi,
+    training: [url_education_rx,
             (html) => true,
-        parseX],
+        parseEducation],
     equipment: [/zzz/gi,
             (html) => true,
         parseX],
@@ -1261,6 +1291,9 @@ let urlTemplates = {
     financeRepByUnits: [url_rep_finance_byunit,
             (html) => true,
         parseFinanceRepByUnits],
+    unitFinRep: [url_unit_finance_report,
+            (html) => true,
+        parseUnitFinRep],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -1738,6 +1771,42 @@ function parseSalary(html, url) {
     }
 }
 /**
+ * /olga/window/unit/employees/education/6566432
+ * @param html
+ * @param url
+ */
+function parseEducation(html, url) {
+    let $html = $(html);
+    try {
+        // формы может не быть если обучение уже запущено
+        let $form = $html.filter("form"); // через find не находит какого то хера
+        if ($form.length <= 0)
+            return null;
+        let $tbl = oneOrError($html, "table.list");
+        let salaryNow = numberfyOrError($tbl.find("td:eq(8)").text());
+        let salaryCity = numberfyOrError($tbl.find("td:eq(9)").text().split("$")[1]);
+        let weekcost = numberfyOrError($tbl.find("#educationCost").text());
+        let employees = numberfyOrError($tbl.find("#unitEmployeesData_employees").val(), -1);
+        let emplMax = numberfyOrError($tbl.find("td:eq(2)").text().split(":")[1]);
+        let skillNow = numberfyOrError($tbl.find("span:eq(0)").text());
+        let skillCity = numberfyOrError($tbl.find("span:eq(1)").text());
+        let skillRequired = numberfyOrError($tbl.find("span:eq(2)").text());
+        return [weekcost, {
+                form: $form,
+                employees: employees,
+                maxEmployees: emplMax,
+                salaryCity: salaryCity,
+                salaryNow: salaryNow,
+                skillCity: skillCity,
+                skillReq: skillRequired,
+                skillNow: skillNow
+            }];
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
  * /main/user/privat/persondata/knowledge
  * @param html
  * @param url
@@ -2036,6 +2105,46 @@ function parseUnitMain(html, url) {
     }
     catch (err) {
         throw err; // new ParseError("unit main page", url, err);
+    }
+}
+/**
+ * /lien/main/unit/view/4152881/finans_report
+ * @param html
+ * @param url
+ */
+function parseUnitFinRep(html, url) {
+    let $html = $(html);
+    try {
+        let res = [];
+        // если в таблице нет данных, например только создали магазин, тогда не будет th заголовков.
+        let $tbl = oneOrError($html, "table.treport");
+        if ($tbl.find("th").length <= 0)
+            return res;
+        let $rows = $tbl.find("tr");
+        // в лабораториях и других подобных юнитах есть тока расходы, а остальное отсутсвтует вообще строки
+        let $header = $rows.eq(0);
+        let $incom = $rows.filter(":contains('Доходы')");
+        let $profit = $rows.filter(":contains('Прибыль')");
+        let $tax = $rows.filter(":contains('Налоги')");
+        let $expense = $rows.filter(":contains('Расходы')");
+        if ($expense.length <= 0)
+            throw new Error("Статья расходов не найдена. А она обязана быть");
+        for (let i of [1, 2, 3, 4]) {
+            let date = extractDate($header.children().eq(i).text());
+            if (date == null)
+                throw new Error("не могу извлечь дату из заголовка" + $header.children().eq(i).html());
+            res.push([date, {
+                    income: $incom.length > 0 ? numberfyOrError($incom.children().eq(i).text(), -1) : 0,
+                    expense: numberfyOrError($expense.children().eq(i).text(), -1),
+                    profit: $profit.length > 0 ? numberfy($profit.children().eq(i).text()) : 0,
+                    tax: $tax.length > 0 ? numberfyOrError($tax.children().eq(i).text(), -1) : 0
+                }]);
+        }
+        return res;
+    }
+    catch (err) {
+        logDebug(`error on ${url}`);
+        throw err;
     }
 }
 /**
@@ -2595,7 +2704,7 @@ function parseCountries(html, url) {
                 name: $a.text().trim(),
                 regions: {}
             };
-        });
+        }).get();
         return countries;
     }
     catch (err) {
@@ -2616,7 +2725,7 @@ function parseRegions(html, url) {
                 salary: -1,
                 tax: -1
             };
-        });
+        }).get();
         return regs;
     }
     catch (err) {
@@ -2626,16 +2735,29 @@ function parseRegions(html, url) {
 function parseCities(html, url) {
     let $html = $(html);
     try {
-        let $tds = $html.find("td.geo");
-        let regs = $tds.map((i, e) => {
-            let $a = oneOrError($(e), "a[href*=city]");
-            let m = matchedOrError($a.attr("href"), /\d+/i);
+        let $rows = closestByTagName($html.find("td.geo"), "tr");
+        let towns = $rows.map((i, e) => {
+            let $r = $(e);
+            let $tds = $r.children("td");
+            let country = $tds.eq(0).attr("title").trim();
+            if (country.length < 2)
+                throw new Error("Ошибка парсинга имени страны");
+            let $a = oneOrError($tds.eq(0), "a[href*=city]");
+            let name = $a.text().trim();
+            if (country.length < 2)
+                throw new Error("Ошибка парсинга имени города");
+            let str = matchedOrError($a.attr("href"), /\d+/i);
+            let id = numberfyOrError(str, 0);
             return {
-                id: numberfyOrError(m, 0),
-                name: $a.text().trim(),
+                id: id,
+                name: name,
+                country: country,
+                population: 1000 * numberfyOrError($tds.eq(1).text(), 0),
+                salary: numberfyOrError($tds.eq(2).text(), 0),
+                eduLevel: numberfyOrError($tds.eq(3).text(), 0),
             };
-        });
-        return regs;
+        }).get();
+        return towns;
     }
     catch (err) {
         throw err;
@@ -2929,12 +3051,16 @@ function parseSupplyCreate(html, url) {
                 if (nums == null || nums.length < 1)
                     throw new Error("невозможно subid для " + $tds.eq(1).text());
                 subid = nums[0];
+                // есть такие мудаки которые не имеют имени компании вообще. это швиздец. ставим им некое штатное
+                // pidoras имя и дальше они с ним внутри игры будут. сразу они в ЧС рукой добавлены чтобы у них ничо не бралось
                 companyName = $tds.eq(1).find("b").text();
-                if (companyName.length <= 0)
-                    throw new Error(`имя компании поставщика юнит ${subid} не спарсилось`);
+                if (companyName.length <= 0) {
+                    logDebug(`имя компании поставщика юнит ${subid} не спарсилось. присваиваю имя pidoras`);
+                    companyName = "pidoras";
+                }
                 unitName = oneOrError($tds.eq(1), "a").text();
                 if (unitName.length <= 0)
-                    throw new Error(`имя поставщика ${companyName} юнит ${subid} не спарсилось`);
+                    throw new Error(`имя подразделения компании ${companyName} юнит ${subid} не спарсилось`);
             }
             // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
             let available = isIndependent ? Number.MAX_SAFE_INTEGER : 0;
@@ -3056,19 +3182,19 @@ function parseCityRetailReport(html, url) {
         // местные
         let localPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(0).text());
         let localQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text());
-        let localBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text(), -1); // может быть равен -
+        let localBrand = numberfy($priceTbl.find("tr").eq(3).children("td").eq(0).text()); // может быть равен -
         // магазины
         let shopPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(1).text());
         let shopQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text());
-        let shopBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text(), -1); // может быть равен -
+        let shopBrand = numberfy($priceTbl.find("tr").eq(3).children("td").eq(1).text()); // может быть равен -
         return {
             product: { id: id, img: img, name: name },
             index: index,
             size: quant,
             sellerCount: sellersCnt,
             companyCount: companiesCnt,
-            locals: { price: localPrice, quality: localQual, brand: localBrand },
-            shops: { price: shopPrice, quality: shopQual, brand: shopBrand },
+            locals: { price: localPrice, quality: localQual, brand: Math.max(localBrand, 0) },
+            shops: { price: shopPrice, quality: shopQual, brand: Math.max(shopBrand, 0) },
         };
     }
     catch (err) {

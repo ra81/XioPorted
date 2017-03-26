@@ -527,6 +527,52 @@ function parseSalary(html: any, url: string): ISalary {
 }
 
 /**
+ * /olga/window/unit/employees/education/6566432
+ * @param html
+ * @param url
+ */
+function parseEducation(html: any, url: string): [number, ISalary]|null {
+    let $html = $(html);
+
+    try {
+        // формы может не быть если обучение уже запущено
+        let $form = $html.filter("form");   // через find не находит какого то хера
+        if ($form.length <= 0)
+            return null;
+
+        let $tbl = oneOrError($html, "table.list");
+
+        let salaryNow = numberfyOrError($tbl.find("td:eq(8)").text());
+        let salaryCity = numberfyOrError($tbl.find("td:eq(9)").text().split("$")[1]);
+
+        let weekcost = numberfyOrError($tbl.find("#educationCost").text());
+
+        let employees = numberfyOrError($tbl.find("#unitEmployeesData_employees").val(), -1);
+        let emplMax = numberfyOrError($tbl.find("td:eq(2)").text().split(":")[1]);
+
+        let skillNow = numberfyOrError($tbl.find("span:eq(0)").text());
+        let skillCity = numberfyOrError($tbl.find("span:eq(1)").text());
+        let skillRequired = numberfyOrError($tbl.find("span:eq(2)").text());
+
+        return [weekcost, {
+            form: $form,
+            employees: employees,
+            maxEmployees: emplMax,
+            salaryCity: salaryCity,
+            salaryNow: salaryNow,
+            skillCity: skillCity,
+            skillReq: skillRequired,
+            skillNow: skillNow
+        }]
+        
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+
+/**
  * /main/user/privat/persondata/knowledge
  * @param html
  * @param url
@@ -883,6 +929,55 @@ function parseUnitMain(html: any, url: string): IMain {
         throw err; // new ParseError("unit main page", url, err);
     }
 }
+
+/**
+ * /lien/main/unit/view/4152881/finans_report
+ * @param html
+ * @param url
+ */
+function parseUnitFinRep(html: any, url: string): [Date, IUnitFinance][] {
+    let $html = $(html);
+
+    try {
+        let res: [Date, IUnitFinance][] = [];
+
+        // если в таблице нет данных, например только создали магазин, тогда не будет th заголовков.
+        let $tbl = oneOrError($html, "table.treport");
+        if ($tbl.find("th").length <= 0)
+            return res;
+
+        let $rows = $tbl.find("tr");
+
+        // в лабораториях и других подобных юнитах есть тока расходы, а остальное отсутсвтует вообще строки
+        let $header = $rows.eq(0);
+        let $incom = $rows.filter(":contains('Доходы')");
+        let $profit = $rows.filter(":contains('Прибыль')");
+        let $tax = $rows.filter(":contains('Налоги')");
+        let $expense = $rows.filter(":contains('Расходы')");
+        if ($expense.length <= 0)
+            throw new Error("Статья расходов не найдена. А она обязана быть");
+
+        for (let i of [1, 2, 3, 4]) {
+            let date = extractDate($header.children().eq(i).text());
+            if (date == null)
+                throw new Error("не могу извлечь дату из заголовка"+ $header.children().eq(i).html());
+
+            res.push([date, {
+                income: $incom.length > 0 ? numberfyOrError($incom.children().eq(i).text(), -1) : 0,
+                expense: numberfyOrError($expense.children().eq(i).text(), -1),
+                profit: $profit.length > 0 ? numberfy($profit.children().eq(i).text()) : 0,      // может быть и отрицат
+                tax: $tax.length > 0 ? numberfyOrError($tax.children().eq(i).text(), -1) : 0
+            }]);
+        }
+
+        return res;
+    }
+    catch (err) {
+        logDebug(`error on ${url}`);
+        throw err;
+    }
+}
+
 
 /**
  * Чисто размер складов вида https://virtonomica.ru/fast/window/unit/upgrade/8006972
@@ -1603,7 +1698,7 @@ function parseCountries(html: any, url: string): ICountry[] {
                 name: $a.text().trim(),
                 regions: {}
             };
-        }) as any as ICountry[];
+        }).get() as any as ICountry[];
 
         return countries;
     }
@@ -1629,7 +1724,7 @@ function parseRegions(html: any, url: string): IRegion[] {
                 salary: -1,
                 tax: -1
             }
-        }) as any as IRegion[];
+        }).get() as any as IRegion[];
 
         return regs;
     }
@@ -1643,18 +1738,34 @@ function parseCities(html: any, url: string): ICity[] {
 
     try {
 
-        let $tds = $html.find("td.geo");
-        let regs = $tds.map((i, e): ICity => {
-            let $a = oneOrError($(e), "a[href*=city]");
+        let $rows = closestByTagName($html.find("td.geo"), "tr");
+        let towns = $rows.map((i, e): ICity => {
+            let $r = $(e);
+            let $tds = $r.children("td");
 
-            let m = matchedOrError($a.attr("href"), /\d+/i);
+            let country = $tds.eq(0).attr("title").trim();
+            if (country.length < 2)
+                throw new Error("Ошибка парсинга имени страны");
+
+            let $a = oneOrError($tds.eq(0), "a[href*=city]");
+            let name = $a.text().trim();
+            if (country.length < 2)
+                throw new Error("Ошибка парсинга имени города");
+
+            let str = matchedOrError($a.attr("href"), /\d+/i);
+            let id = numberfyOrError(str, 0);
+
             return {
-                id: numberfyOrError(m, 0),
-                name: $a.text().trim(),
+                id: id,
+                name: name,
+                country: country,
+                population: 1000*numberfyOrError($tds.eq(1).text(), 0),
+                salary: numberfyOrError($tds.eq(2).text(), 0),
+                eduLevel: numberfyOrError($tds.eq(3).text(), 0),
             }
-        }) as any as ICity[];
+        }).get() as any as ICity[];
 
-        return regs;
+        return towns;
     }
     catch (err) {
         throw err;
@@ -2029,13 +2140,18 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                     throw new Error("невозможно subid для " + $tds.eq(1).text());
 
                 subid = nums[0];
+
+                // есть такие мудаки которые не имеют имени компании вообще. это швиздец. ставим им некое штатное
+                // pidoras имя и дальше они с ним внутри игры будут. сразу они в ЧС рукой добавлены чтобы у них ничо не бралось
                 companyName = $tds.eq(1).find("b").text();
-                if (companyName.length <= 0)
-                    throw new Error(`имя компании поставщика юнит ${subid} не спарсилось`);
+                if (companyName.length <= 0) {
+                    logDebug(`имя компании поставщика юнит ${subid} не спарсилось. присваиваю имя pidoras`);
+                    companyName = "pidoras";
+                }
 
                 unitName = oneOrError($tds.eq(1), "a").text();
                 if (unitName.length <= 0)
-                    throw new Error(`имя поставщика ${companyName} юнит ${subid} не спарсилось`);
+                    throw new Error(`имя подразделения компании ${companyName} юнит ${subid} не спарсилось`);
             }
 
             // если поставщик независимый и его субайди не нашли, значит на складах дохера иначе парсим
@@ -2186,12 +2302,12 @@ function parseCityRetailReport(html: any, url: string): ICityRetailReport {
         // местные
         let localPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(0).text());
         let localQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text());
-        let localBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(0).text(), -1);   // может быть равен -
+        let localBrand = numberfy($priceTbl.find("tr").eq(3).children("td").eq(0).text());   // может быть равен -
 
         // магазины
         let shopPrice = numberfyOrError($priceTbl.find("tr").eq(1).children("td").eq(1).text());
         let shopQual = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text());
-        let shopBrand = numberfyOrError($priceTbl.find("tr").eq(2).children("td").eq(1).text(), -1);   // может быть равен -
+        let shopBrand = numberfy($priceTbl.find("tr").eq(3).children("td").eq(1).text());   // может быть равен -
 
         return {
             product: { id: id, img: img, name: name},
@@ -2199,8 +2315,8 @@ function parseCityRetailReport(html: any, url: string): ICityRetailReport {
             size: quant,
             sellerCount: sellersCnt,
             companyCount: companiesCnt,
-            locals: { price: localPrice, quality: localQual, brand: localBrand },
-            shops: { price: shopPrice, quality: shopQual, brand: shopBrand },
+            locals: { price: localPrice, quality: localQual, brand: Math.max(localBrand, 0) },
+            shops: { price: shopPrice, quality: shopQual, brand: Math.max(shopBrand, 0) },
         };
     }
     catch (err) {

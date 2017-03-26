@@ -469,6 +469,10 @@ interface ICountry {
 }
 
 interface ICity {
-    id: number;         // номер страны
+    id: number;         // номер города
     name: string;       // имя. Азербайджан и т.д
+    country: string;    // страна строкой
+    population: number;
+    salary: number;     // зарплата
+    eduLevel: number;   // уровень образования
 }
