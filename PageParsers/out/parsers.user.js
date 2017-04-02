@@ -162,6 +162,37 @@ function filterDictVal(dict, selector) {
     return res;
 }
 /**
+ * Склеивает два словаря вместе. Ключи не теряются, если есть одинаковые то вывалит ошибку
+ * @param dict1
+ * @param dict2
+ */
+function mergeDict(dict1, dict2) {
+    if (dict1 == null || dict2 == null)
+        throw new Error("аргументы не должны быть null");
+    let res = {};
+    for (let key in dict1)
+        res[key] = dict1[key];
+    for (let key in dict2) {
+        if (res[key] != null)
+            throw new Error(`dict1 уже имеет такой же ключ '${key}' как и dict2`);
+        res[key] = dict2[key];
+    }
+    return res;
+}
+function mergeDictN(dict1, dict2) {
+    if (dict1 == null || dict2 == null)
+        throw new Error("аргументы не должны быть null");
+    let res = {};
+    for (let key in dict1)
+        res[key] = dict1[key];
+    for (let key in dict2) {
+        if (res[key] != null)
+            throw new Error(`dict1 уже имеет такой же ключ '${key}' как и dict2`);
+        res[key] = dict2[key];
+    }
+    return res;
+}
+/**
  * Проверяет что элемент есть в массиве.
  * @param item
  * @param arr массив НЕ null
@@ -551,7 +582,7 @@ let url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/
 let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
 let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
 let url_supp_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i; // снабжение
-let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale/i; // продажа склад/завод
+let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale\/?/i; // продажа склад/завод
 let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i; // реклама
 let url_education_rx = /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i; // обучение
 let url_supply_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; // заказ товара в маг, или склад. в общем стандартный заказ товара
@@ -568,6 +599,7 @@ let url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee
 let url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
 let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i; // страница со всеми товарами игры
 let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
+let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i; // размеры продуктов на склада
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
  * Если на задавать ссылку и хтмл то берет текущий документ.
@@ -669,6 +701,13 @@ function isShop(html, my = true) {
     let $img = $html.find("#unitImage img[src*='/shop_']");
     if ($img.length > 1)
         throw new Error(`Найдено несколько (${$img.length}) картинок Магазина.`);
+    return $img.length > 0;
+}
+function isWarehouse($html) {
+    // нет разницы наш или чужой юнит везде картинка мага нужна. ее нет только если window
+    let $img = $html.find("#unitImage img[src*='/warehouse_']");
+    if ($img.length > 1)
+        throw new Error(`Найдено несколько (${$img.length}) картинок Склада.`);
     return $img.length > 0;
 }
 /**
@@ -1076,6 +1115,26 @@ function buildStoreKey(realm, code, subid) {
     return res;
 }
 /**
+ * Возвращает все ключи юнитов для заданного реалма и КОДА.
+ * @param realm
+ * @param storeKey код ключа sh, udd, vh итд
+ */
+function getStoredUnitsKeys(realm, storeKey) {
+    let res = [];
+    for (let key in localStorage) {
+        // если в ключе нет числа, не брать его
+        let m = extractIntPositive(key);
+        if (m == null)
+            continue;
+        // если ключик не совпадает со старым ключем для посетителей
+        let subid = m[0];
+        if (key !== buildStoreKey(realm, storeKey, subid))
+            continue;
+        res.push(key);
+    }
+    return res;
+}
+/**
  * Выводит текстовое поле, куда выводит все ключи с содержимым в формате ключ=значение|ключи=значение...
  * @param test функция возвращающая ИСТИНУ если данный ключик надо экспортить, иначе ЛОЖЬ
  * @param $place элемент страницы в который будет добавлено текстовое поле для вывода
@@ -1294,6 +1353,9 @@ let urlTemplates = {
     unitFinRep: [url_unit_finance_report,
             (html) => true,
         parseUnitFinRep],
+    productSizes: [url_products_size_rx,
+            (html) => true,
+        parseProductsSize],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -1790,7 +1852,7 @@ function parseEducation(html, url) {
         let emplMax = numberfyOrError($tbl.find("td:eq(2)").text().split(":")[1]);
         let skillNow = numberfyOrError($tbl.find("span:eq(0)").text());
         let skillCity = numberfyOrError($tbl.find("span:eq(1)").text());
-        let skillRequired = numberfyOrError($tbl.find("span:eq(2)").text());
+        let skillRequired = numberfyOrError($tbl.find("span:eq(2)").text(), -1); // может быть и 0
         return [weekcost, {
                 form: $form,
                 employees: employees,
@@ -2598,7 +2660,14 @@ function parseRetailSupplyNew(html, url) {
                 //
                 $td = oneOrError($r, `td[id^=totalPrice_${product.id}]`);
                 // цена кач бренд могут быть пустыми если товара у поставщика нет
-                let price = numberfy($td.find("td:contains('Цена')").next("td").text());
+                let str = oneOrError($td, "td:contains('Цена')").next("td").text();
+                let n = extractFloatPositive(str);
+                if (n == null)
+                    throw new Error("не найдена цена продажи у " + companyName);
+                // если поставщик поднял цену, тогда новая цена будет второй и по факту это цена контракта.
+                // нельзя заключать контракт по старой цене уже. и при обновлении поставок надо ориентироваться на новую цену
+                let price = n.length > 1 ? n[1] : n[0];
+                //let price = numberfy($td.find("td:contains('Цена')").next("td").text());
                 let quality = numberfy($td.find("td:contains('Качество')").next("td").text());
                 let brand = numberfy($td.find("td:contains('Бренд')").next("td").text());
                 // состояние склада поставщика
@@ -3196,6 +3265,40 @@ function parseCityRetailReport(html, url) {
             locals: { price: localPrice, quality: localQual, brand: Math.max(localBrand, 0) },
             shops: { price: shopPrice, quality: shopQual, brand: Math.max(shopBrand, 0) },
         };
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
+ * Размеры товаров. Задает сколько метров склада надо на 1 штуку товара
+   /lien/main/industry/unit_type/info/2011/volume
+   
+ * @param html
+ * @param url
+ */
+function parseProductsSize(html, url) {
+    let $html = $(html);
+    try {
+        let $rows = closestByTagName($html.find("table.grid img"), "tr");
+        if ($rows.length < 100)
+            throw new Error('слишком мало товаров найдено. очевидно ошибка');
+        let res = {};
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $img = oneOrError($r, "img");
+            let img = $img.attr("src");
+            let name = $img.attr("title");
+            let n = extractIntPositive($r.find("a").eq(0).attr("href"));
+            if (n == null || n.length > 1)
+                throw new Error("не найден id продукта " + img);
+            let id = n[0];
+            // сколько штук влазит в 5млн метров склада
+            let quant = numberfyOrError($r.find("td").last().text());
+            // на выходе дадим сколько метров надо на 1 штуку товара
+            res[id] = [{ id: id, img: img, name: name }, 5000000 / quant];
+        });
+        return res;
     }
     catch (err) {
         throw err;

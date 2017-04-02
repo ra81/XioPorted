@@ -552,7 +552,7 @@ function parseEducation(html: any, url: string): [number, ISalary]|null {
 
         let skillNow = numberfyOrError($tbl.find("span:eq(0)").text());
         let skillCity = numberfyOrError($tbl.find("span:eq(1)").text());
-        let skillRequired = numberfyOrError($tbl.find("span:eq(2)").text());
+        let skillRequired = numberfyOrError($tbl.find("span:eq(2)").text(), -1); // может быть и 0
 
         return [weekcost, {
             form: $form,
@@ -1568,7 +1568,14 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 $td = oneOrError($r, `td[id^=totalPrice_${product.id}]`);
 
                 // цена кач бренд могут быть пустыми если товара у поставщика нет
-                let price = numberfy($td.find("td:contains('Цена')").next("td").text());
+                let str = oneOrError($td, "td:contains('Цена')").next("td").text();
+                let n = extractFloatPositive(str);
+                if (n == null)
+                    throw new Error("не найдена цена продажи у " + companyName);
+                // если поставщик поднял цену, тогда новая цена будет второй и по факту это цена контракта.
+                // нельзя заключать контракт по старой цене уже. и при обновлении поставок надо ориентироваться на новую цену
+                let price = n.length > 1 ? n[1] : n[0];
+                //let price = numberfy($td.find("td:contains('Цена')").next("td").text());
                 let quality = numberfy($td.find("td:contains('Качество')").next("td").text());
                 let brand = numberfy($td.find("td:contains('Бренд')").next("td").text());
 
@@ -2318,6 +2325,50 @@ function parseCityRetailReport(html: any, url: string): ICityRetailReport {
             locals: { price: localPrice, quality: localQual, brand: Math.max(localBrand, 0) },
             shops: { price: shopPrice, quality: shopQual, brand: Math.max(shopBrand, 0) },
         };
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * Размеры товаров. Задает сколько метров склада надо на 1 штуку товара
+   /lien/main/industry/unit_type/info/2011/volume
+   
+ * @param html
+ * @param url
+ */
+function parseProductsSize(html: any, url: string): IDictionaryN<[IProduct, number]> {
+    let $html = $(html);
+
+    try {
+
+        let $rows = closestByTagName($html.find("table.grid img"), "tr");
+        if ($rows.length < 100)
+            throw new Error('слишком мало товаров найдено. очевидно ошибка');
+
+        let res: IDictionaryN<[IProduct, number]> = {};
+        $rows.each((i, el) => {
+            let $r = $(el);
+
+            let $img = oneOrError($r, "img");
+            let img = $img.attr("src");
+            let name = $img.attr("title");
+
+            let n = extractIntPositive($r.find("a").eq(0).attr("href"));
+            if (n == null || n.length > 1)
+                throw new Error("не найден id продукта " + img);
+
+            let id = n[0];
+
+            // сколько штук влазит в 5млн метров склада
+            let quant = numberfyOrError($r.find("td").last().text());
+
+            // на выходе дадим сколько метров надо на 1 штуку товара
+            res[id] = [{ id: id, img: img, name: name }, 5000000 / quant];
+        });
+
+        return res;
     }
     catch (err) {
         throw err;

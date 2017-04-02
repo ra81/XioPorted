@@ -149,6 +149,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     unitFinRep: [url_unit_finance_report,
         (html: any) => true,
         parseUnitFinRep],
+    productSizes: [url_products_size_rx,
+        (html: any) => true,
+        parseProductsSize],
 };
 
 $(document).ready(() => parseStart());
