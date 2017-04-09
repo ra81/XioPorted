@@ -1144,7 +1144,7 @@ function Export($place, test) {
         return false;
     if ($place.find("#txtExport").length > 0) {
         $place.find("#txtExport").remove();
-        return;
+        return false;
     }
     let $txt = $('<textarea id="txtExport" style="display:block;width: 800px; height: 200px"></textarea>');
     let string = "";
@@ -1171,7 +1171,7 @@ function Import($place) {
     if ($place.find("#txtImport").length > 0) {
         $place.find("#txtImport").remove();
         $place.find("#saveImport").remove();
-        return;
+        return false;
     }
     let $txt = $('<textarea id="txtImport" style="display:block;width: 800px; height: 200px"></textarea>');
     let $saveBtn = $(`<input id="saveImport" type=button disabled="true" value="Save!">`);
@@ -1215,6 +1215,9 @@ let urlTemplates = {
     main: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi,
             (html) => true,
         parseUnitMain],
+    mainNew: [/\/\w+\/main\/unit\/view\/\d+\/?$/gi,
+            (html) => true,
+        parseUnitMainNew],
     ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig,
             (html) => true,
         parseAds],
@@ -1317,11 +1320,11 @@ let urlTemplates = {
     animals: [/zzz/gi,
             (html) => true,
         parseX],
-    size: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig,
+    wareResize: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig,
             (html) => true,
-        parseWareSize],
-    waremain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
-            (html) => true,
+        parseWareResize],
+    wareMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
+            (html) => isWarehouse($(html)),
         parseWareMain],
     productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
             (html) => true,
@@ -2087,8 +2090,18 @@ function parseUnitMain(html, url) {
                     return -1;
                 return numberfy(jq.text());
             })();
-            let _img = $html.find("#unitImage img").attr("src").split("/")[4].split("_")[0];
-            let _size = numberfy($html.find("#unitImage img").attr("src").split("_")[1]);
+            // обработка картинки
+            let [_img, _size] = (() => {
+                let imgsrc = oneOrError($html, "#unitImage img").attr("src");
+                let imgfile = imgsrc.split("/").pop();
+                if (imgfile == null)
+                    throw new Error(`какая то ошибка в обработке картинки ${imgsrc} юнита`);
+                // в методе странно но номера символов походу не с 0 идут а с 1
+                let imgname = imgfile.split(".")[0]; // без расширения уже
+                let img = imgname.substring(0, imgname.length - 1 - 1);
+                let size = numberfyOrError(imgname.substring(imgname.length - 1, imgname.length));
+                return [img, size];
+            })();
             // такой изврат с приведением из за компилера. надо чтобы работало
             let _type = UnitTypes[_img] ? UnitTypes[_img] : UnitTypes.unknown;
             if (_type == UnitTypes.unknown)
@@ -2104,34 +2117,41 @@ function parseUnitMain(html, url) {
             let _visitors = numberfy($r.find("td:eq(1)").text()) || -1;
             $r = $r.next("tr");
             let _service = ServiceLevels.none;
-            let $hint = $r.find("div.productivity_hint");
-            if ($hint.length > 0) {
-                let txt = $hint.find("div.title").text();
-                switch (txt.toLowerCase()) {
-                    case "элитный":
-                        _service = ServiceLevels.elite;
-                        break;
-                    case "очень высокий":
-                        _service = ServiceLevels.higher;
-                        break;
-                    case "высокий":
-                        _service = ServiceLevels.high;
-                        break;
-                    case "нормальный":
-                        _service = ServiceLevels.normal;
-                        break;
-                    case "низкий":
-                        _service = ServiceLevels.low;
-                        break;
-                    case "очень низкий":
-                        _service = ServiceLevels.lower;
-                        break;
-                    case "не известен":
-                        _service = ServiceLevels.none;
-                        break;
-                    default:
-                        throw new Error("Не смог идентифицировать указанный уровень сервиса " + txt);
-                }
+            {
+                let txt = "";
+                // для магазинов уровень в спец хинте лежит, для заправок/сервисов просто ячейка
+                // но хинта может и не быть вовсе если маг в отпуске или товар нет
+                if (_type === UnitTypes.shop)
+                    txt = $r.find("div.productivity_hint div.title").text().trim();
+                else
+                    // last надо потому что может быть вложенная ячейка и нужно взять самую вложенную
+                    txt = $html.find("td:contains(Уровень сервиса)").last().next("td").text().trim();
+                if (txt.length > 1)
+                    switch (txt.toLowerCase()) {
+                        case "элитный":
+                            _service = ServiceLevels.elite;
+                            break;
+                        case "очень высокий":
+                            _service = ServiceLevels.higher;
+                            break;
+                        case "высокий":
+                            _service = ServiceLevels.high;
+                            break;
+                        case "нормальный":
+                            _service = ServiceLevels.normal;
+                            break;
+                        case "низкий":
+                            _service = ServiceLevels.low;
+                            break;
+                        case "очень низкий":
+                            _service = ServiceLevels.lower;
+                            break;
+                        case "не известен":
+                            _service = ServiceLevels.none;
+                            break;
+                        default:
+                            throw new Error("Не смог идентифицировать указанный уровень сервиса " + txt);
+                    }
             }
             return {
                 type: _type,
@@ -2167,6 +2187,331 @@ function parseUnitMain(html, url) {
     }
     catch (err) {
         throw err; // new ParseError("unit main page", url, err);
+    }
+}
+function parseUnitMainNew(html, url) {
+    let $html = $(html);
+    try {
+        if ($html.find(".unit_box").length > 0)
+            throw new Error("Не работаю на новом интерфейсе");
+        let mainBase = base();
+        switch (mainBase.type) {
+            case UnitTypes.warehouse:
+                return $.extend({}, mainBase, ware(mainBase.size));
+            case UnitTypes.shop:
+                return $.extend({}, mainBase, shop());
+            case UnitTypes.fuel:
+                return $.extend({}, mainBase, fuel());
+            default:
+                return mainBase;
+        }
+    }
+    catch (err) {
+        throw err; // new ParseError("unit main page", url, err);
+    }
+    // юнит, img, эффективность
+    function base() {
+        // subid 
+        let $a = oneOrError($html, "a[data-name='itour-tab-unit-view']");
+        let n = extractIntPositive($a.attr("href"));
+        if (n == null)
+            throw new Error(`на нашел subid юнита`);
+        let subid = n[0];
+        // name
+        let name = oneOrError($html, "#headerInfo h1").text().trim();
+        // обработка картинки
+        let imgsrc = oneOrError($html, "#unitImage img").attr("src");
+        let imgfile = imgsrc.split("/").pop();
+        if (imgfile == null)
+            throw new Error(`какая то ошибка в обработке картинки ${imgsrc} юнита`);
+        // в методе странно но номера символов походу не с 0 идут а с 1
+        let imgname = imgfile.split(".")[0]; // без расширения уже
+        let img = imgname.substring(0, imgname.length - 1 - 1);
+        let size = numberfyOrError(imgname.substring(imgname.length - 1, imgname.length));
+        // такой изврат с приведением из за компилера. надо чтобы работало
+        let type = UnitTypes[img] ? UnitTypes[img] : UnitTypes.unknown;
+        if (type == UnitTypes.unknown)
+            throw new Error("Не описан тип юнита " + img);
+        let unit = { subid: subid, name: name, size: size, type: type };
+        // эффективность
+        let str = oneOrError($html, "table.infoblock tr:contains('Эффективность работы') td.progress_bar").next("td").text();
+        let eff = numberfyOrError(str, -1);
+        return {
+            subid: subid,
+            name: name,
+            type: type,
+            size: size,
+            img: img,
+            efficiency: eff
+        };
+    }
+    function ware(size) {
+        let $info = oneOrError($html, "table.infoblock");
+        // строк со спецехой находит несколько по дефолту
+        let spec = oneOrError($info, "tr:contains('Специализация'):last() td:last()").text().trim();
+        let str = oneOrError($info, "tr:contains('Процент заполнения') td:last()").text();
+        let filling = numberfyOrError(str, -1);
+        let capacity = 10000;
+        switch (size) {
+            case 1:
+                capacity = 10000;
+                break;
+            case 2:
+                capacity = 50000;
+                break;
+            case 3:
+                capacity = 100000;
+                break;
+            case 4:
+                capacity = 500000;
+                break;
+            case 5:
+                capacity = 1000000;
+                break;
+            case 6:
+                capacity = 5000000;
+                break;
+            default:
+                throw new Error("неизвестный размер склада " + size);
+        }
+        // спарсим строки с товаром на складе
+        // товар которго нет на складе но есть заказ, будет отображаться на складе с прочерками или нулями
+        let $tbl = oneOrError($html, "table.grid");
+        let $rows = closestByTagName($tbl.find("img"), "tr");
+        let dict = {};
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+            let img = $tds.eq(0).find("img").attr("src");
+            let awail = numberfyOrError($tds.eq(1).text(), -1);
+            let quality = awail > 0 ? numberfyOrError($tds.eq(2).text()) : 0;
+            let price = awail > 0 ? numberfyOrError($tds.eq(3).text()) : 0;
+            let n = numberfy($tds.eq(4).text());
+            let sellPrice = n > 0 ? n : 0;
+            dict[img] = {
+                stock: {
+                    available: awail,
+                    product: { quality: quality, price: price, brand: 0 },
+                },
+                sellPrice: sellPrice,
+                inOrdered: numberfyOrError($tds.eq(6).text(), -1),
+                inDeliver: numberfyOrError($tds.eq(7).text(), -1),
+                outOrdered: numberfyOrError($tds.eq(5).text(), -1),
+                outDeliver: numberfyOrError($tds.eq(8).text(), -1),
+                filling: numberfyOrError($tds.eq(0).text(), -1)
+            };
+        });
+        return {
+            filling: filling,
+            specialization: spec,
+            capacity: capacity,
+            dashboard: dict
+        };
+    }
+    function shop() {
+        let $info = $html.find("table.infoblock"); // Район города  Расходы на аренду
+        // общая инфа
+        let place = $info.find("td.title:contains(Район города)").next("td").text().split(/\s+/)[0].trim();
+        let rent = numberfyOrError($info.find("td.title:contains(Расходы на аренду)").next("td").text());
+        let depts = numberfyOrError($info.find("td.title:contains(Количество отделов)").next("td").text(), -1);
+        // число рабов и требования
+        let str = $info.find("td.title:contains(Количество сотрудников)").next("td").text();
+        let employees = numberfyOrError(str.split("(")[0], -1); //0 может быть но всегда есть число
+        let employeesReq = numberfyOrError(str.split("~")[1], -1);
+        str = $info.find("td.title:contains(Эффективность персонала)").next("td").text();
+        let inHoliday = $info.find("img[src='/img/icon/holiday.gif']").length > 0;
+        let employeesEff = inHoliday ? 0 : numberfyOrError(str, -1);
+        // число посов может вообще отсутствовать как и сервис
+        let visitors = 0;
+        let service = ServiceLevels.none;
+        let $td = $info.find("td.title:contains(Количество посетителей)").next("td");
+        if ($td.length > 0) {
+            visitors = numberfyOrError($td.text(), -1);
+            let $hint = $td.closest("tr").next("tr").find("div.productivity_hint div.title");
+            if ($hint.length <= 0)
+                throw new Error("не нашли уровень сервиса");
+            service = serviceFromStrOrError($hint.text());
+        }
+        return {
+            place: place,
+            rent: rent,
+            departments: depts,
+            employees: { employees: employees, required: employeesReq, efficiency: employeesEff },
+            service: service,
+            visitors: visitors
+        };
+    }
+    function fuel() {
+        let $info = $html.find("table.infoblock"); // Район города  Расходы на аренду
+        // общая инфа
+        let rent = numberfyOrError($info.find("td.title:contains(Расходы на аренду)").next("td").text());
+        // число рабов и требования
+        let str = $info.find("td.title:contains(Количество сотрудников)").next("td").text();
+        let employees = numberfyOrError(str.split("(")[0], -1); //0 может быть но всегда есть число
+        let employeesReq = numberfyOrError(str.split("требуется")[1], -1);
+        str = $info.find("td.title:contains(Эффективность персонала)").next("td").text();
+        let inHoliday = $info.find("img[src='/img/icon/holiday.gif']").length > 0;
+        let employeesEff = inHoliday ? 0 : numberfyOrError(str, -1);
+        // число посов может вообще отсутствовать как и сервис
+        let visitors = 0;
+        let service = ServiceLevels.none;
+        let $td = $info.find("td.title:contains(Количество посетителей)").next("td");
+        if ($td.length > 0)
+            visitors = numberfyOrError($td.text(), -1);
+        $td = $info.find("td.title:contains(Уровень сервиса)").next("td");
+        if ($td.length > 0)
+            service = serviceFromStrOrError($td.text());
+        return {
+            employees: { employees: employees, required: employeesReq, efficiency: employeesEff },
+            rent: rent,
+            visitors: visitors,
+            service: service,
+            equipment: equipment()
+        };
+    }
+    function equipment() {
+        let $info = $html.find("table.infoblock"); // Район города  Расходы на аренду
+        // Количество оборудования
+        let str = $info.find("td.title:contains(Количество оборудования)").next("td").text();
+        let n = extractIntPositive(str);
+        if (n == null || n.length < 2)
+            throw new Error("не нашли оборудование");
+        let equipment = n[0];
+        let equipmentMax = n.length > 1 ? n[1] : 0;
+        // если оборудования нет, то ничего не будет кроме числа 0
+        if (equipment === 0)
+            return {
+                equipment: equipment,
+                equipmentMax: equipmentMax,
+                quality: 0,
+                qualityRequired: 0,
+                brokenPct: 0,
+                brokenBlack: 0,
+                brokenRed: 0,
+                efficiency: 0
+            };
+        // Качество оборудования
+        // 8.40 (требуется по технологии 1.00)
+        // или просто 8.40 если нет требований
+        str = $info.find("td.title:contains(Качество оборудования)").next("td").text();
+        n = extractFloatPositive(str);
+        if (n == null)
+            throw new Error("не нашли кач оборудование");
+        let quality = n[0];
+        let qualityReq = n.length > 1 ? n[1] : 0;
+        // Износ оборудования
+        // красный и черный и % износа
+        // 1.28 % (25+1 ед.)
+        // 0.00 % (0 ед.)
+        str = $info.find("td.title:contains(Износ оборудования)").next("td").text();
+        let items = str.split("%");
+        let brokenPct = numberfyOrError(items[0], -1);
+        n = extractIntPositive(items[1]);
+        if (n == null)
+            throw new Error("не нашли износ оборудования");
+        let brokenBlack = n[0]; // черный есть всегда 
+        let brokenRed = n.length > 1 ? n[1] : 0; // красный не всегда
+        // Эффективность оборудования
+        str = $info.find("td.title:contains(Эффективность оборудования)").next("td").text();
+        let equipEff = numberfyOrError(str, -1);
+        return {
+            equipment: equipment,
+            equipmentMax: equipmentMax,
+            quality: quality,
+            qualityRequired: qualityReq,
+            brokenPct: brokenPct,
+            brokenBlack: brokenBlack,
+            brokenRed: brokenRed,
+            efficiency: equipEff
+        };
+    }
+    function employees() {
+        let $block = $html.find("table.infoblock");
+        // Количество рабочих. может быть 0 для складов.
+        // Возможные варианты для рабочих будут
+        // 10(требуется ~ 1)
+        // 10(максимум:1)
+        // 1 000 (максимум:10 000) пробелы в числах!!
+        // 10 ед. (максимум:1) это уже не включать
+        let employees = 0;
+        let employeesReq = 0;
+        //let types = ["сотрудников", "работников", "учёных", "рабочих"];
+        //let $r = $block.find(`td.title:contains(Количество сотрудников), 
+        //                      td.title:contains(Количество работников),
+        //                      td.title:contains(Количество учёных),
+        //                      td.title:contains(Количество рабочих)`);
+        //let empl = (() => {
+        //    // Возможные варианты для рабочих будут
+        //    // 10(требуется ~ 1)
+        //    // 10(максимум:1)
+        //    // 10 ед. (максимум:1) это уже не включать
+        //    // 1 000 (максимум:10 000) пробелы в числах!!
+        //    let types = ["сотрудников", "работников", "учёных", "рабочих"];
+        //    let res = [-1, -1];
+        //    //let emplRx = new RegExp(/\d+\s*\(.+\d+.*\)/g);
+        //    //let td = jq.next("td").filter((i, el) => emplRx.test($(el).text()));
+        //    let jq = $block.find('td.title:contains("Количество")').filter((i, el) => {
+        //        return types.some((t, i, arr) => $(el).text().indexOf(t) >= 0);
+        //    });
+        //    if (jq.length !== 1)
+        //        return res;
+        //    // например в лаборатории будет находить вместо требований, так как их нет, макс число рабов в здании
+        //    let m = jq.next("td").text().replace(/\s*/g, "").match(rxInt);
+        //    if (!m || m.length !== 2)
+        //        return res;
+        //    return [parseFloat(m[0]), parseFloat(m[1])];
+        //})();
+        //let _employees = empl[0];
+        //let _employeesReq = empl[1];
+        //// общее число подчиненных по профилю
+        //let _totalEmployees = numberfy($block.find('td:contains("Суммарное количество подчинённых")').next("td").text());
+        //let salary = (() => {
+        //    //let rx = new RegExp(/\d+\.\d+.+в неделю\s*\(в среднем по городу.+?\d+\.\d+\)/ig);
+        //    let jq = $block.find('td.title:contains("Зарплата")').next("td");
+        //    if (jq.length !== 1)
+        //        return ["-1", "-1"];
+        //    let m = jq.text().replace(/\s*/g, "").match(rxFloat);
+        //    if (!m || m.length !== 2)
+        //        return ["-1", "-1"];
+        //    return m;
+        //})();
+        //let _salaryNow = numberfy(salary[0]);
+        //let _salaryCity = numberfy(salary[1]);
+        //let skill = (() => {
+        //    let jq = $block.find('td.title:contains("Уровень квалификации")').next("td");
+        //    if (jq.length !== 1)
+        //        return ["-1", "-1", "-1"];
+        //    // возможные варианты результата
+        //    // 10.63 (в среднем по городу 9.39, требуется по технологии 6.74)
+        //    // 9.30(в среднем по городу 16.62 )
+        //    let m = jq.text().match(rxFloat);
+        //    if (!m || m.length < 2)
+        //        return ["-1", "-1", "-1"];
+        //    return [m[0], m[1], m[2] || "-1"];
+        //})();
+        //let _skillNow = numberfy(skill[0]);
+        //let _skillCity = numberfy(skill[1]);
+        //let _skillReq = numberfy(skill[2]);     // для лаб требования может и не быть
+    }
+    function serviceFromStrOrError(str) {
+        switch (str.toLowerCase()) {
+            case "элитный":
+                return ServiceLevels.elite;
+            case "очень высокий":
+                return ServiceLevels.higher;
+            case "высокий":
+                return ServiceLevels.high;
+            case "нормальный":
+                return ServiceLevels.normal;
+            case "низкий":
+                return ServiceLevels.low;
+            case "очень низкий":
+                return ServiceLevels.lower;
+            case "не известен":
+                return ServiceLevels.none;
+            default:
+                throw new Error("Не смог идентифицировать указанный уровень сервиса " + str);
+        }
     }
 }
 /**
@@ -2214,7 +2559,7 @@ function parseUnitFinRep(html, url) {
  * @param html
  * @param url
  */
-function parseWareSize(html, url) {
+function parseWareResize(html, url) {
     let $html = $(html);
     try {
         let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
@@ -2229,7 +2574,7 @@ function parseWareSize(html, url) {
         let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get();
         let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get();
         return {
-            size: _size,
+            capacity: _size,
             rent: _rent,
             id: _id
         };
@@ -2431,14 +2776,17 @@ function parseTradeHallOld(html, url) {
 }
 /**
  * \/.*\/main\/unit\/view\/[0-9]+\/trading_hall$
+   сначала заполнение склада, потом товары
  * @param html
  * @param url
  */
 function parseTradeHall(html, url) {
     let $html = $(html);
     try {
+        let str = oneOrError($html, "table.list").find("div").eq(0).text().trim();
+        let filling = numberfyOrError(str, -1);
         let $rows = closestByTagName($html.find("a.popup"), "tr");
-        let res = [];
+        let thItems = [];
         $rows.each((i, el) => {
             let $r = $(el);
             let $tds = $r.children("td");
@@ -2477,7 +2825,7 @@ function parseTradeHall(html, url) {
                 quality: numberfyOrError($tds.eq(12).text()),
                 brand: numberfyOrError($tds.eq(13).text(), -1)
             };
-            res.push({
+            thItems.push({
                 product: product,
                 stock: stock,
                 price: currentPrice,
@@ -2489,7 +2837,7 @@ function parseTradeHall(html, url) {
                 dontSale: dontSale
             });
         });
-        return res;
+        return [filling, thItems];
     }
     catch (err) {
         throw err;

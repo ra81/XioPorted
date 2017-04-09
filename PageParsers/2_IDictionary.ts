@@ -2,7 +2,7 @@
 
 
 // алиас для группы типов.
-type MappedPage = ISaleNew | IWareSupply | IWareSize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistoryItem | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
+type MappedPage = ISaleNew | IWareSupply | IWareResize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistoryItem | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
 
 interface IUnit {
     subid: number;
@@ -365,12 +365,6 @@ interface IWareMain {
     product: string[];
     stock: number[];
     shipments: number[];
-}
-
-interface IWareSize {
-    size: number[];
-    rent: number[];
-    id: number[];
 }
 
 interface IWareSupply {
