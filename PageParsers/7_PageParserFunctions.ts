@@ -89,12 +89,14 @@ function parseUnitList(html: any, url: string): IDictionaryN<IUnit> {
                 throw new Error(`имя юнита ${subid} не спарсилось.`);
 
             let size = oneOrError($r, "td.size").find("div.graybox").length; // >= 0
+            let city = oneOrError($r, "td.geo").text().trim();
 
             res[subid] = {
                 subid: subid,
                 type: type,
                 name: name,
-                size: size
+                size: size,
+                city: city
             };
         });
 
@@ -199,7 +201,7 @@ function parseSale(html: any, url: string): ISale {
     }
 }
 
-function parseSaleNew(html: any, url: string): ISaleNew {
+function _parseSaleNew(html: any, url: string): ISaleNew {
     let $html = $(html);
 
     type THeaders = { prod: number, stock: number, out: number, policy: number, price: number, ordered: number, free: number };
@@ -390,6 +392,103 @@ function parseSaleNew(html: any, url: string): ISaleNew {
     catch (err) {
         //throw new ParseError("sale", url, err);
         throw err;
+    }
+}
+
+enum SalePolicies {
+    nosale = 0,
+    any,
+    some,
+    company,
+    corporation
+}
+
+interface ISaleWareItem {
+    product: IProduct;
+    stock: IStock;
+    price: number;
+    salePolicy: SalePolicies;
+
+    priceName: string;  // имена элементов для быстрого поиска по форме потом
+    policyName: string;
+}
+/**
+ * форма, товары
+ * @param html
+ * @param url
+ */
+function parseSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWareItem>] {
+    let $html = $(html);
+
+    try {
+        let $tbl = oneOrError($html, "table.grid");
+        let $form = $html.find("form[name=storageForm]");
+        let $rows = closestByTagName($tbl.find("select[name*='storageData']"), "tr");
+
+        let dict: IDictionary<ISaleWareItem> = {};
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+
+            // товар
+            let prod = parseProduct($tds.eq(2));
+
+            let $price = oneOrError($tds.eq(6), "input.money");
+            let $policy = oneOrError($tds.eq(7), "select:eq(0)");
+
+            dict[prod.img] = {
+                product: prod,
+                stock: parseStock($tds.eq(3)),
+                price: numberfyOrError($price.val(), -1),
+                salePolicy: $policy.prop("selectedIndex"),
+
+                priceName: $price.attr("name"),
+                policyName: $policy.attr("name"),
+            }
+        });
+
+        return [$form, dict];
+    }
+    catch (err) {
+        //throw new ParseError("sale", url, err);
+        throw err;
+    }
+
+
+    function parseProduct($td: JQuery): IProduct {
+
+        // товар
+        let $img = oneOrError($td, "img");
+        let img = $img.attr("src");
+        let name = $img.attr("alt");
+
+        let $a = oneOrError($td, "a");
+        let n = extractIntPositive($a.attr("href"));
+        if (n == null || n.length > 1)
+            throw new Error("не нашли id товара " + img);
+
+        let id = n[0];
+
+        return { name: name, img: img, id: id };
+    }
+
+    // если товара нет, то характеристики товара зануляет
+    function parseStock($td: JQuery): IStock {
+        let $rows = $td.find("tr");
+
+        // могут быть прочерки для товаров которых нет вообще
+        let available = numberfy(oneOrError($td, "td:contains(Количество)").next("td").text());
+        if (available < 0)
+            available = 0;
+
+        return {
+            available: available,
+            product: {
+                brand: 0,
+                price: available > 0 ? numberfyOrError(oneOrError($td, "td:contains(Себестоимость)").next("td").text()) : 0,
+                quality: available > 0 ? numberfyOrError(oneOrError($td, "td:contains(Качество)").next("td").text()) : 0
+            }
+        }
     }
 }
 
@@ -1051,6 +1150,13 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
 
         let subid = n[0];
 
+        // city
+        // "    Расположение: Великие Луки ("
+        let lines = getOnlyText(oneOrError($html, "div.officePlace"));
+        let city = lines[1].split(":")[1].split("(")[0].trim();
+        if (city == null || city.length < 1)
+            throw new Error("не найден город юнита");
+
         // name
         let name = oneOrError($html, "#headerInfo h1").text().trim();
 
@@ -1071,17 +1177,18 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
         if (type == UnitTypes.unknown)
             throw new Error("Не описан тип юнита " + img);
 
-        let unit: IUnit = { subid: subid, name: name, size: size, type: type };
+        //let unit: IUnit = { subid: subid, name: name, size: size, type: type, city: city };
 
-        // эффективность
-        let str = oneOrError($html, "table.infoblock tr:contains('Эффективность работы') td.progress_bar").next("td").text();
-        let eff = numberfyOrError(str, -1);
+        // эффективность может быть "не известна" для новых юнитов значит не будет прогресс бара
+        let $td = $html.find("table.infoblock tr:contains('Эффективность работы') td.progress_bar").next("td");
+        let eff = $td.length > 0 ? numberfyOrError($td.text(), -1) : 0;
 
         return {
             subid: subid,
             name: name,
             type: type,
             size: size,
+            city: city,
             img: img,
             efficiency: eff
         };
@@ -1154,7 +1261,7 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
                 inDeliver: numberfyOrError($tds.eq(7).text(), -1),
                 outOrdered: numberfyOrError($tds.eq(5).text(), -1),
                 outDeliver: numberfyOrError($tds.eq(8).text(), -1),
-                filling: numberfyOrError($tds.eq(0).text(), -1)
+                filling: numberfyOrError($tds.eq(9).text(), -1)
             };
         });
 
@@ -1561,6 +1668,193 @@ function parseWareMain(html: any, url: string): IWareMain {
         throw new ParseError("ware main", url, err);
     }
 }
+
+/**
+ * Снабжение склада
+ * @param html
+ * @param url
+ */
+function parseWareSupply(html: any, url: string): [IProduct, IBuyContract[]][] {
+    let $html = $(html);
+
+    try {
+        // для 1 товара может быть несколько поставщиков, поэтому к 1 продукту будет идти массив контрактов
+        let $rows = $html.find("tr.p_title");
+
+        let res: [IProduct, IBuyContract[]][] = [];
+        $rows.each((i, el) => {
+            let $r = $(el);     // это основной ряд, после него еще будут ряды до следующего это контракты
+            let $subs = $r.nextUntil("tr.p_title").has("div.del_contract");
+            if ($subs.length <= 0)
+                throw new Error("есть строка с товаром но нет поставщиков. такого быть не может.");
+
+            // собираем продукт
+            let id = (() => {
+                let href = oneOrError($r, "td.p_title_l a:eq(1)").attr("href");
+                let n = extractIntPositive(href);
+                if (n == null || n.length !== 3)
+                    throw new Error(`в ссылке ${href} должно быть 3 числа`);
+
+                return n[2];
+            })();
+            let $img = oneOrError($r, "div.product_img img");
+
+            let product: IProduct = {
+                id: id,
+                img: $img.attr("src"),
+                name: $img.attr("title")
+            };
+
+            // для ТМ учитываем факт ТМности
+            let tmImg = isTM(product) ? product.img : "";
+
+            // собираем контракты
+            let contracts: IBuyContract[] = [];
+            $subs.each((i, el) => {
+                let $r = $(el);
+
+                // контракт
+                let offerID = numberfyOrError(oneOrError($r, "input[name='multipleDestroy[]']").val());
+
+                // ячейка где чекбокс и линки на компанию и юнит
+                let $div = oneOrError($r, "div.del_contract").next("div");
+
+                let isIndep = $div.find("img[src='/img/unit_types/seaport.gif']").length > 0;
+
+                let subid = 0;
+                let unitName = "независимый поставщик";
+                let companyName = "независимый поставщик";
+                let self = false;
+
+                if (!isIndep) {
+                    // subid юнита
+                    let $a = oneOrError($div, "a[href*='/unit/']");
+                    let numbers = extractIntPositive($a.attr("href"));
+                    if (numbers == null || numbers.length !== 1)
+                        throw new Error("не смог взять subid юнита из ссылки " + url);
+
+                    subid = numbers[0];
+
+                    // имя юнита
+                    unitName = $a.text();
+                    if (unitName.length <= 0)
+                        throw new Error(`имя поставщика юнит ${subid} не спарсилось`);
+
+
+                    // для чужих складов имя идет линком, а для своих выделено strong тегом
+                    $a = $div.find("a[href*='/company/']");
+                    if ($a.length === 1)
+                        companyName = $a.text();
+                    else if ($a.length > 1)
+                        throw new Error(`нашли ${$a.length} ссылок на компанию вместо 1`);
+                    else {
+                        companyName = oneOrError($div, "strong").text();
+                        self = true;
+                    }
+                }
+
+                // ограничения контракта и заказ
+                // 
+                let str = oneOrError($r, "input[name^='supplyContractData[party_quantity]']").val() as string;
+                let ordered = numberfyOrError(str, -1);
+
+                let ctype: ConstraintTypes;
+                let val = oneOrError($r, "input[name^='supplyContractData[constraintPriceType]']").val() as string;
+                switch (val) {
+                    case "Rel":
+                        ctype = ConstraintTypes.Rel;
+                        break;
+
+                    case "Abs":
+                        ctype = ConstraintTypes.Abs;
+                        break;
+
+                    default:
+                        throw new Error("неизвестный тип ограничения контракта " + val);
+                }
+
+                // должно быть 0 или больше
+                let cminQ = numberfyOrError($r.find("input[name^='supplyContractData[quality_constraint_min]']").val(), -1);
+                let maxPrice = numberfyOrError($r.find("input[name^='supplyContractData[price_constraint_max]']").val(), -1);
+                let relPriceMarkUp = numberfyOrError($r.find("input[name^='supplyContractData[price_mark_up]']").val(), -1);
+
+
+                // состояние склада поставщика
+                //
+                // первая строка может быть либо число либо "323 из 34345345"
+                // вторя строка всегда число или 0
+                // для независа будет "не огран"
+                let total = Number.MAX_SAFE_INTEGER;
+                let available = Number.MAX_SAFE_INTEGER;
+                let maxLimit = 0;
+                let purchased = numberfyOrError($r.find("td.num:eq(0)").text(), -1);
+
+                if (!isIndep) {
+                    let $td = oneOrError($r, "td.num:eq(6) span");
+                    let items = getOnlyText($td);
+                    if (items.length != 2)
+                        throw new Error("ошибка извлечения Доступно/Всего со склада");
+
+                    total = numberfyOrError(items[1], -1);
+                    let n = extractIntPositive(items[0]);
+                    if (n == null || n.length > 2)
+                        throw new Error("ошибка извлечения Доступно/Всего со склада");
+
+                    [available, maxLimit] = n.length > 1 ? [n[1], n[0]] : [n[0], 0];
+                }
+
+                // характеристики товара поставщика
+                //
+                // если поставщик поднял цену, тогда новая цена будет второй и по факту это цена контракта.
+                // нельзя заключать контракт по старой цене уже. и при обновлении поставок надо ориентироваться на новую цену
+                let price = 0;
+                let quality = 0;
+                let brand = 0;      // бренда на складе не показывает вообще
+                if (total > 0) {
+                    let n = extractFloatPositive($r.children("td.num").eq(1).text());
+                    if (n == null || n.length > 2)
+                        throw new Error("не найдена цена товара");
+
+                    price = n.length > 1 ? n[1] : n[0];
+                    quality = numberfyOrError($r.children("td.num").eq(3).text());
+                }
+
+                contracts.push({
+                    offer: {
+                        id: offerID,
+                        unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
+                        maxLimit: maxLimit > 0 ? maxLimit : null,
+                        stock: {
+                            available: available,
+                            total: total,
+                            purchased: purchased,
+                            product: { price: price, quality: quality, brand: brand }
+                        },
+                        companyName: companyName,
+                        isIndependend: isIndep,
+                        self: self,
+                        tmImg: tmImg
+                    },
+                    ordered: ordered,
+                    constraints: {
+                        type: ctype,
+                        minQuality: cminQ,
+                        price: maxPrice,
+                        priceMarkUp: relPriceMarkUp
+                    }
+                });
+            });
+
+            res.push([product, contracts]);
+        });
+
+        return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
 
 /**
  * все продавцы данного продукта ВООБЩЕ /"+realm+"/main/globalreport/marketing/by_products/"+mapped[url].productId[i]
@@ -2095,7 +2389,7 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 return {
                     offer: {
                         id: offerID,
-                        unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
+                        unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
                         maxLimit: maxLimit > 0 ? maxLimit : null,
                         stock: {
                             available: available,
@@ -2195,6 +2489,33 @@ function parseEnergyPrices(html: any, url: string): IDictionary<IEnergyPrices> {
     };
 }
 
+
+interface IRegion {
+    id: number;         // номер региона
+    name: string;       // имя. Азербайджан и т.д
+    tax: number;        // налоги. пока так заготовка лишь
+    countryName: string;    // страна в которую входит
+}
+
+interface ICountry {
+    id: number;         // номер страны
+    name: string;       // имя. Азербайджан и т.д
+}
+
+interface ICity {
+    id: number;         // номер города
+    name: string;       // имя. Азербайджан и т.д
+    countryName: string;    // страна строкой
+    population: number;
+    salary: number;     // зарплата
+    eduLevel: number;   // уровень образования
+}
+
+/**
+ * /olga/main/common/main_page/game_info/bonuses/country
+ * @param html
+ * @param url
+ */
 function parseCountries(html: any, url: string): ICountry[] {
     let $html = $(html);
 
@@ -2207,8 +2528,7 @@ function parseCountries(html: any, url: string): ICountry[] {
             let m = matchedOrError($a.attr("href"), /\d+/i);
             return {
                 id: numberfyOrError(m, 0),
-                name: $a.text().trim(),
-                regions: {}
+                name: $a.text().trim()
             };
         }).get() as any as ICountry[];
 
@@ -2223,22 +2543,24 @@ function parseRegions(html: any, url: string): IRegion[] {
     let $html = $(html);
 
     try {
+        let $rows = closestByTagName($html.find("td.geo"), "tr");
 
-        let $tds = $html.find("td.geo");
-        let regs = $tds.map((i, e): IRegion => {
-            let $a = oneOrError($(e), "a[href*=citylist]");
+        let res: IRegion[] = [];
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $geo = oneOrError($r, "td.geo");
+            let $a = oneOrError($geo, "a[href*=citylist]");
 
             let m = matchedOrError($a.attr("href"), /\d+/i);
-            return {
+            res.push({
                 id: numberfyOrError(m, 0),
                 name: $a.text().trim(),
-                energy: {},
-                salary: -1,
-                tax: -1
-            }
-        }).get() as any as IRegion[];
+                tax: numberfyOrError($r.children("td").eq(8).text()),
+                countryName: $geo.attr("title")
+            });
+        });
 
-        return regs;
+        return res;
     }
     catch (err) {
         throw err;
@@ -2270,7 +2592,7 @@ function parseCities(html: any, url: string): ICity[] {
             return {
                 id: id,
                 name: name,
-                country: country,
+                countryName: country,
                 population: 1000*numberfyOrError($tds.eq(1).text(), 0),
                 salary: numberfyOrError($tds.eq(2).text(), 0),
                 eduLevel: numberfyOrError($tds.eq(3).text(), 0),
@@ -2437,7 +2759,7 @@ function parseReportAdvertising(html: any, url: string) {
  * @param html
  * @param url
  */
-function parseProducts(html: any, url: string): IProduct[] {
+function parseProducts(html: any, url: string): IDictionary<IProduct> {
     let $html = $(html);
 
     try {
@@ -2446,8 +2768,9 @@ function parseProducts(html: any, url: string): IProduct[] {
         if ($items.length === 0)
             throw new Error("не смогли найти ни одного продукта на " + url);
 
-        let products = $items.map((i, e): IProduct => {
-            let $a = $(e);
+        let dict: IDictionary<IProduct> = {};
+        $items.each((i, el) => {
+            let $a = $(el);
 
             let _img = $a.find("img").eq(0).attr("src");
 
@@ -2460,14 +2783,10 @@ function parseProducts(html: any, url: string): IProduct[] {
             let m = matchedOrError($a.attr("href"), /\d+/);
             let _id = numberfyOrError(m, 0);  // должно быть больше 0 полюбому
 
-            return {
-                id: _id,
-                name: _name,
-                img: _img
-            };
-        }) as any as IProduct[];
+            dict[_img] = {id: _id,  name: _name, img: _img };
+        });
 
-        return products;
+        return dict;
     }
     catch (err) {
         throw err;
@@ -2713,7 +3032,7 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                 companyName: companyName,
                 self: self,
                 isIndependend: isIndependent,
-                unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0 },
+                unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
                 maxLimit: maxLimit > 0 ? maxLimit : null,
                 stock: {
                     available: available,
@@ -2874,6 +3193,81 @@ function parseProductsSize(html: any, url: string): IDictionaryN<[IProduct, numb
         });
 
         return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+interface ICountryDuties {
+    ip: number;
+    import: number;
+    export: number;
+}
+
+/**
+ * Таможенные пошлины и индикативные цены img = duties
+ * @param html
+ * @param url
+ */
+function parseCountryDuties(html: any, url: string): IDictionary<ICountryDuties> {
+    let $html = $(html);
+
+    try {
+        let $tbl = oneOrError($html, "table.list");
+
+        let $img = $tbl.find("td:nth-child(5n-4)");
+        let $exp = $tbl.find("td:nth-child(5n-2)");
+        let $imp = $tbl.find("td:nth-child(5n-1)");
+        let $ip = $tbl.find("td:nth-child(5n)");
+        if ($img.length !== $ip.length)
+            throw new Error("картинок товара и индикативных цен найдено разное число");
+
+        // в таблице есть пробелы, поэтому если картинки нет значит это пробел
+        let dict: IDictionary<ICountryDuties> = {};
+        for (let i = 0; i < $ip.length; i++) {
+            let img = $img.eq(i).find("img").attr("src");
+            if (img == null || img.length <= 0)
+                continue;
+            
+            dict[img] = {
+                export: numberfyOrError($exp.eq(i).text(), -1),
+                import: numberfyOrError($imp.eq(i).text(), -1),
+                ip: numberfyOrError($ip.eq(i).text())
+            };
+        }
+
+        return dict;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * /olga/main/globalreport/tm/info
+ * @param html
+ * @param url
+ */
+function parseTM(html: any, url: string): IDictionary<string> {
+    let $html = $(html);
+
+    try {
+        let $imgs = $html.find("table.grid").find("img");
+
+        let dict: IDictionary<string> = {};
+        $imgs.each((i, el) => {
+            let $img = $(el);
+
+            let img = $img.attr("src");
+            let lines = getOnlyText($img.closest("td").next("td"));
+            if (lines.length !== 4)
+                throw new Error("ошибка извлечения имени товара франшизы для " + img);
+
+            dict[img] = lines[1].trim();
+        });
+
+        return dict;
     }
     catch (err) {
         throw err;

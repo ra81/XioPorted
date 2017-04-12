@@ -1790,9 +1790,11 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
             var quality = choices[1] ? _sale.outqual[i] : _sale.stockqual[i];
             var price = 0;
 
+            // "$0.01"
             if (choices[0] === 2) {
                 price = 0.01;
             }
+            // "Prime Cost"
             else if (choices[0] === 3) {
                 var indexFranchise = _tm.franchise.indexOf(_sale.product[i]);
                 var product = _tm.product[indexFranchise] || _sale.product[i];
@@ -1801,6 +1803,7 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 price = primecost + 0.01 < 30 * IP ? primecost + 0.01 : primecost;
                 price = Math.round(price * 100) / 100;
             }
+            // "CTIE"
             else if (choices[0] === 4) {
                 var indexFranchise = _tm.franchise.indexOf(_sale.product[i]);
                 var product = _tm.product[indexFranchise] || _sale.product[i];
@@ -1813,6 +1816,7 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 price = Math.round(priceCTIE * 100) / 100;
                 price = price < 30 * IP ? price : primecost;
             }
+            // "Profit Tax"
             else if (choices[0] === 5) {
                 var indexRegion = _transport.regionName.indexOf(_sale.region);
                 var regionId = _transport.regionId[indexRegion];
@@ -1830,6 +1834,7 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 price = Math.round(priceCTIE * 100) / 100;
                 price = price < 30 * IP ? price : primecost;
             }
+            // "IP x 1"
             else if (choices[0] === 6) {
                 var indexFranchise = _tm.franchise.indexOf(_sale.product[i]);
                 var product = _tm.product[indexFranchise] || _sale.product[i];
@@ -1837,6 +1842,7 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 var IP = _ip.IP[indexIP];
                 price = IP;
             }
+            // "IP x 30"
             else if (choices[0] === 7) {
                 var indexFranchise = _tm.franchise.indexOf(_sale.product[i]);
                 var product = _tm.product[indexFranchise] || _sale.product[i];
@@ -1844,6 +1850,7 @@ function salePrice(policyName: string, subid: number, choices: number[]) {
                 var IP = _ip.IP[indexIP];
                 price = 30 * IP;
             }
+            // "PQR"
             else if (choices[0] === 8) {
                 // TODO: нахуевертил хуй разберешь. запилить здесь иначе PQR не работает.
                 var indexFranchise = _tm.franchise.indexOf(_sale.product[i]);

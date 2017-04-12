@@ -9,6 +9,7 @@ interface IUnit {
     name: string;
     type: UnitTypes;
     size: number;
+    city: string;
 }
 
 interface IMain {
@@ -446,27 +447,4 @@ interface IEnergyPrices {
     sector: string;     // отрасль
     price: number;      // цена на энергию
     products: IProduct[];   // список продукции для данного сектора
-}
-
-interface IRegion {
-    id: number;         // номер региона
-    name: string;       // имя. Азербайджан и т.д
-    energy: IDictionary<IEnergyPrices>;     // словарь с ценами на энергию. для всех отраслей
-    salary: number;     // средняя зарплата в городе    
-    tax: number;        // налоги. пока так заготовка лишь
-}
-
-interface ICountry {
-    id: number;         // номер страны
-    name: string;       // имя. Азербайджан и т.д
-    regions: IDictionary<IRegion>;     // все регионы если спарсили
-}
-
-interface ICity {
-    id: number;         // номер города
-    name: string;       // имя. Азербайджан и т.д
-    country: string;    // страна строкой
-    population: number;
-    salary: number;     // зарплата
-    eduLevel: number;   // уровень образования
 }
