@@ -489,7 +489,7 @@ function dateFromShort(str) {
  */
 function sayNumber(num) {
     if (num < 0)
-        return "-" + sayMoney(-num);
+        return "-" + sayNumber(-num);
     if (Math.round(num * 100) / 100 - Math.round(num))
         num = Math.round(num * 100) / 100;
     else
@@ -598,6 +598,7 @@ let url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee
 // 
 let url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
 let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i; // страница со всеми товарами игры
+let url_trade_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/trading$/i; // страница с торгуемыми товарами
 let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
 let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i; // размеры продуктов на склада
 let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i; // таможенные пошлины и ИЦ
@@ -895,6 +896,7 @@ function tryGet(url, retries = 10, timeout = 1000) {
  */
 function tryGet_async(url, retries = 10, timeout = 1000, beforeGet, onError) {
     return __awaiter(this, void 0, void 0, function* () {
+        //logDebug(`tryGet_async: ${url}`);
         // сам метод пришлось делать Promise<any> потому что string | Error не работало какого то хуя не знаю. Из за стрик нулл чек
         let $deffered = $.Deferred();
         if (beforeGet) {
@@ -1117,7 +1119,7 @@ function buildStoreKey(realm, code, subid) {
     return res;
 }
 /**
- * Возвращает все ключи юнитов для заданного реалма и КОДА.
+ * Возвращает все ключи ЮНИТОВ для заданного реалма и КОДА.
  * @param realm
  * @param storeKey код ключа sh, udd, vh итд
  */
@@ -1133,6 +1135,26 @@ function getStoredUnitsKeys(realm, storeKey) {
         if (key !== buildStoreKey(realm, storeKey, subid))
             continue;
         res.push(key);
+    }
+    return res;
+}
+/**
+ * Возвращает все ключи ЮНИТОВ для заданного реалма и КОДА. А так же subid юнита отдельно
+ * @param realm
+ * @param storeKey код ключа sh, udd, vh итд
+ */
+function getStoredUnitsKeysA(realm, storeKey) {
+    let res = [];
+    for (let key in localStorage) {
+        // если в ключе нет числа, не брать его
+        let m = extractIntPositive(key);
+        if (m == null)
+            continue;
+        // если ключик не совпадает со старым ключем для посетителей
+        let subid = m[0];
+        if (key !== buildStoreKey(realm, storeKey, subid))
+            continue;
+        res.push([key, subid]);
     }
     return res;
 }
@@ -1328,6 +1350,9 @@ let urlTemplates = {
     wareMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
             (html) => isWarehouse($(html)),
         parseWareMain],
+    wareChangeCpec: [/\/\w+\/window\/unit\/speciality_change\/\d+\/?$/,
+            (html) => true,
+        parseWareChangeSpec],
     productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
             (html) => true,
         parseProductReport],
@@ -1352,6 +1377,9 @@ let urlTemplates = {
     allProducts: [url_products_rx,
             (html) => true,
         parseProducts],
+    tradeProducts: [url_trade_products_rx,
+            (html) => true,
+        parseTradeProducts],
     financeRepByUnits: [url_rep_finance_byunit,
             (html) => true,
         parseFinanceRepByUnits],
@@ -1361,6 +1389,9 @@ let urlTemplates = {
     productSizes: [url_products_size_rx,
             (html) => true,
         parseProductsSize],
+    reportsSpec: [/\/[a-z]+\/main\/mediareport\/\d+/i,
+            (html) => $(html).find("select").length > 0,
+        parseReportSpec],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -1493,7 +1524,7 @@ function parseUnitList(html, url) {
 }
 /**
  * Парсит "/main/unit/view/ + subid + /sale" урлы
- * Склады, заводы это их тема
+ * Склады, это их тема
  * @param html
  * @param url
  */
@@ -1753,6 +1784,7 @@ function parseSaleNew(html, url) {
             dict[prod.img] = {
                 product: prod,
                 stock: parseStock($tds.eq(3)),
+                outOrdered: numberfyOrError($tds.eq(4).text(), -1),
                 price: numberfyOrError($price.val(), -1),
                 salePolicy: $policy.prop("selectedIndex"),
                 priceName: $price.attr("name"),
@@ -2351,7 +2383,13 @@ function parseUnitMainNew(html, url) {
                 capacity = 1000000;
                 break;
             case 6:
-                capacity = 5000000;
+                capacity = 5 * 1000000;
+                break;
+            case 7:
+                capacity = 50 * 1000000;
+                break;
+            case 8:
+                capacity = 500 * 1000000;
                 break;
             default:
                 throw new Error("неизвестный размер склада " + size);
@@ -2418,7 +2456,7 @@ function parseUnitMainNew(html, url) {
             place: place,
             rent: rent,
             departments: depts,
-            employees: { employees: employees, required: employeesReq, efficiency: employeesEff },
+            employees: { employees: employees, required: employeesReq, efficiency: employeesEff, holidays: inHoliday },
             service: service,
             visitors: visitors
         };
@@ -2444,7 +2482,7 @@ function parseUnitMainNew(html, url) {
         if ($td.length > 0)
             service = serviceFromStrOrError($td.text());
         return {
-            employees: { employees: employees, required: employeesReq, efficiency: employeesEff },
+            employees: { employees: employees, required: employeesReq, efficiency: employeesEff, holidays: inHoliday },
             rent: rent,
             visitors: visitors,
             service: service,
@@ -2644,21 +2682,26 @@ function parseUnitFinRep(html, url) {
 function parseWareResize(html, url) {
     let $html = $(html);
     try {
-        let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
-            let txt = $(e).text();
-            let sz = numberfyOrError(txt);
+        let sz = [];
+        let rent = [];
+        let id = [];
+        $html.find(":radio").closest("tr").each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+            let txt = $tds.eq(1).text();
             if (txt.indexOf("тыс") >= 0)
-                sz *= 1000;
-            if (txt.indexOf("млн") >= 0)
-                sz *= 1000000;
-            return sz;
-        }).get();
-        let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get();
-        let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get();
+                sz.push(numberfyOrError(txt) * 1000);
+            else if (txt.indexOf("млн") >= 0)
+                sz.push(numberfyOrError(txt) * 1000000);
+            else if (txt.indexOf("терминал") >= 0)
+                sz.push(500 * 1000000);
+            rent.push(numberfyOrError($tds.eq(2).text()));
+            id.push(numberfyOrError($tds.eq(0).find(":radio").val()));
+        });
         return {
-            capacity: _size,
-            rent: _rent,
-            id: _id
+            capacity: sz,
+            rent: rent,
+            id: id
         };
     }
     catch (err) {
@@ -2707,6 +2750,8 @@ function parseWareMain(html, url) {
 }
 /**
  * Снабжение склада
+   [[товар, контракты[]], товары внизу страницы без контрактов]
+   возможно что будут дубли id товара ведь малиновый пиджак и простой имеют общий id
  * @param html
  * @param url
  */
@@ -2715,6 +2760,7 @@ function parseWareSupply(html, url) {
     try {
         // для 1 товара может быть несколько поставщиков, поэтому к 1 продукту будет идти массив контрактов
         let $rows = $html.find("tr.p_title");
+        // парсинг товаров на которые есть заказы
         let res = [];
         $rows.each((i, el) => {
             let $r = $(el); // это основной ряд, после него еще будут ряды до следующего это контракты
@@ -2852,6 +2898,49 @@ function parseWareSupply(html, url) {
                 });
             });
             res.push([product, contracts]);
+        });
+        // парсинг товаров внизу на которые заказов нет
+        let $items = $html.find("div.add_contract");
+        let arr = [];
+        $items.each((i, el) => {
+            let $div = $(el);
+            let $img = oneOrError($div, "img");
+            let img = $img.attr("src");
+            let name = $img.attr("alt");
+            let $a = $img.closest("a");
+            let n = extractIntPositive($a.attr("href"));
+            if (n == null || n.length != 3)
+                throw new Error("не нашли id товара " + img);
+            let id = n[2];
+            arr.push({ id: id, img: img, name: name });
+        });
+        return [res, arr];
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
+ * Страница смены спецухи для склада.
+ * /olga/window/unit/speciality_change/6835788
+    [id, название, выделена?]
+ * @param html
+ * @param url
+ */
+function parseWareChangeSpec(html, url) {
+    let $html = $(html);
+    let res = [];
+    try {
+        let $rows = $html.find("table.list").find("tr.even,tr.odd");
+        if ($rows.length <= 0)
+            throw new Error("Не найдено ни одной специализации");
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $radio = oneOrError($r, "input");
+            let cat = parseInt($radio.val());
+            let name = $r.children("td").eq(1).text();
+            let checked = $radio.prop("checked");
+            res.push([cat, name, checked]);
         });
         return res;
     }
@@ -3574,6 +3663,38 @@ function parseProducts(html, url) {
     }
 }
 /**
+ * Со страницы с торгуемыми продуктами игры парсит их список
+ * /lien/main/common/main_page/game_info/trading
+ * Брендовые товары здесь НЕ отображены и парсены НЕ БУДУТ
+ * @param html
+ * @param url
+ */
+function parseTradeProducts(html, url) {
+    let $html = $(html);
+    try {
+        let $items = $html.find("table.list").find("a").has("img");
+        if ($items.length === 0)
+            throw new Error("не смогли найти ни одного продукта на " + url);
+        let dict = {};
+        $items.each((i, el) => {
+            let $a = $(el);
+            let _img = $a.find("img").eq(0).attr("src");
+            // название продукта Спортивное питание, Маточное молочко и так далее
+            let _name = $a.attr("title").trim();
+            if (_name.length === 0)
+                throw new Error("Имя продукта пустое.");
+            // номер продукта
+            let m = matchedOrError($a.attr("href"), /\d+/);
+            let _id = numberfyOrError(m, 0); // должно быть больше 0 полюбому
+            dict[_img] = { id: _id, name: _name, img: _img };
+        });
+        return dict;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
  * /olga/main/company/view/6383588/finance_report/by_units/
  * @param html
  * @param url
@@ -3694,9 +3815,6 @@ function parseSupplyCreate(html, url) {
             let isIndependent = $tds.eq(1).text().toLowerCase().indexOf("независимый поставщик") >= 0;
             // ТМ товары идет отдельным списком и их надо выделять
             let tmImg = $tds.eq(0).find("img").attr("src") || "";
-            //
-            let offer = numberfyOrError($r.prop("id").substr(1));
-            let self = $r.hasClass("myself");
             // для независимого поставщика номера юнита нет и нет имени компании
             let subid = 0;
             let companyName = "Независимый поставщик";
@@ -3733,6 +3851,10 @@ function parseSupplyCreate(html, url) {
                 if ($tds.eq(3).find("u").length > 0)
                     maxLimit = available;
             }
+            // свой юнит или открытый для меня, он всегда выводится даже если available 0. Другие включая корп не выводятся если 0
+            // поэтому если юнит видим и доступно 0, значит он self
+            let offer = numberfyOrError($r.prop("id").substr(1));
+            let self = $r.hasClass("myself") || available <= 0;
             // цены ВСЕГДА ЕСТЬ. Даже если на складе пусто
             // это связано с тем что если склад открыт для покупки у него цена больше 0 должна стоять
             let nums = extractFloatPositive($tds.eq(5).html());
@@ -3943,6 +4065,50 @@ function parseTM(html, url) {
             dict[img] = lines[1].trim();
         });
         return dict;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+/**
+ * Парсер отчета по производственным специализациям со страницы аналитических отчетов
+   /olga/main/mediareport
+ * @param html
+ * @param url
+ */
+function parseReportSpec(html, url) {
+    let $html = $(html);
+    try {
+        let $table = oneOrError($html, "table.list");
+        let $rows = $table.find("img").closest(".even, .odd"); // в каждой строке картинка товара, но картинки есть и в других местах
+        if ($rows.length < 5)
+            throw new Error(`найдено слишком мало(${$rows.length}) специализаций в отчете ${url}`);
+        let res = [];
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+            // спецуха
+            let spec = oneOrError($tds.eq(0), "a").text();
+            // товар
+            let $img = oneOrError($tds.eq(1), "img");
+            let img = $img.attr("src");
+            let name = $img.attr("alt");
+            let $a = $img.closest("a");
+            let n = extractIntPositive($a.attr("href"));
+            if (n == null || n.length != 1)
+                throw new Error("не нашли id товара " + img);
+            let id = n[0];
+            // производство 
+            let units = numberfyOrError($tds.eq(2).text(), -1);
+            let quant = numberfyOrError(getInnerText($tds.get(3)), -1);
+            res.push({
+                product: { id: id, img: img, name: name },
+                specialization: spec,
+                quantity: quant,
+                unitCount: units
+            });
+        });
+        return res;
     }
     catch (err) {
         throw err;

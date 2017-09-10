@@ -122,6 +122,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     wareMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
         (html: any) => isWarehouse($(html)),
         parseWareMain],
+    wareChangeCpec: [/\/\w+\/window\/unit\/speciality_change\/\d+\/?$/,
+        (html: any) => true,
+        parseWareChangeSpec],
     productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
         (html: any) => true,
         parseProductReport],
@@ -146,6 +149,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     allProducts: [url_products_rx,
         (html: any) => true,
         parseProducts],
+    tradeProducts: [url_trade_products_rx,
+        (html: any) => true,
+        parseTradeProducts],
     financeRepByUnits: [url_rep_finance_byunit,
         (html: any) => true,
         parseFinanceRepByUnits],
@@ -155,6 +161,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     productSizes: [url_products_size_rx,
         (html: any) => true,
         parseProductsSize],
+    reportsSpec: [/\/[a-z]+\/main\/mediareport\/\d+/i,
+        (html: any) => $(html).find("select").length > 0,
+        parseReportSpec],
 };
 
 $(document).ready(() => parseStart());

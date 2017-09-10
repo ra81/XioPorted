@@ -110,7 +110,7 @@ function parseUnitList(html: any, url: string): IDictionaryN<IUnit> {
 
 /**
  * Парсит "/main/unit/view/ + subid + /sale" урлы
- * Склады, заводы это их тема
+ * Склады, это их тема
  * @param html
  * @param url
  */
@@ -406,6 +406,8 @@ enum SalePolicies {
 interface ISaleWareItem {
     product: IProduct;
     stock: IStock;
+    outOrdered: number;
+
     price: number;
     salePolicy: SalePolicies;
 
@@ -439,6 +441,8 @@ function parseSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWareIte
             dict[prod.img] = {
                 product: prod,
                 stock: parseStock($tds.eq(3)),
+                outOrdered: numberfyOrError($tds.eq(4).text(), -1),
+
                 price: numberfyOrError($price.val(), -1),
                 salePolicy: $policy.prop("selectedIndex"),
 
@@ -1054,6 +1058,7 @@ interface IUnitEmployees {
     employees: number;
     required: number;
     efficiency: number;
+    holidays: boolean;
 }
 
 interface IUnitEquipment {
@@ -1075,9 +1080,9 @@ interface IMainBase extends IUnit {
 }
 
 interface IMainShop {
-    place: string;
+    place: string;  // район расположения
     rent: number;
-    departments: number;
+    departments: number;    // число отделов
 
     employees: IUnitEmployees;
 
@@ -1225,7 +1230,15 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
                 break;
 
             case 6:
-                capacity = 5000000;
+                capacity = 5 * 1000000;
+                break;
+
+            case 7:
+                capacity = 50 * 1000000;
+                break;
+
+            case 8:
+                capacity = 500 * 1000000;
                 break;
 
             default:
@@ -1309,7 +1322,7 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
             place: place,
             rent: rent,
             departments: depts,
-            employees: { employees: employees, required: employeesReq, efficiency: employeesEff },
+            employees: { employees: employees, required: employeesReq, efficiency: employeesEff, holidays: inHoliday },
             service: service,
             visitors: visitors
         };
@@ -1343,7 +1356,7 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
             service = serviceFromStrOrError($td.text());
 
         return {
-            employees: { employees: employees, required: employeesReq, efficiency: employeesEff },
+            employees: { employees: employees, required: employeesReq, efficiency: employeesEff, holidays: inHoliday },
             rent: rent,
             visitors: visitors,
             service: service,
@@ -1597,24 +1610,30 @@ function parseWareResize(html: any, url: string): IWareResize {
     let $html = $(html);
 
     try {
-        let _size = $html.find(".nowrap:nth-child(2)").map((i, e) => {
-            let txt = $(e).text();
-            let sz = numberfyOrError(txt);
+
+        let sz: number[] = [];
+        let rent: number[] = [];
+        let id: number[] = [];
+        $html.find(":radio").closest("tr").each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+
+            let txt = $tds.eq(1).text();
             if (txt.indexOf("тыс") >= 0)
-                sz *= 1000;
+                sz.push(numberfyOrError(txt) * 1000);
+            else if (txt.indexOf("млн") >= 0)
+                sz.push(numberfyOrError(txt) * 1000000);
+            else if (txt.indexOf("терминал") >= 0)
+                sz.push(500 * 1000000);
 
-            if (txt.indexOf("млн") >= 0)
-                sz *= 1000000;
-
-            return sz;
-        }).get() as any as number[];
-        let _rent = $html.find(".nowrap:nth-child(3)").map((i, e) => numberfyOrError($(e).text())).get() as any as number[];
-        let _id = $html.find(":radio").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
+            rent.push(numberfyOrError($tds.eq(2).text()));
+            id.push(numberfyOrError($tds.eq(0).find(":radio").val()));
+        });
 
         return {
-            capacity: _size,
-            rent: _rent,
-            id: _id
+            capacity: sz,
+            rent: rent,
+            id: id
         };
     }
     catch (err) {
@@ -1671,16 +1690,19 @@ function parseWareMain(html: any, url: string): IWareMain {
 
 /**
  * Снабжение склада
+   [[товар, контракты[]], товары внизу страницы без контрактов]
+   возможно что будут дубли id товара ведь малиновый пиджак и простой имеют общий id
  * @param html
  * @param url
  */
-function parseWareSupply(html: any, url: string): [IProduct, IBuyContract[]][] {
+function parseWareSupply(html: any, url: string): [[IProduct, IBuyContract[]][], IProduct[]] {
     let $html = $(html);
 
     try {
         // для 1 товара может быть несколько поставщиков, поэтому к 1 продукту будет идти массив контрактов
         let $rows = $html.find("tr.p_title");
 
+        // парсинг товаров на которые есть заказы
         let res: [IProduct, IBuyContract[]][] = [];
         $rows.each((i, el) => {
             let $r = $(el);     // это основной ряд, после него еще будут ряды до следующего это контракты
@@ -1846,6 +1868,60 @@ function parseWareSupply(html: any, url: string): [IProduct, IBuyContract[]][] {
             });
 
             res.push([product, contracts]);
+        });
+
+        // парсинг товаров внизу на которые заказов нет
+        let $items = $html.find("div.add_contract");
+        let arr: IProduct[] = [];
+        $items.each((i, el) => {
+            let $div = $(el);
+            let $img = oneOrError($div, "img");
+            let img = $img.attr("src");
+            let name = $img.attr("alt");
+
+            let $a = $img.closest("a");
+            let n = extractIntPositive($a.attr("href"));
+            if (n == null || n.length != 3) // step1 тоже содержит число помимо айди товара и склада
+                throw new Error("не нашли id товара " + img);
+
+            let id = n[2];
+
+            arr.push({ id: id, img: img, name: name });
+        });
+        
+        return [res, arr];
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+/**
+ * Страница смены спецухи для склада.
+ * /olga/window/unit/speciality_change/6835788
+    [id, название, выделена?]
+ * @param html
+ * @param url
+ */
+function parseWareChangeSpec(html: any, url: string): [number, string, boolean][] {
+    let $html = $(html);
+
+    let res: [number, string, boolean][] = [];
+    try {
+        let $rows = $html.find("table.list").find("tr.even,tr.odd");
+        if ($rows.length <= 0)
+            throw new Error("Не найдено ни одной специализации");
+
+
+        $rows.each((i, el) => {
+            let $r = $(el);
+
+            let $radio = oneOrError($r, "input");
+            let cat = parseInt($radio.val());
+            let name = $r.children("td").eq(1).text();
+            let checked = $radio.prop("checked") as boolean;
+
+            res.push([cat, name, checked]);
         });
 
         return res;
@@ -2793,6 +2869,48 @@ function parseProducts(html: any, url: string): IDictionary<IProduct> {
     }
 }
 
+/**
+ * Со страницы с торгуемыми продуктами игры парсит их список
+ * /lien/main/common/main_page/game_info/trading
+ * Брендовые товары здесь НЕ отображены и парсены НЕ БУДУТ
+ * @param html
+ * @param url
+ */
+function parseTradeProducts(html: any, url: string): IDictionary<IProduct> {
+    let $html = $(html);
+
+    try {
+
+        let $items = $html.find("table.list").find("a").has("img");
+        if ($items.length === 0)
+            throw new Error("не смогли найти ни одного продукта на " + url);
+
+        let dict: IDictionary<IProduct> = {};
+        $items.each((i, el) => {
+            let $a = $(el);
+
+            let _img = $a.find("img").eq(0).attr("src");
+
+            // название продукта Спортивное питание, Маточное молочко и так далее
+            let _name = $a.attr("title").trim();
+            if (_name.length === 0)
+                throw new Error("Имя продукта пустое.");
+
+            // номер продукта
+            let m = matchedOrError($a.attr("href"), /\d+/);
+            let _id = numberfyOrError(m, 0);  // должно быть больше 0 полюбому
+
+            dict[_img] = { id: _id, name: _name, img: _img };
+        });
+
+        return dict;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+
 interface IUnitFinance {
     income: number;     // доходы
     expense: number;    // расходы
@@ -2956,10 +3074,6 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
             // ТМ товары идет отдельным списком и их надо выделять
             let tmImg = $tds.eq(0).find("img").attr("src") || "";
 
-            //
-            let offer = numberfyOrError(($r.prop("id") as string).substr(1));
-            let self = $r.hasClass("myself");
-
             // для независимого поставщика номера юнита нет и нет имени компании
             let subid = 0;
             let companyName = "Независимый поставщик";
@@ -3002,6 +3116,11 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                 if ($tds.eq(3).find("u").length > 0)
                     maxLimit = available;
             }
+
+            // свой юнит или открытый для меня, он всегда выводится даже если available 0. Другие включая корп не выводятся если 0
+            // поэтому если юнит видим и доступно 0, значит он self
+            let offer = numberfyOrError(($r.prop("id") as string).substr(1));
+            let self = $r.hasClass("myself") || available <= 0;
 
             // цены ВСЕГДА ЕСТЬ. Даже если на складе пусто
             // это связано с тем что если склад открыт для покупки у него цена больше 0 должна стоять
@@ -3268,6 +3387,71 @@ function parseTM(html: any, url: string): IDictionary<string> {
         });
 
         return dict;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+
+//
+// аналитические отчеты
+//
+
+interface ISpecReportItem {
+    product: IProduct;
+    specialization: string; // спецуха строкой
+    unitCount: number;      // число предприятий
+    quantity: number;       // сколько производится единиц
+}
+
+/**
+ * Парсер отчета по производственным специализациям со страницы аналитических отчетов
+   /olga/main/mediareport
+ * @param html
+ * @param url
+ */
+function parseReportSpec(html: any, url: string): ISpecReportItem[] {
+    let $html = $(html);
+
+    try {
+        let $table = oneOrError($html, "table.list");
+        let $rows = $table.find("img").closest(".even, .odd");  // в каждой строке картинка товара, но картинки есть и в других местах
+        if ($rows.length < 5)
+            throw new Error(`найдено слишком мало(${$rows.length}) специализаций в отчете ${url}`);
+
+        let res: ISpecReportItem[] = [];
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+
+            // спецуха
+            let spec = oneOrError($tds.eq(0), "a").text();
+
+            // товар
+            let $img = oneOrError($tds.eq(1), "img");
+            let img = $img.attr("src");
+            let name = $img.attr("alt");
+
+            let $a = $img.closest("a");
+            let n = extractIntPositive($a.attr("href"));
+            if (n == null || n.length != 1)
+                throw new Error("не нашли id товара " + img);
+
+            let id = n[0];
+
+            // производство 
+            let units = numberfyOrError($tds.eq(2).text(), -1);
+            let quant = numberfyOrError(getInnerText($tds.get(3)), -1);
+
+            res.push({
+                product: { id: id, img: img, name: name },
+                specialization: spec,
+                quantity: quant,
+                unitCount: units
+            });
+        });
+
+        return res;
     }
     catch (err) {
         throw err;
