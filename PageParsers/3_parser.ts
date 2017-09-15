@@ -151,7 +151,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
         parseProducts],
     tradeProducts: [url_trade_products_rx,
         (html: any) => true,
-        parseTradeProducts],
+        parseProducts],
     financeRepByUnits: [url_rep_finance_byunit,
         (html: any) => true,
         parseFinanceRepByUnits],

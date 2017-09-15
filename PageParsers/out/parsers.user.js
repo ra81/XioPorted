@@ -454,6 +454,12 @@ function extractDate(str) {
     let y = parseInt(m[3]);
     return new Date(y, mon, d);
 }
+function extractDateOrError(str) {
+    let dt = extractDate(str);
+    if (dt == null)
+        throw new Error(`Не получилось извлечь дату из "${str}"`);
+    return dt;
+}
 /**
  * из даты формирует короткую строку типа 01.12.2017
  * @param date
@@ -1379,7 +1385,7 @@ let urlTemplates = {
         parseProducts],
     tradeProducts: [url_trade_products_rx,
             (html) => true,
-        parseTradeProducts],
+        parseProducts],
     financeRepByUnits: [url_rep_finance_byunit,
             (html) => true,
         parseFinanceRepByUnits],
@@ -3663,38 +3669,6 @@ function parseProducts(html, url) {
     }
 }
 /**
- * Со страницы с торгуемыми продуктами игры парсит их список
- * /lien/main/common/main_page/game_info/trading
- * Брендовые товары здесь НЕ отображены и парсены НЕ БУДУТ
- * @param html
- * @param url
- */
-function parseTradeProducts(html, url) {
-    let $html = $(html);
-    try {
-        let $items = $html.find("table.list").find("a").has("img");
-        if ($items.length === 0)
-            throw new Error("не смогли найти ни одного продукта на " + url);
-        let dict = {};
-        $items.each((i, el) => {
-            let $a = $(el);
-            let _img = $a.find("img").eq(0).attr("src");
-            // название продукта Спортивное питание, Маточное молочко и так далее
-            let _name = $a.attr("title").trim();
-            if (_name.length === 0)
-                throw new Error("Имя продукта пустое.");
-            // номер продукта
-            let m = matchedOrError($a.attr("href"), /\d+/);
-            let _id = numberfyOrError(m, 0); // должно быть больше 0 полюбому
-            dict[_img] = { id: _id, name: _name, img: _img };
-        });
-        return dict;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-/**
  * /olga/main/company/view/6383588/finance_report/by_units/
  * @param html
  * @param url
@@ -4088,13 +4062,18 @@ function parseReportSpec(html, url) {
             let $r = $(el);
             let $tds = $r.children("td");
             // спецуха
-            let spec = oneOrError($tds.eq(0), "a").text();
+            let $a = oneOrError($tds.eq(0), "a");
+            let spec = $a.text();
+            let n = extractIntPositive($a.attr("href"));
+            if (n == null || n.length != 1)
+                throw new Error("не нашли id завода " + spec);
+            let fid = n[0]; // id завода. есть товары которые на разных заводах можно делать а спецуха одинакова
             // товар
             let $img = oneOrError($tds.eq(1), "img");
             let img = $img.attr("src");
             let name = $img.attr("alt");
-            let $a = $img.closest("a");
-            let n = extractIntPositive($a.attr("href"));
+            $a = $img.closest("a");
+            n = extractIntPositive($a.attr("href"));
             if (n == null || n.length != 1)
                 throw new Error("не нашли id товара " + img);
             let id = n[0];
@@ -4104,6 +4083,7 @@ function parseReportSpec(html, url) {
             res.push({
                 product: { id: id, img: img, name: name },
                 specialization: spec,
+                factoryID: fid,
                 quantity: quant,
                 unitCount: units
             });
