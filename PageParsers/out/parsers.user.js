@@ -579,6 +579,15 @@ function formatStr(str, ...args) {
     });
     return res;
 }
+/**
+ * если значение null то вывалит ошибку, иначе вернет само значение. Короткий метод для проверок на нулл
+ * @param val
+ */
+function nullCheck(val) {
+    if (val == null)
+        throw new Error(`nullCheck Error`);
+    return val;
+}
 // РЕГУЛЯРКИ ДЛЯ ССЫЛОК ------------------------------------
 // для 1 юнита
 // 
@@ -1189,6 +1198,25 @@ function Export($place, test) {
     $place.append($txt);
     return true;
 }
+function ExportA($place, keys, converter, delim = "\n") {
+    if ($place.length <= 0)
+        return false;
+    if ($place.find("#txtExport").length > 0) {
+        $place.find("#txtExport").remove();
+        return false;
+    }
+    let $txt = $('<textarea id="txtExport" style="display:block;width: 800px; height: 200px"></textarea>');
+    let exportStr = "";
+    for (let key of keys) {
+        if (exportStr.length > 0)
+            exportStr += delim;
+        let item = converter == null ? localStorage[key] : converter(localStorage[key]);
+        exportStr += `${key}=${item}`;
+    }
+    $txt.text(exportStr);
+    $place.append($txt);
+    return true;
+}
 /**
  * Импортирует в кэш данные введенные к текстовое окно. Формат данных такой же как в экспорте
  * Ключ=Значение|Ключ=Значение итд.
@@ -1221,9 +1249,49 @@ function Import($place) {
                 let storeVal = kvp[1].trim();
                 if (storeKey.length <= 0 || storeVal.length <= 0)
                     throw new Error("Длина ключа или данных равна 0 " + item);
-                if (localStorage[storeKey])
+                if (localStorage[storeKey] != null)
                     logDebug(`Ключ ${storeKey} существует. Перезаписываем.`);
                 localStorage[storeKey] = storeVal;
+            });
+            alert("импорт завершен");
+        }
+        catch (err) {
+            let msg = err.message;
+            alert(msg);
+        }
+    });
+    $place.append($txt).append($saveBtn);
+    return true;
+}
+function ImportA($place, converter, delim = "\n") {
+    if ($place.length <= 0)
+        return false;
+    if ($place.find("#txtImport").length > 0) {
+        $place.find("#txtImport").remove();
+        $place.find("#saveImport").remove();
+        return false;
+    }
+    let $txt = $('<textarea id="txtImport" style="display:block;width: 800px; height: 200px"></textarea>');
+    let $saveBtn = $(`<input id="saveImport" type=button disabled="true" value="Save!">`);
+    $txt.on("input propertychange", (event) => $saveBtn.prop("disabled", false));
+    $saveBtn.on("click", (event) => {
+        let items = $txt.val().split(delim); // элементы вида Ключ=значение
+        logDebug(`загружено ${items.length} элементов`);
+        try {
+            items.forEach((val, i, arr) => {
+                let item = val.trim();
+                if (item.length <= 0)
+                    throw new Error(`получили пустую строку для элемента ${i}, невозможно импортировать.`);
+                let kvp = item.split("="); // пара ключ значение
+                if (kvp.length !== 2)
+                    throw new Error("Должен быть только ключ и значение а по факту не так. " + item);
+                let storeKey = kvp[0].trim();
+                let storeVal = kvp[1].trim();
+                if (storeKey.length <= 0 || storeVal.length <= 0)
+                    throw new Error("Длина ключа или данных равна 0 " + item);
+                if (localStorage[storeKey] != null)
+                    logDebug(`Ключ ${storeKey} существует. Перезаписываем.`);
+                localStorage[storeKey] = converter == null ? storeVal : converter(storeVal);
             });
             alert("импорт завершен");
         }
@@ -2312,7 +2380,7 @@ function parseUnitMainNew(html, url) {
             case UnitTypes.warehouse:
                 return $.extend({}, mainBase, ware(mainBase.size));
             case UnitTypes.shop:
-                return $.extend({}, mainBase, shop());
+                return $.extend({}, mainBase, shop(mainBase));
             case UnitTypes.fuel:
                 return $.extend({}, mainBase, fuel());
             default:
@@ -2333,9 +2401,11 @@ function parseUnitMainNew(html, url) {
         // city
         // "    Расположение: Великие Луки ("
         let lines = getOnlyText(oneOrError($html, "div.officePlace"));
-        let city = lines[1].split(":")[1].split("(")[0].trim();
+        let arr = execOrError(lines[1].trim(), /^расположение:(.*)\(/i);
+        //let city = lines[1].split(":")[1].split("(")[0].trim();
+        let city = arr[1].trim();
         if (city == null || city.length < 1)
-            throw new Error("не найден город юнита");
+            throw new Error(`не найден город юнита ${city}`);
         // name
         let name = oneOrError($html, "#headerInfo h1").text().trim();
         // обработка картинки
@@ -2355,6 +2425,19 @@ function parseUnitMainNew(html, url) {
         // эффективность может быть "не известна" для новых юнитов значит не будет прогресс бара
         let $td = $html.find("table.infoblock tr:contains('Эффективность работы') td.progress_bar").next("td");
         let eff = $td.length > 0 ? numberfyOrError($td.text(), -1) : 0;
+        // инновации
+        let innov = [];
+        let $slots = $html.find("div.artf_slots"); // может отсутствовать вовсе если нет инноваций
+        if ($slots.length > 0) {
+            $slots.find("img[src^='/pub/artefact/']").each((i, el) => {
+                let $img = $(el);
+                // обычно выглядит так: Маркетинг / Автомобильная парковка
+                let title = $img.attr("title");
+                let items = title.split("/");
+                let name = nullCheck(items[items.length - 1]).trim();
+                innov.push(name);
+            });
+        }
         return {
             subid: subid,
             name: name,
@@ -2362,7 +2445,8 @@ function parseUnitMainNew(html, url) {
             size: size,
             city: city,
             img: img,
-            efficiency: eff
+            efficiency: eff,
+            innovations: innov
         };
     }
     function ware(size) {
@@ -2434,7 +2518,7 @@ function parseUnitMainNew(html, url) {
             dashboard: dict
         };
     }
-    function shop() {
+    function shop(base) {
         let $info = $html.find("table.infoblock"); // Район города  Расходы на аренду
         // общая инфа
         let place = $info.find("td.title:contains(Район города)").next("td").text().split(/\s+/)[0].trim();
@@ -2464,7 +2548,9 @@ function parseUnitMainNew(html, url) {
             departments: depts,
             employees: { employees: employees, required: employeesReq, efficiency: employeesEff, holidays: inHoliday },
             service: service,
-            visitors: visitors
+            visitors: visitors,
+            haveParking: isOneOf("Автомобильная парковка", base.innovations),
+            havePR: isOneOf("Партнёрский договор с рекламным агентством", base.innovations)
         };
     }
     function fuel() {
@@ -3882,6 +3968,30 @@ var MarketIndex;
     MarketIndex[MarketIndex["AA"] = 5] = "AA";
     MarketIndex[MarketIndex["AAA"] = 6] = "AAA";
 })(MarketIndex || (MarketIndex = {}));
+function mIndexFromString(str) {
+    let index = MarketIndex.None;
+    switch (str) {
+        case "AAA":
+            return MarketIndex.AAA;
+        case "AA":
+            return MarketIndex.AA;
+        case "A":
+            return MarketIndex.A;
+        case "B":
+            return MarketIndex.B;
+        case "C":
+            return MarketIndex.C;
+        case "D":
+            return MarketIndex.D;
+        case "E":
+            return MarketIndex.E;
+        case "?":
+        case "None":
+            return MarketIndex.None;
+        default:
+            throw new Error(`Неизвестный индекс рынка: ${str}`);
+    }
+}
 function parseCityRetailReport(html, url) {
     let $html = $(html);
     try {
@@ -3898,35 +4008,7 @@ function parseCityRetailReport(html, url) {
             throw new Error("Не получилось извлечь id товара из " + url);
         let id = nums[0];
         let indexStr = $tds.eq(2).text().trim();
-        let index = MarketIndex.None;
-        switch (indexStr) {
-            case "AAA":
-                index = MarketIndex.AAA;
-                break;
-            case "AA":
-                index = MarketIndex.AA;
-                break;
-            case "A":
-                index = MarketIndex.A;
-                break;
-            case "B":
-                index = MarketIndex.B;
-                break;
-            case "C":
-                index = MarketIndex.C;
-                break;
-            case "D":
-                index = MarketIndex.D;
-                break;
-            case "E":
-                index = MarketIndex.E;
-                break;
-            case "?":
-                index = MarketIndex.None;
-                break;
-            default:
-                throw new Error(`Неизвестный индекс рынка: ${indexStr}`);
-        }
+        let index = mIndexFromString(indexStr);
         let quant = numberfyOrError($tds.eq(4).text(), -1);
         let sellersCnt = numberfyOrError($tds.eq(6).text(), -1);
         let companiesCnt = numberfyOrError($tds.eq(8).text(), -1);

@@ -1077,6 +1077,7 @@ interface IUnitEquipment {
 interface IMainBase extends IUnit {
     img: string;
     efficiency: number;
+    innovations: string[];
 }
 
 interface IMainShop {
@@ -1088,6 +1089,9 @@ interface IMainShop {
 
     visitors: number;
     service: ServiceLevels;
+
+    haveParking: boolean;
+    havePR: boolean;
 } 
 
 interface IMainFuel {
@@ -1117,6 +1121,12 @@ interface IMainWare {
     dashboard: IDictionary<IWareDashboardItem>;     // img = данные
 }
 
+// названия инноваций
+let InnovationNames = {
+    Parking: "Автомобильная парковка",
+    PRAgent: "Партнёрский договор с рекламным агентством"
+};
+
 function parseUnitMainNew(html: any, url: string): IMainBase {
     let $html = $(html);
 
@@ -1131,7 +1141,7 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
                 return $.extend({}, mainBase, ware(mainBase.size));
 
             case UnitTypes.shop:
-                return $.extend({}, mainBase, shop());
+                return $.extend({}, mainBase, shop(mainBase));
 
             case UnitTypes.fuel:
                 return $.extend({}, mainBase, fuel());
@@ -1158,10 +1168,12 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
         // city
         // "    Расположение: Великие Луки ("
         let lines = getOnlyText(oneOrError($html, "div.officePlace"));
-        let city = lines[1].split(":")[1].split("(")[0].trim();
+        let arr = execOrError(lines[1].trim(), /^расположение:(.*)\(/i);
+        //let city = lines[1].split(":")[1].split("(")[0].trim();
+        let city = arr[1].trim();
         if (city == null || city.length < 1)
-            throw new Error("не найден город юнита");
-
+            throw new Error(`не найден город юнита ${city}`);
+        
         // name
         let name = oneOrError($html, "#headerInfo h1").text().trim();
 
@@ -1188,6 +1200,22 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
         let $td = $html.find("table.infoblock tr:contains('Эффективность работы') td.progress_bar").next("td");
         let eff = $td.length > 0 ? numberfyOrError($td.text(), -1) : 0;
 
+        // инновации
+        let innov: string[] = [];
+        let $slots = $html.find("div.artf_slots"); // может отсутствовать вовсе если нет инноваций
+        if ($slots.length > 0) {
+            $slots.find("img[src^='/pub/artefact/']").each((i, el) => {
+                let $img = $(el);
+
+                // обычно выглядит так: Маркетинг / Автомобильная парковка
+                let title = $img.attr("title");
+                let items = title.split("/");
+                let name = nullCheck(items[items.length - 1]).trim();
+
+                innov.push(name);
+            });
+        }
+
         return {
             subid: subid,
             name: name,
@@ -1195,7 +1223,8 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
             size: size,
             city: city,
             img: img,
-            efficiency: eff
+            efficiency: eff,
+            innovations: innov
         };
     }
 
@@ -1286,7 +1315,7 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
         };
     }
 
-    function shop(): IMainShop {
+    function shop(base: IMainBase): IMainShop {
         let $info = $html.find("table.infoblock"); // Район города  Расходы на аренду
 
         // общая инфа
@@ -1324,7 +1353,9 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
             departments: depts,
             employees: { employees: employees, required: employeesReq, efficiency: employeesEff, holidays: inHoliday },
             service: service,
-            visitors: visitors
+            visitors: visitors,
+            haveParking: isOneOf(InnovationNames.Parking, base.innovations),
+            havePR: isOneOf(InnovationNames.PRAgent, base.innovations)
         };
     }
 
@@ -1846,6 +1877,7 @@ function parseWareSupply(html: any, url: string): [[IProduct, IBuyContract[]][],
                         id: offerID,
                         unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
                         maxLimit: maxLimit > 0 ? maxLimit : null,
+                        origPrice: null,
                         stock: {
                             available: available,
                             total: total,
@@ -2467,6 +2499,7 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                         id: offerID,
                         unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
                         maxLimit: maxLimit > 0 ? maxLimit : null,
+                        origPrice: null,
                         stock: {
                             available: available,
                             total: total,
@@ -3005,7 +3038,8 @@ interface IOffer {
     isIndependend: boolean; // независимых пометим особой меткой
     unit: IUnit;    // по юниту уже можно понять чей это склад лично мой или нет
     self: boolean;  // это не говорит о том что мой юнит, либо мой либо в корпе либо мне открыл кто то
-    maxLimit: number|null; // ограничение на макс закупку у поставщика
+    maxLimit: number | null; // ограничение на макс закупку у поставщика
+    origPrice: number | null; // цена поставщика без учета таможни и доставки
     stock: ISupplyStock;
     tmImg: string;  // если предлагает ТМ то путь на картинку ТМ товара либо ""
 }
@@ -3082,6 +3116,9 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
 
             // цены ВСЕГДА ЕСТЬ. Даже если на складе пусто
             // это связано с тем что если склад открыт для покупки у него цена больше 0 должна стоять
+            // Есть цена поставщика, на которую работает ограничение по макс цене, и есть конечная цена
+            let origPrice = numberfyOrError($tds.eq(4).text());
+
             let nums = extractFloatPositive($tds.eq(5).html());
             if (nums == null || nums.length < 1)
                 throw new Error("невозможно получить цену.");
@@ -3111,6 +3148,7 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                 isIndependend: isIndependent,
                 unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
                 maxLimit: maxLimit > 0 ? maxLimit : null,
+                origPrice: origPrice,
                 stock: {
                     available: available,
                     total: total,
@@ -3132,6 +3170,38 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
 
 enum MarketIndex {
     None = -1, E, D, C, B, A, AA, AAA
+}
+function mIndexFromString(str: string): MarketIndex {
+    let index = MarketIndex.None;
+    switch (str) {
+        case "AAA":
+            return MarketIndex.AAA;
+
+        case "AA":
+            return MarketIndex.AA;
+
+        case "A":
+            return MarketIndex.A;
+
+        case "B":
+            return MarketIndex.B;
+
+        case "C":
+            return MarketIndex.C;
+
+        case "D":
+            return MarketIndex.D;
+
+        case "E":
+            return MarketIndex.E;
+
+        case "?":
+        case "None":
+            return MarketIndex.None;
+
+        default:
+            throw new Error(`Неизвестный индекс рынка: ${str}`);
+    }
 }
 
 interface ICityRetailReport {
@@ -3163,43 +3233,7 @@ function parseCityRetailReport(html: any, url: string): ICityRetailReport {
 
         let id = nums[0];
         let indexStr = $tds.eq(2).text().trim();
-        let index = MarketIndex.None;
-        switch (indexStr) {
-            case "AAA":
-                index = MarketIndex.AAA;
-                break;
-
-            case "AA":
-                index = MarketIndex.AA;
-                break;
-
-            case "A":
-                index = MarketIndex.A;
-                break;
-
-            case "B":
-                index = MarketIndex.B;
-                break;
-
-            case "C":
-                index = MarketIndex.C;
-                break;
-
-            case "D":
-                index = MarketIndex.D;
-                break;
-
-            case "E":
-                index = MarketIndex.E;
-                break;
-
-            case "?":
-                index = MarketIndex.None;
-                break;
-
-            default:
-                throw new Error(`Неизвестный индекс рынка: ${indexStr}`);
-        }
+        let index = mIndexFromString(indexStr);
 
         let quant = numberfyOrError($tds.eq(4).text(), -1);
         let sellersCnt = numberfyOrError($tds.eq(6).text(), -1);
