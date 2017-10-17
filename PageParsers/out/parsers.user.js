@@ -619,7 +619,7 @@ function nullCheck(val) {
 // для 1 юнита
 // 
 let url_unit_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+/i; // внутри юнита. любая страница
-let url_unit_main_rx = /\/\w+\/(?:main|window)\/unit\/view\/\d+\/?$/i; // главная юнита
+//let url_unit_main_rx = /\/\w+\/(?:main|window)\/unit\/view\/\d+\/?$/i;     // главная юнита
 let url_unit_finrep_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
 let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i; // финанс отчет по товарам
 let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
@@ -649,6 +649,7 @@ let url_tm_info_rx = /\/[a-z]+\/main\/globalreport\/tm\/info/i; // брендо�
 let Url_rx = {
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     unit_main: /\/[a-z]+\/main\/unit\/view\/\d+\/?$/i,
+    unit_ads: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/virtasement\/?$/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -737,7 +738,7 @@ function isOthersUnitList() {
     return true;
 }
 function isUnitMain(urlPath, html, my = true) {
-    let ok = url_unit_main_rx.test(urlPath);
+    let ok = Url_rx.unit_main.test(urlPath);
     if (!ok)
         return false;
     let hasTabs = $(html).find("ul.tabu").length > 0;
@@ -1404,9 +1405,9 @@ let urlTemplates = {
     unitMainNew: [Url_rx.unit_main,
             (html) => true,
         parseUnitMainNew],
-    ads: [/\/\w+\/main\/unit\/view\/\d+\/virtasement\/?$/ig,
+    ads: [Url_rx.unit_ads,
             (html) => true,
-        parseAds],
+        parseUnitAds],
     reportAds: [url_rep_ad,
             (html) => true,
         parseReportAdvertising],
@@ -1602,6 +1603,12 @@ function zipAndMin(napArr1, napArr2) {
 //
 // Сюда все функции которые парсят данные со страниц
 //
+/**
+ * Определяет что данная страница открыта в режиме window то есть без шапки
+ */
+function isWindow($html, url) {
+    return url.indexOf("/window/") > 0;
+}
 /**
  * По пути картинки выявляется ТМ товар или нет. Обычно в ТМ у нас есть /brand/ кусок
  * @param product
@@ -2031,19 +2038,23 @@ function parseSaleNew(html, url) {
 //    }
 //}
 /**
- * Парсинг данных по страницы /main/unit/view/8004742/virtasement
- * @param html
- * @param url
+ * Парсинг данных по страницы
+   /main/unit/view/8004742/virtasement
+   /window/unit/view/8004742/virtasement
  */
-function parseAds(html, url) {
+function parseUnitAds(html, url) {
     let $html = $(html);
     try {
         // известность
         let _celebrity = numberfyOrError($html.find(".infoblock tr:eq(0) td:eq(1)").text(), -1);
         // население города
         let _pop = (() => {
+            // для window у нас чуть иначе поиск
+            let scriptTxt = isWindow($html, url)
+                ? $html.filter("script").text()
+                : $html.find("script").text();
             // если регулярка сработала значит точно нашли данные
-            let m = execOrError($html.find("script").text(), /params\['population'\] = (\d+);/i);
+            let m = execOrError(scriptTxt, /params\['population'\] = (\d+);/i);
             return numberfyOrError(m[1], 0);
         })();
         // текущий бюджет, он может быть и 0
@@ -2062,7 +2073,7 @@ function parseAds(html, url) {
         };
     }
     catch (err) {
-        throw new ParseError("ads", url, err);
+        throw err;
     }
 }
 /**

@@ -3,6 +3,13 @@
 //
 
 /**
+ * Определяет что данная страница открыта в режиме window то есть без шапки
+ */
+function isWindow($html: JQuery, url: string) {
+    return url.indexOf("/window/") > 0;
+}
+
+/**
  * По пути картинки выявляется ТМ товар или нет. Обычно в ТМ у нас есть /brand/ кусок
  * @param product
  */
@@ -541,11 +548,11 @@ function parseSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWareIte
 //}
 
 /**
- * Парсинг данных по страницы /main/unit/view/8004742/virtasement
- * @param html
- * @param url
+ * Парсинг данных по страницы
+   /main/unit/view/8004742/virtasement
+   /window/unit/view/8004742/virtasement
  */
-function parseAds(html: any, url: string): IAds {
+function parseUnitAds(html: any, url: string): IUnitAds {
     let $html = $(html);
 
     try {
@@ -554,8 +561,13 @@ function parseAds(html: any, url: string): IAds {
 
         // население города
         let _pop = (() => {
+            // для window у нас чуть иначе поиск
+            let scriptTxt = isWindow($html, url)
+                ? $html.filter("script").text()
+                : $html.find("script").text();
+
             // если регулярка сработала значит точно нашли данные
-            let m = execOrError($html.find("script").text(), /params\['population'\] = (\d+);/i);
+            let m = execOrError(scriptTxt, /params\['population'\] = (\d+);/i);
             return numberfyOrError(m[1], 0);
         })();
 
@@ -577,7 +589,7 @@ function parseAds(html: any, url: string): IAds {
         };
     }
     catch (err) {
-        throw new ParseError("ads", url, err);
+        throw err;
     }
 }
 
