@@ -2363,11 +2363,15 @@ interface ITradeHallItem {
  * @param html
  * @param url
  */
-function parseTradeHall(html: any, url: string): [number, ITradeHallItem[]] {
+function parseUnitTradeHall(html: any, url: string): [number, ITradeHallItem[]] {
     let $html = $(html);
 
     try {
-        let str = oneOrError($html, "table.list").find("div").eq(0).text().trim();
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
+
+        let str = oneOrError($tbl, "div:first").text().trim();
         let filling = numberfyOrError(str, -1);
 
         let $rows = closestByTagName($html.find("a.popup"), "tr");

@@ -622,7 +622,7 @@ let url_unit_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+/i; // внутри
 //let url_unit_main_rx = /\/\w+\/(?:main|window)\/unit\/view\/\d+\/?$/i;     // главная юнита
 let url_unit_finrep_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
 let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i; // финанс отчет по товарам
-let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
+//let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;    // торговый зал
 let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
 //let url_supply_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i;    // снабжение
 //let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale\/?/i;        // продажа склад/завод
@@ -658,6 +658,7 @@ let Url_rx = {
     unit_sale: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/sale\/?/i,
     unit_supply: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/supply\/?/i,
     unit_supply_create: /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i,
+    unit_trade_hall: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/trading_hall\/?/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1437,12 +1438,9 @@ let urlTemplates = {
     supplyCreate: [Url_rx.unit_supply_create,
             (html) => true,
         parseSupplyCreate],
-    tradehallOld: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
+    tradehall: [Url_rx.unit_trade_hall,
             (html) => true,
-        parseTradeHallOld],
-    tradehall: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
-            (html) => true,
-        parseTradeHall],
+        parseUnitTradeHall],
     service: [/zzz/gi,
             (html) => true,
         parseX],
@@ -3441,10 +3439,13 @@ function parseTradeHallOld(html, url) {
  * @param html
  * @param url
  */
-function parseTradeHall(html, url) {
+function parseUnitTradeHall(html, url) {
     let $html = $(html);
     try {
-        let str = oneOrError($html, "table.list").find("div").eq(0).text().trim();
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
+        let str = oneOrError($tbl, "div:first").text().trim();
         let filling = numberfyOrError(str, -1);
         let $rows = closestByTagName($html.find("a.popup"), "tr");
         let thItems = [];
