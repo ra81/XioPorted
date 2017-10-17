@@ -651,6 +651,9 @@ let Url_rx = {
     v_city_retail_report: /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i,
     v_tm_info: /\/[a-z]+\/(?:main|window)\/globalreport\/tm\/info\/?$/i,
     v_country_duties: /\/[a-z]+\/(?:main|window)\/geo\/countrydutylist\/\d+\/?/i,
+    v_regions: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/region\/?$/i,
+    v_countries: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/country\/?$/i,
+    v_cities: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/city\/?$/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -665,6 +668,8 @@ let Url_rx = {
     unit_trade_hall: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/trading_hall\/?/i,
     unit_retail_price_history: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i,
     unit_education: /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i,
+    unit_ware_resize: /\/[a-z]+\/window\/unit\/upgrade\/\d+\/?$/i,
+    unit_ware_change_spec: /\/[a-z]+\/window\/unit\/speciality_change\/\d+\/?$/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1414,90 +1419,72 @@ function ImportA($place, converter, delim = "\n") {
 $ = jQuery = jQuery.noConflict(true);
 $xioDebug = true;
 let urlTemplates = {
+    // вирта глобальные
     manager: [Url_rx.top_manager,
             (html) => true,
         parseManager],
-    unitMainNew: [Url_rx.unit_main,
-            (html) => true,
-        parseUnitMainNew],
-    unitAds: [Url_rx.unit_ads,
-            (html) => true,
-        parseUnitAds],
-    reportAds: [Url_rx.comp_ads_rep,
-            (html) => true,
-        parseCompAdsReport],
-    unitSalary: [Url_rx.unit_salary,
-            (html) => true,
-        parseUnitSalary],
-    unitlist: [Url_rx.comp_unit_list,
-            (html) => true,
-        parseUnitList],
-    unitSale: [Url_rx.unit_sale,
-            (html) => true,
-        parseUnitSaleNew],
-    retailSupplyNew: [Url_rx.unit_supply,
-            (html) => { return $(html).find("#productsHereDiv").length > 0; },
-        parseRetailSupplyNew],
-    wareSupply: [Url_rx.unit_supply,
-            (html) => $(html).text().indexOf("склад") > 0,
-        parseWareSupply],
-    supplyCreate: [Url_rx.unit_supply_create,
-            (html) => true,
-        parseSupplyCreate],
-    tradehall: [Url_rx.unit_trade_hall,
-            (html) => true,
-        parseUnitTradeHall],
-    cityRetailReport: [Url_rx.v_city_retail_report,
-            (html) => true,
-        parseCityRetailReport],
-    retailPriceHistory: [Url_rx.unit_retail_price_history,
-            (html) => true,
-        parseUnitRetailPriceHistory],
-    training: [Url_rx.unit_education,
-            (html) => true,
-        parseUnitEducation],
     TM: [Url_rx.v_tm_info,
             (html) => true,
         parseTM],
     countryDuties: [Url_rx.v_country_duties,
             (html) => true,
         parseCountryDuties],
-    equipment: [/zzz/gi,
+    cityRetailReport: [Url_rx.v_city_retail_report,
             (html) => true,
-        parseX],
-    tech: [/zzz/gi,
+        parseCityRetailReport],
+    regions: [Url_rx.v_regions,
             (html) => true,
-        parseX],
-    products: [/zzz/gi,
+        parseRegions],
+    countries: [Url_rx.v_countries,
             (html) => true,
-        parseX],
-    contract: [/zzz/gi,
+        parseCountries],
+    cities: [Url_rx.v_cities,
             (html) => true,
-        parseX],
-    research: [/zzz/gi,
+        parseCities],
+    // компания
+    unitlist: [Url_rx.comp_unit_list,
             (html) => true,
-        parseX],
-    experimentalunit: [/zzz/gi,
+        parseUnitList],
+    reportAds: [Url_rx.comp_ads_rep,
             (html) => true,
-        parseX],
-    financeitem: [/zzz/gi,
+        parseCompAdsReport],
+    // юнит
+    unitMainNew: [Url_rx.unit_main,
             (html) => true,
-        parseX],
-    machines: [/zzz/gi,
+        parseUnitMainNew],
+    training: [Url_rx.unit_education,
             (html) => true,
-        parseX],
-    animals: [/zzz/gi,
+        parseUnitEducation],
+    unitSalary: [Url_rx.unit_salary,
             (html) => true,
-        parseX],
-    wareResize: [/\/\w+\/window\/unit\/upgrade\/\d+\/?$/ig,
+        parseUnitSalary],
+    unitAds: [Url_rx.unit_ads,
+            (html) => true,
+        parseUnitAds],
+    unitSale: [Url_rx.unit_sale,
+            (html) => true,
+        parseUnitSaleNew],
+    retailSupplyNew: [Url_rx.unit_supply,
+            (html) => { return $(html).find("#productsHereDiv").length > 0; },
+        parseRetailSupplyNew],
+    supplyCreate: [Url_rx.unit_supply_create,
+            (html) => true,
+        parseSupplyCreate],
+    tradehall: [Url_rx.unit_trade_hall,
+            (html) => true,
+        parseUnitTradeHall],
+    retailPriceHistory: [Url_rx.unit_retail_price_history,
+            (html) => true,
+        parseUnitRetailPriceHistory],
+    wareResize: [Url_rx.unit_ware_resize,
             (html) => true,
         parseWareResize],
-    wareMain: [/\/\w+\/main\/unit\/view\/\d+\/?$/,
-            (html) => isWarehouse($(html)),
-        parseWareMain],
-    wareChangeCpec: [/\/\w+\/window\/unit\/speciality_change\/\d+\/?$/,
+    wareChangeCpec: [Url_rx.unit_ware_change_spec,
             (html) => true,
         parseWareChangeSpec],
+    wareSupply: [Url_rx.unit_supply,
+            (html) => $(html).text().indexOf("склад") > 0,
+        parseWareSupply],
     productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
             (html) => true,
         parseProductReport],
@@ -1510,15 +1497,6 @@ let urlTemplates = {
     energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
             (html) => true,
         parseEnergyPrices],
-    regions: [/\/[a-z]+\/main\/common\/main_page\/game_info\/bonuses\/region$/i,
-            (html) => true,
-        parseRegions],
-    countries: [/\/[a-z]+\/main\/common\/main_page\/game_info\/bonuses\/country$/i,
-            (html) => true,
-        parseCountries],
-    cities: [/\/[a-z]+\/main\/common\/main_page\/game_info\/bonuses\/city$/i,
-            (html) => true,
-        parseCities],
     allProducts: [url_products_rx,
             (html) => true,
         parseProducts],
@@ -3031,46 +3009,6 @@ function parseWareResize(html, url) {
     }
     catch (err) {
         throw new ParseError("ware size", url, err);
-    }
-}
-/**
- * Главная страница склада аналогично обычной главной юнита /main/unit/view/ + subid
- * @param html
- * @param url
- */
-function parseWareMain(html, url) {
-    let $html = $(html);
-    try {
-        if ($html.find("#unitImage img").attr("src").indexOf("warehouse") < 0)
-            throw new Error("Это не склад!");
-        let _size = $html.find(".infoblock td:eq(1)").map((i, e) => {
-            let txt = $(e).text();
-            let sz = numberfyOrError(txt);
-            if (txt.indexOf("тыс") >= 0)
-                sz *= 1000;
-            if (txt.indexOf("млн") >= 0)
-                sz *= 1000000;
-            return sz;
-        }).get();
-        let _full = (() => {
-            let f = $html.find("[nowrap]:eq(0)").text().trim();
-            if (f === "")
-                throw new Error("ware full not found");
-            return numberfy(f);
-        })();
-        let _product = $html.find(".grid td:nth-child(1)").map((i, e) => $(e).text()).get();
-        let _stock = $html.find(".grid td:nth-child(2)").map((i, e) => numberfy($(e).text())).get();
-        let _shipments = $html.find(".grid td:nth-child(6)").map((i, e) => numberfy($(e).text())).get();
-        return {
-            size: _size,
-            full: _full,
-            product: _product,
-            stock: _stock,
-            shipments: _shipments
-        };
-    }
-    catch (err) {
-        throw new ParseError("ware main", url, err);
     }
 }
 /**

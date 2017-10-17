@@ -1868,53 +1868,6 @@ function parseWareResize(html: any, url: string): IWareResize {
 }
 
 /**
- * Главная страница склада аналогично обычной главной юнита /main/unit/view/ + subid
- * @param html
- * @param url
- */
-function parseWareMain(html: any, url: string): IWareMain {
-    let $html = $(html);
-
-    try {
-        if ($html.find("#unitImage img").attr("src").indexOf("warehouse") < 0)
-            throw new Error("Это не склад!");
-
-        let _size = $html.find(".infoblock td:eq(1)").map((i, e) => {
-            let txt = $(e).text();
-            let sz = numberfyOrError(txt);
-            if (txt.indexOf("тыс") >= 0)
-                sz *= 1000;
-
-            if (txt.indexOf("млн") >= 0)
-                sz *= 1000000;
-
-            return sz;
-        }).get() as any as number;
-        let _full = (() => {
-            let f = $html.find("[nowrap]:eq(0)").text().trim();
-            if (f === "")
-                throw new Error("ware full not found");
-
-            return numberfy(f);
-        })();
-        let _product = $html.find(".grid td:nth-child(1)").map((i, e) => $(e).text()).get() as any as string[];
-        let _stock = $html.find(".grid td:nth-child(2)").map((i, e) => numberfy($(e).text())).get() as any as number[];
-        let _shipments = $html.find(".grid td:nth-child(6)").map((i, e) => numberfy($(e).text())).get() as any as number[];
-
-        return {
-            size: _size,
-            full: _full,
-            product: _product,
-            stock: _stock,
-            shipments: _shipments
-        };
-    }
-    catch (err) {
-        throw new ParseError("ware main", url, err);
-    }
-}
-
-/**
  * Снабжение склада
    [[товар, контракты[]], товары внизу страницы без контрактов]
    возможно что будут дубли id товара ведь малиновый пиджак и простой имеют общий id
