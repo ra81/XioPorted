@@ -3571,7 +3571,12 @@ function parseTM(html: any, url: string): IDictionary<string> {
     let $html = $(html);
 
     try {
-        let $imgs = $html.find("table.grid").find("img");
+        let $imgs = isWindow($html, url)
+            ? $html.filter("table.grid").find("img")
+            : $html.find("table.grid").find("img");
+
+        if ($imgs.length <= 0)
+            throw new Error("Не найдено ни одного ТМ товара.");
 
         let dict: IDictionary<string> = {};
         $imgs.each((i, el) => {

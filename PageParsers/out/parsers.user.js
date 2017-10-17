@@ -645,10 +645,11 @@ let url_trade_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/tradi
 //let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
 let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i; // размеры продуктов на склада
 let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i; // таможенные пошлины и ИЦ
-let url_tm_info_rx = /\/[a-z]+\/main\/globalreport\/tm\/info/i; // брендовые товары список
+// let url_tm_info_rx = /\/[a-z]+\/main\/globalreport\/tm\/info/i;    // брендовые товары список
 let Url_rx = {
     // для виртономики
     v_city_retail_report: /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i,
+    v_tm_info: /\/[a-z]+\/(?:main|window)\/globalreport\/tm\/info\/?$/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -1447,10 +1448,10 @@ let urlTemplates = {
     cityRetailReport: [Url_rx.v_city_retail_report,
             (html) => true,
         parseCityRetailReport],
-    pricehistory: [Url_rx.unit_retail_price_history,
+    retailPriceHistory: [Url_rx.unit_retail_price_history,
             (html) => true,
         parseUnitRetailPriceHistory],
-    TM: [url_tm_info_rx,
+    TM: [Url_rx.v_tm_info,
             (html) => true,
         parseTM],
     countryDuties: [url_country_duties_rx,
@@ -4360,7 +4361,11 @@ function parseCountryDuties(html, url) {
 function parseTM(html, url) {
     let $html = $(html);
     try {
-        let $imgs = $html.find("table.grid").find("img");
+        let $imgs = isWindow($html, url)
+            ? $html.filter("table.grid").find("img")
+            : $html.find("table.grid").find("img");
+        if ($imgs.length <= 0)
+            throw new Error("Не найдено ни одного ТМ товара.");
         let dict = {};
         $imgs.each((i, el) => {
             let $img = $(el);

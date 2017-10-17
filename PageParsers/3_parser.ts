@@ -41,10 +41,11 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     cityRetailReport: [Url_rx.v_city_retail_report,
         (html: any) => true,
         parseCityRetailReport],
-    pricehistory: [Url_rx.unit_retail_price_history,
+    retailPriceHistory: [Url_rx.unit_retail_price_history,
         (html: any) => true,
         parseUnitRetailPriceHistory],
-    TM: [url_tm_info_rx,
+
+    TM: [Url_rx.v_tm_info,
         (html: any) => true,
         parseTM],
     countryDuties: [url_country_duties_rx,
