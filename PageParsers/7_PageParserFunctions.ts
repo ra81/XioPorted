@@ -3532,7 +3532,12 @@ function parseCountryDuties(html: any, url: string): IDictionary<ICountryDuties>
     let $html = $(html);
 
     try {
-        let $tbl = oneOrError($html, "table.list");
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
+
+        if ($tbl.length <= 0)
+            throw new Error("Не найдена таблица с товарами.");
 
         let $img = $tbl.find("td:nth-child(5n-4)");
         let $exp = $tbl.find("td:nth-child(5n-2)");

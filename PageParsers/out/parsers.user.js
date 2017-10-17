@@ -644,12 +644,13 @@ let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i
 let url_trade_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/trading$/i; // страница с торгуемыми товарами
 //let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
 let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i; // размеры продуктов на склада
-let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i; // таможенные пошлины и ИЦ
+//let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i;    // таможенные пошлины и ИЦ
 // let url_tm_info_rx = /\/[a-z]+\/main\/globalreport\/tm\/info/i;    // брендовые товары список
 let Url_rx = {
     // для виртономики
     v_city_retail_report: /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i,
     v_tm_info: /\/[a-z]+\/(?:main|window)\/globalreport\/tm\/info\/?$/i,
+    v_country_duties: /\/[a-z]+\/(?:main|window)\/geo\/countrydutylist\/\d+\/?/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -1454,7 +1455,7 @@ let urlTemplates = {
     TM: [Url_rx.v_tm_info,
             (html) => true,
         parseTM],
-    countryDuties: [url_country_duties_rx,
+    countryDuties: [Url_rx.v_country_duties,
             (html) => true,
         parseCountryDuties],
     transport: [/zzz/gi,
@@ -4328,7 +4329,11 @@ function parseProductsSize(html, url) {
 function parseCountryDuties(html, url) {
     let $html = $(html);
     try {
-        let $tbl = oneOrError($html, "table.list");
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
+        if ($tbl.length <= 0)
+            throw new Error("Не найдена таблица с товарами.");
         let $img = $tbl.find("td:nth-child(5n-4)");
         let $exp = $tbl.find("td:nth-child(5n-2)");
         let $imp = $tbl.find("td:nth-child(5n-1)");

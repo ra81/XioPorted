@@ -48,7 +48,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     TM: [Url_rx.v_tm_info,
         (html: any) => true,
         parseTM],
-    countryDuties: [url_country_duties_rx,
+    countryDuties: [Url_rx.v_country_duties,
         (html: any) => true,
         parseCountryDuties],
     transport: [/zzz/gi,
