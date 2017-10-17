@@ -2173,76 +2173,6 @@ function parseProductReport(html: any, url: string): IProductReport {
     }
 }
 
-/**
- * "/"+realm+"/main/company/view/"+companyid+"/unit_list/employee/salary"
- * @param html
- * @param url
- */
-function parseEmployees(html: any, url: string): IEmployees {
-    let $html = $(html);
-
-    try {
-        let $rows = $html.find("table.list").find(".u-c").map((i, e) => $(e).closest("tr").get());
-
-        let _id = $rows.find(":checkbox").map((i, e) => numberfyOrError($(e).val())).get() as any as number[];
-
-        // может быть 0 в принципе
-        let _salary = $rows.find("td:nth-child(7)").map((i, e) => {
-            let txt = getInnerText(e).trim();
-            if (txt.length === 0)
-                throw new Error("salary not found");
-
-            return numberfy(txt);
-        }).get() as any as number[];
-
-        // не может быть 0
-        let _salaryCity = $rows.find("td:nth-child(8)").map((i, e) => {
-            let txt = getInnerText(e).trim(); // тут низя удалять ничо. внутри какой то инпут сраный и в нем текст
-            if (txt.length === 0)
-                throw new Error("salary city not found");
-
-            return numberfyOrError(txt);
-        }).get() as any as number[];
-
-        // может быть 0
-        let _skill = $rows.find("td:nth-child(9)").map((i, e) => {
-            let txt = $(e).text().trim();  // может быть a тег внутри. поэтому просто текст.
-            if (txt.length === 0)
-                throw new Error("skill not found");
-
-            return numberfy(txt);
-        }).get() as any as number[];
-        let _skillRequired = $rows.find("td:nth-child(10)").map((i, e) => {
-            let txt = $(e).text().trim();  // может быть a тег внутри. поэтому просто текст.
-            if (txt.length === 0)
-                throw new Error("skill not found");
-
-            return numberfy(txt);
-        }).get() as any as number[];
-
-        let _onHoliday = $rows.find("td:nth-child(11)").map((i, e) => !!$(e).find(".in-holiday").length).get() as any as boolean[];
-
-        // может отсутстовать если мы в отпуске -1 будет
-        let _efficiency = $rows.find("td:nth-child(11)").map((i, e) => {
-            let txt = getInnerText(e).trim();
-            return numberfy(txt || "-1");
-        }).get() as any as string[];
-
-        return {
-            id: _id,
-            salary: _salary,
-            salaryCity: _salaryCity,
-            skill: _skill,
-            skillRequired: _skillRequired,
-            onHoliday: _onHoliday,
-            efficiency: _efficiency
-        };
-    }
-    catch (err) {
-        throw new ParseError("ware size", url, err);
-    }
-}
-
 
 function parseTradeHallOld(html: any, url: string): ITradeHall {
     let $html = $(html);
@@ -2901,18 +2831,9 @@ function parseGameDate(html: any, url: string): Date {
  * @param html
  * @param url
  */
-function parseManageEmployees(html: any, url: string) {
-    if (html == null)
-        throw new Error("страница пуста. парсить нечего");
+function parseManageEmployees(html: any, url: string): IDictionaryN<IEmployeesNew> {
 
     let $html = $(html);
-
-    function getOrError<T>(n: T | null) {
-        if (n == null)
-            throw new Error("Argument is null");
-
-        return n as T;
-    }
 
     try {
 

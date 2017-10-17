@@ -13,9 +13,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     TM: [Url_rx.v_tm_info,
     (html: any) => true,
         parseTM],
-    countryDuties: [Url_rx.v_country_duties,
-    (html: any) => true,
-        parseCountryDuties],
+    
     cityRetailReport: [Url_rx.v_city_retail_report,
     (html: any) => true,
         parseCityRetailReport],
@@ -28,6 +26,12 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     cities: [Url_rx.v_cities,
         (html: any) => true,
         parseCities],
+    countryDuties: [Url_rx.v_country_duties,
+    (html: any) => true,
+        parseCountryDuties],
+    energyprices: [Url_rx.v_energy_price,
+        (html: any) => true,
+        parseEnergyPrices],
     productSizes: [Url_rx.v_products_size,
         (html: any) => true,
         parseProductsSize],
@@ -53,6 +57,10 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     finRepByUnits: [Url_rx.comp_fin_rep_byunit,
         (html: any) => true,
         parseFinanceRepByUnits],
+    manageSalary: [Url_rx.comp_manage_salary,
+        (html: any) => true,
+        parseManageEmployees],
+
 
     // юнит
     unitMainNew: [Url_rx.unit_main,
@@ -106,15 +114,8 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
         (html: any) => true,
         parseProductReport],
-    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
-        (html: any) => true,
-        parseEmployees],
-    manageEmployees: [url_manag_empl_rx,
-        (html: any) => true,
-        parseManageEmployees],
-    energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
-        (html: any) => true,
-        parseEnergyPrices],
+
+
     
 
 

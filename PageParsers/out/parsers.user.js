@@ -659,11 +659,13 @@ let Url_rx = {
     v_global_products: /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i,
     v_products: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/products$/i,
     v_trade_products: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/trading$/i,
+    v_energy_price: /\/[a-z]+\/(?:main|window)\/geo\/tariff\/\d+/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
     comp_fin_rep_byunit: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/finance_report\/by_units(?:\/.*)?$/i,
     comp_unit_list: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?(\/xiooverview|\/overview)?$/i,
+    comp_manage_salary: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/unit_list\/employee\/salary\/?$/i,
     // для юнита
     unit_main: /\/[a-z]+\/main\/unit\/view\/\d+\/?$/i,
     unit_ads: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/virtasement\/?$/i,
@@ -1434,9 +1436,6 @@ let urlTemplates = {
     TM: [Url_rx.v_tm_info,
             (html) => true,
         parseTM],
-    countryDuties: [Url_rx.v_country_duties,
-            (html) => true,
-        parseCountryDuties],
     cityRetailReport: [Url_rx.v_city_retail_report,
             (html) => true,
         parseCityRetailReport],
@@ -1449,6 +1448,12 @@ let urlTemplates = {
     cities: [Url_rx.v_cities,
             (html) => true,
         parseCities],
+    countryDuties: [Url_rx.v_country_duties,
+            (html) => true,
+        parseCountryDuties],
+    energyprices: [Url_rx.v_energy_price,
+            (html) => true,
+        parseEnergyPrices],
     productSizes: [Url_rx.v_products_size,
             (html) => true,
         parseProductsSize],
@@ -1471,6 +1476,9 @@ let urlTemplates = {
     finRepByUnits: [Url_rx.comp_fin_rep_byunit,
             (html) => true,
         parseFinanceRepByUnits],
+    manageSalary: [Url_rx.comp_manage_salary,
+            (html) => true,
+        parseManageEmployees],
     // юнит
     unitMainNew: [Url_rx.unit_main,
             (html) => true,
@@ -1517,15 +1525,6 @@ let urlTemplates = {
     productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
             (html) => true,
         parseProductReport],
-    employees: [/\/\w+\/main\/company\/view\/\w+\/unit_list\/employee\/salary\/?$/ig,
-            (html) => true,
-        parseEmployees],
-    manageEmployees: [url_manag_empl_rx,
-            (html) => true,
-        parseManageEmployees],
-    energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
-            (html) => true,
-        parseEnergyPrices],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -3270,63 +3269,6 @@ function parseProductReport(html, url) {
         throw new ParseError("product report", url, err);
     }
 }
-/**
- * "/"+realm+"/main/company/view/"+companyid+"/unit_list/employee/salary"
- * @param html
- * @param url
- */
-function parseEmployees(html, url) {
-    let $html = $(html);
-    try {
-        let $rows = $html.find("table.list").find(".u-c").map((i, e) => $(e).closest("tr").get());
-        let _id = $rows.find(":checkbox").map((i, e) => numberfyOrError($(e).val())).get();
-        // может быть 0 в принципе
-        let _salary = $rows.find("td:nth-child(7)").map((i, e) => {
-            let txt = getInnerText(e).trim();
-            if (txt.length === 0)
-                throw new Error("salary not found");
-            return numberfy(txt);
-        }).get();
-        // не может быть 0
-        let _salaryCity = $rows.find("td:nth-child(8)").map((i, e) => {
-            let txt = getInnerText(e).trim(); // тут низя удалять ничо. внутри какой то инпут сраный и в нем текст
-            if (txt.length === 0)
-                throw new Error("salary city not found");
-            return numberfyOrError(txt);
-        }).get();
-        // может быть 0
-        let _skill = $rows.find("td:nth-child(9)").map((i, e) => {
-            let txt = $(e).text().trim(); // может быть a тег внутри. поэтому просто текст.
-            if (txt.length === 0)
-                throw new Error("skill not found");
-            return numberfy(txt);
-        }).get();
-        let _skillRequired = $rows.find("td:nth-child(10)").map((i, e) => {
-            let txt = $(e).text().trim(); // может быть a тег внутри. поэтому просто текст.
-            if (txt.length === 0)
-                throw new Error("skill not found");
-            return numberfy(txt);
-        }).get();
-        let _onHoliday = $rows.find("td:nth-child(11)").map((i, e) => !!$(e).find(".in-holiday").length).get();
-        // может отсутстовать если мы в отпуске -1 будет
-        let _efficiency = $rows.find("td:nth-child(11)").map((i, e) => {
-            let txt = getInnerText(e).trim();
-            return numberfy(txt || "-1");
-        }).get();
-        return {
-            id: _id,
-            salary: _salary,
-            salaryCity: _salaryCity,
-            skill: _skill,
-            skillRequired: _skillRequired,
-            onHoliday: _onHoliday,
-            efficiency: _efficiency
-        };
-    }
-    catch (err) {
-        throw new ParseError("ware size", url, err);
-    }
-}
 function parseTradeHallOld(html, url) {
     let $html = $(html);
     try {
@@ -3817,14 +3759,7 @@ function parseGameDate(html, url) {
  * @param url
  */
 function parseManageEmployees(html, url) {
-    if (html == null)
-        throw new Error("страница пуста. парсить нечего");
     let $html = $(html);
-    function getOrError(n) {
-        if (n == null)
-            throw new Error("Argument is null");
-        return n;
-    }
     try {
         let $rows = $html.find("tr").has("td.u-c");
         let units = {};
