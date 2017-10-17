@@ -44,6 +44,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     tradeProducts: [Url_rx.v_trade_products,
         (html: any) => true,
         parseProducts],
+    productSuppliers: [Url_rx.v_product_suppliers,
+        (html: any) => true,
+        parseProductSuppliers],
 
 
 
@@ -105,21 +108,6 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     wareSupply: [Url_rx.unit_supply,
         (html: any) => $(html).text().indexOf("склад") > 0,
         parseWareSupply],
-
-
-
-
-
-
-    productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
-        (html: any) => true,
-        parseProductReport],
-
-
-    
-
-
-
 };
 
 $(document).ready(() => parseStart());

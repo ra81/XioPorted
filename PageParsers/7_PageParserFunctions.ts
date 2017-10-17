@@ -2120,11 +2120,15 @@ function parseWareChangeSpec(html: any, url: string): [number, string, boolean][
  * @param html
  * @param url
  */
-function parseProductReport(html: any, url: string): IProductReport {
+function parseProductSuppliers(html: any, url: string): IProductReport {
     let $html = $(html);
 
     try {
-        let $rows = $html.find(".grid").find("tr.odd, tr.even");
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
+
+        let $rows = $tbl.find("tr.odd, tr.even");
 
         // Макс ограничение на контракт. -1 если без.
         let _max = $rows.find("td.nowrap:nth-child(2)").map((i, e) => {

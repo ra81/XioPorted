@@ -660,6 +660,7 @@ let Url_rx = {
     v_products: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/products$/i,
     v_trade_products: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/trading$/i,
     v_energy_price: /\/[a-z]+\/(?:main|window)\/geo\/tariff\/\d+/i,
+    v_product_suppliers: /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_products\/\d+\/?$/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -1466,6 +1467,9 @@ let urlTemplates = {
     tradeProducts: [Url_rx.v_trade_products,
             (html) => true,
         parseProducts],
+    productSuppliers: [Url_rx.v_product_suppliers,
+            (html) => true,
+        parseProductSuppliers],
     // компания
     unitlist: [Url_rx.comp_unit_list,
             (html) => true,
@@ -1522,9 +1526,6 @@ let urlTemplates = {
     wareSupply: [Url_rx.unit_supply,
             (html) => $(html).text().indexOf("склад") > 0,
         parseWareSupply],
-    productreport: [/\/\w+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/ig,
-            (html) => true,
-        parseProductReport],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -3226,10 +3227,13 @@ function parseWareChangeSpec(html, url) {
  * @param html
  * @param url
  */
-function parseProductReport(html, url) {
+function parseProductSuppliers(html, url) {
     let $html = $(html);
     try {
-        let $rows = $html.find(".grid").find("tr.odd, tr.even");
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
+        let $rows = $tbl.find("tr.odd, tr.even");
         // Макс ограничение на контракт. -1 если без.
         let _max = $rows.find("td.nowrap:nth-child(2)").map((i, e) => {
             let $span = $(e).find("span");
