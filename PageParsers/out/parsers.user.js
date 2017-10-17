@@ -627,7 +627,7 @@ let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/fi
 //let url_supply_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i;    // снабжение
 //let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale\/?/i;        // продажа склад/завод
 //let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i;  // реклама
-let url_education_rx = /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i; // обучение
+//let url_education_rx = /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i; // обучение
 //let url_supply_create_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i;  // заказ товара в маг, или склад. в общем стандартный заказ товара
 let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
 // для компании
@@ -664,6 +664,7 @@ let Url_rx = {
     unit_supply_create: /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i,
     unit_trade_hall: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/trading_hall\/?/i,
     unit_retail_price_history: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i,
+    unit_education: /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1452,21 +1453,15 @@ let urlTemplates = {
     retailPriceHistory: [Url_rx.unit_retail_price_history,
             (html) => true,
         parseUnitRetailPriceHistory],
+    training: [Url_rx.unit_education,
+            (html) => true,
+        parseUnitEducation],
     TM: [Url_rx.v_tm_info,
             (html) => true,
         parseTM],
     countryDuties: [Url_rx.v_country_duties,
             (html) => true,
         parseCountryDuties],
-    transport: [/zzz/gi,
-            (html) => true,
-        parseX],
-    CTIE: [/zzz/gi,
-            (html) => true,
-        parseX],
-    training: [url_education_rx,
-            (html) => true,
-        parseEducation],
     equipment: [/zzz/gi,
             (html) => true,
         parseX],
@@ -2113,7 +2108,7 @@ function parseUnitSalary(html, url) {
  * @param html
  * @param url
  */
-function parseEducation(html, url) {
+function parseUnitEducation(html, url) {
     let $html = $(html);
     try {
         // формы может не быть если обучение уже запущено

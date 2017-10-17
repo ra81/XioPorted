@@ -44,6 +44,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     retailPriceHistory: [Url_rx.unit_retail_price_history,
         (html: any) => true,
         parseUnitRetailPriceHistory],
+    training: [Url_rx.unit_education,
+        (html: any) => true,
+        parseUnitEducation],
 
     TM: [Url_rx.v_tm_info,
         (html: any) => true,
@@ -51,15 +54,8 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     countryDuties: [Url_rx.v_country_duties,
         (html: any) => true,
         parseCountryDuties],
-    transport: [/zzz/gi,
-        (html: any) => true,
-        parseX],
-    CTIE: [/zzz/gi,
-        (html: any) => true,
-        parseX],
-    training: [url_education_rx,
-        (html: any) => true,
-        parseEducation],
+
+
     equipment: [/zzz/gi,
         (html: any) => true,
         parseX],
