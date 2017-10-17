@@ -656,6 +656,7 @@ let Url_rx = {
     unit_ads: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/virtasement\/?$/i,
     unit_salary: /\/[a-z]+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
     unit_sale: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/sale\/?/i,
+    unit_supply: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/supply\/?/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1426,23 +1427,8 @@ let urlTemplates = {
     unitSale: [Url_rx.unit_sale,
             (html) => true,
         parseUnitSaleNew],
-    salecontract: [/zzz/gi,
-            (html) => true,
-        parseX],
-    prodsupply: [/zzz/gi,
-            (html) => $(html).find(".add_contract").length === 0 && $(html).find("[name=productCategory]").length === 0,
-        parseX],
-    consume: [/zzz/gi,
-            (html) => true,
-        parseX],
-    storesupply: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
-            (html) => $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0,
-        parseRetailSupply],
-    storesupplyNew: [/\/\w+\/main\/unit\/view\/\d+\/supply\/?$/gi,
-            (html) => {
-            return $(html).find("#unitImage img").attr("src").indexOf("/shop_") >= 0 ||
-                $(html).find("#unitImage img").attr("src").indexOf("/fuel_") >= 0;
-        },
+    retailSupplyNew: [Url_rx.unit_supply,
+            (html) => { return $(html).find("#productsHereDiv").length > 0; },
         parseRetailSupplyNew],
     supplyCreate: [/\/[a-z]+\/window\/unit\/supply\/create\/\d+\/step2$/gi,
             (html) => true,
