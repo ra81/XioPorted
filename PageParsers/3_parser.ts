@@ -5,6 +5,7 @@ $ = jQuery = jQuery.noConflict(true);
 $xioDebug = true;
 
 let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: string) => any]> = {
+
     // вирта глобальные
     manager: [Url_rx.top_manager,
         (html: any) => true,
@@ -27,7 +28,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     cities: [Url_rx.v_cities,
         (html: any) => true,
         parseCities],
-
+    productSizes: [Url_rx.v_products_size,
+        (html: any) => true,
+        parseProductsSize],
 
     // компания
     unitlist: [Url_rx.comp_unit_list,
@@ -108,9 +111,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     unitRetailFinRepByProd: [url_unit_finrep_by_prod_rx,
         (html: any) => true,
         parseRetailFinRepByProd],
-    productSizes: [url_products_size_rx,
-        (html: any) => true,
-        parseProductsSize],
+
     reportsSpec: [/\/[a-z]+\/main\/mediareport\/\d+/i,
         (html: any) => $(html).find("select").length > 0,
         parseReportSpec],

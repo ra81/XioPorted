@@ -643,7 +643,7 @@ let url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products
 let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i; // страница со всеми товарами игры
 let url_trade_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/trading$/i; // страница с торгуемыми товарами
 //let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
-let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i; // размеры продуктов на склада
+//let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i;  // размеры продуктов на склада
 //let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i;    // таможенные пошлины и ИЦ
 // let url_tm_info_rx = /\/[a-z]+\/main\/globalreport\/tm\/info/i;    // брендовые товары список
 let Url_rx = {
@@ -654,6 +654,7 @@ let Url_rx = {
     v_regions: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/region\/?$/i,
     v_countries: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/country\/?$/i,
     v_cities: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/city\/?$/i,
+    v_products_size: /\/[a-z]+\/(?:main|window)\/industry\/unit_type\/info\/2011\/volume\/?/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -1441,6 +1442,9 @@ let urlTemplates = {
     cities: [Url_rx.v_cities,
             (html) => true,
         parseCities],
+    productSizes: [Url_rx.v_products_size,
+            (html) => true,
+        parseProductsSize],
     // компания
     unitlist: [Url_rx.comp_unit_list,
             (html) => true,
@@ -1512,9 +1516,6 @@ let urlTemplates = {
     unitRetailFinRepByProd: [url_unit_finrep_by_prod_rx,
             (html) => true,
         parseRetailFinRepByProd],
-    productSizes: [url_products_size_rx,
-            (html) => true,
-        parseProductsSize],
     reportsSpec: [/\/[a-z]+\/main\/mediareport\/\d+/i,
             (html) => $(html).find("select").length > 0,
         parseReportSpec],
@@ -4230,7 +4231,10 @@ function parseCityRetailReport(html, url) {
 function parseProductsSize(html, url) {
     let $html = $(html);
     try {
-        let $rows = closestByTagName($html.find("table.grid img"), "tr");
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
+        let $rows = closestByTagName($tbl.find("img"), "tr");
         if ($rows.length < 100)
             throw new Error('слишком мало товаров найдено. очевидно ошибка');
         let res = {};

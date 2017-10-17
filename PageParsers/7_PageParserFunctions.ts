@@ -3437,8 +3437,11 @@ function parseProductsSize(html: any, url: string): IDictionaryN<[IProduct, numb
     let $html = $(html);
 
     try {
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
 
-        let $rows = closestByTagName($html.find("table.grid img"), "tr");
+        let $rows = closestByTagName($tbl.find("img"), "tr");
         if ($rows.length < 100)
             throw new Error('слишком мало товаров найдено. очевидно ошибка');
 
