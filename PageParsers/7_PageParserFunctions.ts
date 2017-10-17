@@ -429,7 +429,7 @@ interface ISaleWareItem {
  * @param html
  * @param url
  */
-function parseSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWareItem>] {
+function parseUnitSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWareItem>] {
     let $html = $(html);
 
     try {

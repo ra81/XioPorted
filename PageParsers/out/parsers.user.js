@@ -625,8 +625,8 @@ let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/fi
 let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
 let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
 let url_supply_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i; // снабжение
-let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale\/?/i; // продажа склад/завод
-let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i; // реклама
+//let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale\/?/i;        // продажа склад/завод
+//let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i;  // реклама
 let url_education_rx = /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i; // обучение
 let url_supply_create_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; // заказ товара в маг, или склад. в общем стандартный заказ товара
 let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
@@ -655,6 +655,7 @@ let Url_rx = {
     unit_main: /\/[a-z]+\/main\/unit\/view\/\d+\/?$/i,
     unit_ads: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/virtasement\/?$/i,
     unit_salary: /\/[a-z]+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
+    unit_sale: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/sale\/?/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1410,24 +1411,21 @@ let urlTemplates = {
     unitMainNew: [Url_rx.unit_main,
             (html) => true,
         parseUnitMainNew],
-    ads: [Url_rx.unit_ads,
+    unitAds: [Url_rx.unit_ads,
             (html) => true,
         parseUnitAds],
     reportAds: [Url_rx.comp_ads_rep,
             (html) => true,
         parseCompAdsReport],
-    salary: [Url_rx.unit_salary,
+    unitSalary: [Url_rx.unit_salary,
             (html) => true,
         parseUnitSalary],
     unitlist: [Url_rx.comp_unit_list,
             (html) => true,
         parseUnitList],
-    sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
+    unitSale: [Url_rx.unit_sale,
             (html) => true,
-        parseSale],
-    saleNew: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
-            (html) => true,
-        parseSaleNew],
+        parseUnitSaleNew],
     salecontract: [/zzz/gi,
             (html) => true,
         parseX],
@@ -1947,7 +1945,7 @@ var SalePolicies;
  * @param html
  * @param url
  */
-function parseSaleNew(html, url) {
+function parseUnitSaleNew(html, url) {
     let $html = $(html);
     try {
         let $tbl = oneOrError($html, "table.grid");
