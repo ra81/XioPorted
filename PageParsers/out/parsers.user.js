@@ -624,11 +624,11 @@ let url_unit_finrep_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graph
 let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i; // финанс отчет по товарам
 let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i; // торговый зал
 let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
-let url_supply_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i; // снабжение
+//let url_supply_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i;    // снабжение
 //let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale\/?/i;        // продажа склад/завод
 //let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i;  // реклама
 let url_education_rx = /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i; // обучение
-let url_supply_create_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; // заказ товара в маг, или склад. в общем стандартный заказ товара
+//let url_supply_create_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i;  // заказ товара в маг, или склад. в общем стандартный заказ товара
 let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
 // для компании
 // 
@@ -657,6 +657,7 @@ let Url_rx = {
     unit_salary: /\/[a-z]+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
     unit_sale: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/sale\/?/i,
     unit_supply: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/supply\/?/i,
+    unit_supply_create: /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1430,9 +1431,12 @@ let urlTemplates = {
     retailSupplyNew: [Url_rx.unit_supply,
             (html) => { return $(html).find("#productsHereDiv").length > 0; },
         parseRetailSupplyNew],
-    supplyCreate: [/\/[a-z]+\/window\/unit\/supply\/create\/\d+\/step2$/gi,
+    supplyCreate: [Url_rx.unit_supply_create,
             (html) => true,
         parseSupplyCreate],
+    wareSupply: [Url_rx.unit_supply,
+            (html) => isWarehouse($(html)),
+        parseWareSupply],
     tradehallOld: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
             (html) => true,
         parseTradeHallOld],
@@ -1475,9 +1479,6 @@ let urlTemplates = {
     products: [/zzz/gi,
             (html) => true,
         parseX],
-    waresupply: [url_supply_rx,
-            (html) => isWarehouse($(html)),
-        parseWareSupply],
     contract: [/zzz/gi,
             (html) => true,
         parseX],
