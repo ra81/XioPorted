@@ -3173,11 +3173,9 @@ function parseFinanceRepByUnits(html: any, url: string): IDictionaryN<IUnitFinan
  * @param html
  * @param url
  */
-function parseRetailPriceHistory(html: any, url: string): IPriceHistoryItem[] {
-
-    // удалим графики ибо жрут ресурсы
+function parseUnitRetailPriceHistory(html: any, url: string): IPriceHistoryItem[] {
+    // удалим динамические графики ибо жрут ресурсы в момент $(html) они всегда загружаются без кэша
     let $html = $(html.replace(/<img.*\/graph\/.*>/i, "<img>"));
-
 
     try {
         // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
@@ -3423,7 +3421,7 @@ interface ICityRetailReport {
 }
 
 function parseCityRetailReport(html: any, url: string): ICityRetailReport {
-    // удалим графики ибо жрут ресурсы
+    // удалим динамические графики ибо жрут ресурсы в момент $(html) они всегда загружаются без кэша
     let $html = $(html.replace(/<img.*\/graph\/.*>/i, "<img>"));
 
     try {

@@ -623,7 +623,7 @@ let url_unit_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+/i; // внутри
 let url_unit_finrep_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
 let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i; // финанс отчет по товарам
 //let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;    // торговый зал
-let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
+//let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
 //let url_supply_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i;    // снабжение
 //let url_sale_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/sale\/?/i;        // продажа склад/завод
 //let url_ads_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/virtasement$/i;  // реклама
@@ -642,11 +642,13 @@ let url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee
 let url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
 let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i; // страница со всеми товарами игры
 let url_trade_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/trading$/i; // страница с торгуемыми товарами
-let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
+//let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
 let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i; // размеры продуктов на склада
 let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i; // таможенные пошлины и ИЦ
 let url_tm_info_rx = /\/[a-z]+\/main\/globalreport\/tm\/info/i; // брендовые товары список
 let Url_rx = {
+    // для виртономики
+    v_city_retail_report: /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -659,6 +661,7 @@ let Url_rx = {
     unit_supply: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/supply\/?/i,
     unit_supply_create: /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i,
     unit_trade_hall: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/trading_hall\/?/i,
+    unit_retail_price_history: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1441,18 +1444,12 @@ let urlTemplates = {
     tradehall: [Url_rx.unit_trade_hall,
             (html) => true,
         parseUnitTradeHall],
-    service: [/zzz/gi,
-            (html) => true,
-        parseX],
-    servicepricehistory: [/zzz/gi,
-            (html) => true,
-        parseX],
-    cityRetailReport: [url_city_retail_report_rx,
+    cityRetailReport: [Url_rx.v_city_retail_report,
             (html) => true,
         parseCityRetailReport],
-    pricehistory: [url_price_history_rx,
+    pricehistory: [Url_rx.unit_retail_price_history,
             (html) => true,
-        parseRetailPriceHistory],
+        parseUnitRetailPriceHistory],
     TM: [url_tm_info_rx,
             (html) => true,
         parseTM],
@@ -4052,8 +4049,8 @@ function parseFinanceRepByUnits(html, url) {
  * @param html
  * @param url
  */
-function parseRetailPriceHistory(html, url) {
-    // удалим графики ибо жрут ресурсы
+function parseUnitRetailPriceHistory(html, url) {
+    // удалим динамические графики ибо жрут ресурсы в момент $(html) они всегда загружаются без кэша
     let $html = $(html.replace(/<img.*\/graph\/.*>/i, "<img>"));
     try {
         // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
@@ -4245,7 +4242,7 @@ function mIndexFromString(str) {
     }
 }
 function parseCityRetailReport(html, url) {
-    // удалим графики ибо жрут ресурсы
+    // удалим динамические графики ибо жрут ресурсы в момент $(html) они всегда загружаются без кэша
     let $html = $(html.replace(/<img.*\/graph\/.*>/i, "<img>"));
     try {
         // какой то косяк верстки страниц и страница приходит кривая без второй таблицы, поэтому 
