@@ -653,6 +653,7 @@ let Url_rx = {
     // для юнита
     unit_main: /\/[a-z]+\/main\/unit\/view\/\d+\/?$/i,
     unit_ads: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/virtasement\/?$/i,
+    unit_salary: /\/[a-z]+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1414,9 +1415,9 @@ let urlTemplates = {
     reportAds: [Url_rx.comp_ads_rep,
             (html) => true,
         parseCompAdsReport],
-    salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
+    salary: [Url_rx.unit_salary,
             (html) => true,
-        parseSalary],
+        parseUnitSalary],
     unitlist: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig,
             (html) => true,
         parseUnitList],
@@ -2084,7 +2085,7 @@ function parseUnitAds(html, url) {
  * @param html
  * @param url
  */
-function parseSalary(html, url) {
+function parseUnitSalary(html, url) {
     let $html = $(html);
     try {
         let _form = $html.filter("form");

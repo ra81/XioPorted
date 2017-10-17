@@ -2,7 +2,7 @@
 
 
 // алиас для группы типов.
-type MappedPage = ISaleNew | IWareSupply | IWareResize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistoryItem | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IUnitAds | IMachines | IAnimals | IEquipment | ISalary | IMain | ITradeHall | IProdSupply;
+type MappedPage = ISaleNew | IWareSupply | IWareResize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistoryItem | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IUnitAds | IMachines | IAnimals | IEquipment | IUnitSalary | IMain | ITradeHall | IProdSupply;
 
 interface IUnit {
     subid: number;
@@ -135,7 +135,7 @@ interface IEquipment {
     filtername: string;
 }
 
-interface ISalary {
+interface IUnitSalary {
     employees: number;
     maxEmployees: number;
     form: JQuery;

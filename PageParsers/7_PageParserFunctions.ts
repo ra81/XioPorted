@@ -598,7 +598,7 @@ function parseUnitAds(html: any, url: string): IUnitAds {
  * @param html
  * @param url
  */
-function parseSalary(html: any, url: string): ISalary {
+function parseUnitSalary(html: any, url: string): IUnitSalary {
     let $html = $(html);
 
     try {
@@ -647,7 +647,7 @@ function parseSalary(html: any, url: string): ISalary {
  * @param html
  * @param url
  */
-function parseEducation(html: any, url: string): [number, ISalary]|null {
+function parseEducation(html: any, url: string): [number, IUnitSalary]|null {
     let $html = $(html);
 
     try {
