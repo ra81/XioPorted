@@ -655,6 +655,7 @@ let Url_rx = {
     v_countries: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/country\/?$/i,
     v_cities: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/city\/?$/i,
     v_products_size: /\/[a-z]+\/(?:main|window)\/industry\/unit_type\/info\/2011\/volume\/?/i,
+    v_media_rep_spec: /\/[a-z]+\/(?:main|window)\/mediareport\/\d+/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -1445,6 +1446,9 @@ let urlTemplates = {
     productSizes: [Url_rx.v_products_size,
             (html) => true,
         parseProductsSize],
+    reportsSpec: [Url_rx.v_media_rep_spec,
+            (html) => $(html).find("select").length > 0 || $(html).filter("select").length > 0,
+        parseReportSpec],
     // компания
     unitlist: [Url_rx.comp_unit_list,
             (html) => true,
@@ -1516,9 +1520,6 @@ let urlTemplates = {
     unitRetailFinRepByProd: [url_unit_finrep_by_prod_rx,
             (html) => true,
         parseRetailFinRepByProd],
-    reportsSpec: [/\/[a-z]+\/main\/mediareport\/\d+/i,
-            (html) => $(html).find("select").length > 0,
-        parseReportSpec],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -4332,7 +4333,11 @@ function parseTM(html, url) {
 function parseReportSpec(html, url) {
     let $html = $(html);
     try {
-        let $table = oneOrError($html, "table.list");
+        let $table = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
+        if ($table.length <= 0)
+            throw new Error("Не найдена таблица с данными");
         let $rows = $table.find("img").closest(".even, .odd"); // в каждой строке картинка товара, но картинки есть и в других местах
         if ($rows.length < 5)
             throw new Error(`найдено слишком мало(${$rows.length}) специализаций в отчете ${url}`);

@@ -31,6 +31,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     productSizes: [Url_rx.v_products_size,
         (html: any) => true,
         parseProductsSize],
+    reportsSpec: [Url_rx.v_media_rep_spec,
+        (html: any) => $(html).find("select").length > 0 || $(html).filter("select").length > 0,
+        parseReportSpec],
 
     // компания
     unitlist: [Url_rx.comp_unit_list,
@@ -112,9 +115,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
         (html: any) => true,
         parseRetailFinRepByProd],
 
-    reportsSpec: [/\/[a-z]+\/main\/mediareport\/\d+/i,
-        (html: any) => $(html).find("select").length > 0,
-        parseReportSpec],
+
 };
 
 $(document).ready(() => parseStart());

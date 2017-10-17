@@ -3580,7 +3580,12 @@ function parseReportSpec(html: any, url: string): ISpecReportItem[] {
     let $html = $(html);
 
     try {
-        let $table = oneOrError($html, "table.list");
+        let $table = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
+        if ($table.length <= 0)
+            throw new Error("Не найдена таблица с данными");
+
         let $rows = $table.find("img").closest(".even, .odd");  // в каждой строке картинка товара, но картинки есть и в других местах
         if ($rows.length < 5)
             throw new Error(`найдено слишком мало(${$rows.length}) специализаций в отчете ${url}`);
