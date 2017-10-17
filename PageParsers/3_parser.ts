@@ -53,6 +53,12 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     unitSalary: [Url_rx.unit_salary,
         (html: any) => true,
         parseUnitSalary],
+    unitFinRep: [Url_rx.unit_finrep,
+        (html: any) => true,
+        parseUnitFinRep],
+    unitFinRepByProd: [Url_rx.unit_finrep_by_prod,
+        (html: any) => true,
+        parseUnitFinRepByProd],
     unitAds: [Url_rx.unit_ads,
     (html: any) => true,
         parseUnitAds],
@@ -108,12 +114,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     financeRepByUnits: [url_rep_finance_byunit,
         (html: any) => true,
         parseFinanceRepByUnits],
-    unitFinRep: [url_unit_finrep_rx,
-        (html: any) => true,
-        parseUnitFinRep],
-    unitRetailFinRepByProd: [url_unit_finrep_by_prod_rx,
-        (html: any) => true,
-        parseRetailFinRepByProd],
+
 
 
 };

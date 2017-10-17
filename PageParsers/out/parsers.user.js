@@ -620,8 +620,8 @@ function nullCheck(val) {
 // 
 let url_unit_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+/i; // внутри юнита. любая страница
 //let url_unit_main_rx = /\/\w+\/(?:main|window)\/unit\/view\/\d+\/?$/i;     // главная юнита
-let url_unit_finrep_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
-let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i; // финанс отчет по товарам
+//let url_unit_finrep_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i; // финанс отчет
+//let url_unit_finrep_by_prod_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i; // финанс отчет по товарам
 //let url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;    // торговый зал
 //let url_price_history_rx = /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/product_history\/\d+\/?/i; // история продаж в магазине по товару
 //let url_supply_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/supply\/?/i;    // снабжение
@@ -672,6 +672,8 @@ let Url_rx = {
     unit_education: /\/[a-z]+\/window\/unit\/employees\/education\/\d+\/?/i,
     unit_ware_resize: /\/[a-z]+\/window\/unit\/upgrade\/\d+\/?$/i,
     unit_ware_change_spec: /\/[a-z]+\/window\/unit\/speciality_change\/\d+\/?$/i,
+    unit_finrep: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report(\/graphical)?$/i,
+    unit_finrep_by_prod: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -777,7 +779,7 @@ function isUnitMain(urlPath, html, my = true) {
 //    return ok;
 //}
 function isUnitFinanceReport() {
-    return url_unit_finrep_rx.test(document.location.pathname);
+    return Url_rx.unit_finrep.test(document.location.pathname);
 }
 function isCompanyRepByUnit() {
     return url_rep_finance_byunit.test(document.location.pathname);
@@ -1466,6 +1468,12 @@ let urlTemplates = {
     unitSalary: [Url_rx.unit_salary,
             (html) => true,
         parseUnitSalary],
+    unitFinRep: [Url_rx.unit_finrep,
+            (html) => true,
+        parseUnitFinRep],
+    unitFinRepByProd: [Url_rx.unit_finrep_by_prod,
+            (html) => true,
+        parseUnitFinRepByProd],
     unitAds: [Url_rx.unit_ads,
             (html) => true,
         parseUnitAds],
@@ -1514,12 +1522,6 @@ let urlTemplates = {
     financeRepByUnits: [url_rep_finance_byunit,
             (html) => true,
         parseFinanceRepByUnits],
-    unitFinRep: [url_unit_finrep_rx,
-            (html) => true,
-        parseUnitFinRep],
-    unitRetailFinRepByProd: [url_unit_finrep_by_prod_rx,
-            (html) => true,
-        parseRetailFinRepByProd],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -2949,7 +2951,7 @@ function parseUnitFinRep(html, url) {
  * @param html
  * @param url
  */
-function parseRetailFinRepByProd(html, url) {
+function parseUnitFinRepByProd(html, url) {
     let $html = $(html);
     try {
         let res = {};

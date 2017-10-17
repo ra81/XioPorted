@@ -1780,7 +1780,7 @@ function parseUnitFinRep(html: any, url: string): [Date, IUnitFinance][] {
  * @param html
  * @param url
  */
-function parseRetailFinRepByProd(html: any, url: string): IDictionary<[number,number,number]> {
+function parseUnitFinRepByProd(html: any, url: string): IDictionary<[number,number,number]> {
     let $html = $(html);
 
     try {
