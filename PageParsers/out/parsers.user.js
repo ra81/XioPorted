@@ -2868,18 +2868,15 @@ function parseUnitNameCity($html) {
  * @param $html полная страница или хедер
  */
 function parseUnitSize($html) {
-    // <div class="bg-image bgunit-shop_5"></div>
-    let $div = oneOrError($html, "div.bg-image");
+    // классы откуда можно дернуть тип юнита грузятся скриптом уже после загрузки страницц
+    // и добавляются в дивы. Поэтому берем скрипт который это делает и тащим из него информацию
+    let lines = $html.find("div.title script").text().split(/\n/);
+    let rx = /\bbg-image\b.*?\bbgunit-.*?(\d+)\b/i;
     let size = 0;
-    let classList = $div.attr("class").split(/\s+/);
-    for (let cl of classList) {
-        // вырезаем тупо "bgunit-"
-        // shop_5 || service_light_5
-        if (cl.startsWith("bgunit-")) {
-            let items = cl.slice(7).split("_");
-            size = parseInt(items[items.length - 1]);
-            if (isNaN(size))
-                throw new Error("Невозможно спарсить размер юнита из " + cl);
+    for (let line of lines) {
+        let arr = rx.exec(line);
+        if (arr != null && arr[1] != null) {
+            size = numberfyOrError(arr[1]);
             break;
         }
     }
@@ -2892,13 +2889,15 @@ function parseUnitSize($html) {
  * @param $html полная страница или хедер
  */
 function parseUnitType($html) {
-    let $div = oneOrError($html, "div.picture");
+    // классы откуда можно дернуть тип юнита грузятся скриптом уже после загрузки страницц
+    // и добавляются в дивы. Поэтому берем скрипт который это делает и тащим из него информацию
+    let lines = $html.find("div.title script").text().split(/\n/);
+    let rx = /\bbody\b.*?\bbg-page-unit-(.*)\b/i;
     let typeStr = "";
-    let classList = $div.attr("class").split(/\s+/);
-    for (let cl of classList) {
-        // вырезаем тупо "bg-page-unit-header-"
-        if (cl.startsWith("bg-page-unit-header-")) {
-            typeStr = cl.slice(20);
+    for (let line of lines) {
+        let arr = rx.exec(line);
+        if (arr != null && arr[1] != null) {
+            typeStr = arr[1];
             break;
         }
     }
