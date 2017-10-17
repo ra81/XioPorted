@@ -3030,8 +3030,11 @@ function parseProducts(html: any, url: string): IDictionary<IProduct> {
     let $html = $(html);
 
     try {
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
 
-        let $items = $html.find("table.list").find("a").has("img");
+        let $items = $tbl.find("a").has("img");
         if ($items.length === 0)
             throw new Error("не смогли найти ни одного продукта на " + url);
 

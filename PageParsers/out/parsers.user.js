@@ -639,9 +639,9 @@ let url_manag_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|
 let url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee\/?$/i; // управление - персонал
 // для для виртономики
 // 
-let url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
-let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i; // страница со всеми товарами игры
-let url_trade_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/trading$/i; // страница с торгуемыми товарами
+//let url_global_products_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i; // глобальный отчет по продукции из аналитики
+//let url_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/products$/i;   // страница со всеми товарами игры
+//let url_trade_products_rx = /\/[a-z]+\/main\/common\/main_page\/game_info\/trading$/i;   // страница с торгуемыми товарами
 //let url_city_retail_report_rx = /\/[a-z]+\/(?:main|window)\/globalreport\/marketing\/by_trade_at_cities\/\d+/i; // розничный отчет по конкретному товару
 //let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/volume\/?/i;  // размеры продуктов на склада
 //let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i;    // таможенные пошлины и ИЦ
@@ -656,6 +656,9 @@ let Url_rx = {
     v_cities: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/bonuses\/city\/?$/i,
     v_products_size: /\/[a-z]+\/(?:main|window)\/industry\/unit_type\/info\/2011\/volume\/?/i,
     v_media_rep_spec: /\/[a-z]+\/(?:main|window)\/mediareport\/\d+/i,
+    v_global_products: /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i,
+    v_products: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/products$/i,
+    v_trade_products: /\/[a-z]+\/(?:main|window)\/common\/main_page\/game_info\/trading$/i,
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
@@ -1451,6 +1454,12 @@ let urlTemplates = {
     reportsSpec: [Url_rx.v_media_rep_spec,
             (html) => $(html).find("select").length > 0 || $(html).filter("select").length > 0,
         parseReportSpec],
+    allProducts: [Url_rx.v_products,
+            (html) => true,
+        parseProducts],
+    tradeProducts: [Url_rx.v_trade_products,
+            (html) => true,
+        parseProducts],
     // компания
     unitlist: [Url_rx.comp_unit_list,
             (html) => true,
@@ -1458,6 +1467,9 @@ let urlTemplates = {
     reportAds: [Url_rx.comp_ads_rep,
             (html) => true,
         parseCompAdsReport],
+    finRepByUnits: [url_rep_finance_byunit,
+            (html) => true,
+        parseFinanceRepByUnits],
     // юнит
     unitMainNew: [Url_rx.unit_main,
             (html) => true,
@@ -1513,15 +1525,6 @@ let urlTemplates = {
     energyprices: [/\/[a-z]+\/main\/geo\/tariff\/\d+/i,
             (html) => true,
         parseEnergyPrices],
-    allProducts: [url_products_rx,
-            (html) => true,
-        parseProducts],
-    tradeProducts: [url_trade_products_rx,
-            (html) => true,
-        parseProducts],
-    financeRepByUnits: [url_rep_finance_byunit,
-            (html) => true,
-        parseFinanceRepByUnits],
 };
 $(document).ready(() => parseStart());
 function parseStart() {
@@ -3916,7 +3919,10 @@ function parseCompAdsReport(html, url) {
 function parseProducts(html, url) {
     let $html = $(html);
     try {
-        let $items = $html.find("table.list").find("a").has("img");
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.list")
+            : $html.find("table.list");
+        let $items = $tbl.find("a").has("img");
         if ($items.length === 0)
             throw new Error("не смогли найти ни одного продукта на " + url);
         let dict = {};

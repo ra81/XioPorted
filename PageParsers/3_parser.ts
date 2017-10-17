@@ -34,6 +34,14 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     reportsSpec: [Url_rx.v_media_rep_spec,
         (html: any) => $(html).find("select").length > 0 || $(html).filter("select").length > 0,
         parseReportSpec],
+    allProducts: [Url_rx.v_products,
+        (html: any) => true,
+        parseProducts],
+    tradeProducts: [Url_rx.v_trade_products,
+        (html: any) => true,
+        parseProducts],
+
+
 
     // компания
     unitlist: [Url_rx.comp_unit_list,
@@ -42,6 +50,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     reportAds: [Url_rx.comp_ads_rep,
         (html: any) => true,
         parseCompAdsReport],
+    finRepByUnits: [url_rep_finance_byunit,
+        (html: any) => true,
+        parseFinanceRepByUnits],
 
     // юнит
     unitMainNew: [Url_rx.unit_main,
@@ -105,15 +116,6 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
         (html: any) => true,
         parseEnergyPrices],
     
-    allProducts: [url_products_rx,
-        (html: any) => true,
-        parseProducts],
-    tradeProducts: [url_trade_products_rx,
-        (html: any) => true,
-        parseProducts],
-    financeRepByUnits: [url_rep_finance_byunit,
-        (html: any) => true,
-        parseFinanceRepByUnits],
 
 
 
