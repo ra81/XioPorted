@@ -94,6 +94,7 @@ function parseUnitList(html: any, url: string): IDictionaryN<IUnit> {
             res[subid] = {
                 subid: subid,
                 type: type,
+                typeStr: UnitTypes[type],
                 name: name,
                 size: size,
                 city: city
@@ -1054,6 +1055,8 @@ function parseUnitMain(html: any, url: string): IMain {
     }
 }
 
+
+
 interface IUnitEmployees {
     employees: number;
     required: number;
@@ -1075,7 +1078,7 @@ interface IUnitEquipment {
 }
 
 interface IMainBase extends IUnit {
-    img: string;
+    //img: string;
     efficiency: number;
     innovations: string[];
 }
@@ -1158,6 +1161,54 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
     function base(): IMainBase {
 
         // subid 
+        let n = extractIntPositive(url);
+        if (n == null)
+            throw new Error(`на нашел subid юнита в ссылке ${url}`);
+
+        let subid = n[0];
+
+        // 
+        let $header = oneOrError($html, "div.headern");
+        let [name, city] = parseUnitNameCity($header);
+
+        // 
+        let type = parseUnitType($header);
+        let size = parseUnitSize($header);
+
+        // эффективность может быть "не известна" для новых юнитов значит не будет прогресс бара
+        let $td = $html.find("table.infoblock tr:contains('Эффективность работы') td.progress_bar").next("td");
+        let eff = $td.length > 0 ? numberfyOrError($td.text(), -1) : 0;
+
+        // инновации
+        let innov: string[] = [];
+        let $slots = $html.find("div.artf_slots"); // может отсутствовать вовсе если нет инноваций
+        if ($slots.length > 0) {
+            $slots.find("img[src^='/pub/artefact/']").each((i, el) => {
+                let $img = $(el);
+
+                // обычно выглядит так: Маркетинг / Автомобильная парковка
+                let title = $img.attr("title");
+                let items = title.split("/");
+                let name = nullCheck(items[items.length - 1]).trim();
+
+                innov.push(name);
+            });
+        }
+
+        return {
+            subid: subid,
+            name: name,
+            type: type,
+            typeStr: UnitTypes[type],
+            size: size,
+            city: city,
+            efficiency: eff,
+            innovations: innov
+        };
+    }
+    function baseOld(): IMainBase {
+
+        // subid 
         let $a = oneOrError($html, "a[data-name='itour-tab-unit-view']");
         let n = extractIntPositive($a.attr("href"));
         if (n == null)
@@ -1167,13 +1218,13 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
 
         // city
         // "    Расположение: Великие Луки ("
-        let lines = getOnlyText(oneOrError($html, "div.officePlace"));
+        let lines = getOnlyText(oneOrError($html, "div.office_place"));
         let arr = execOrError(lines[1].trim(), /^расположение:(.*)\(/i);
         //let city = lines[1].split(":")[1].split("(")[0].trim();
         let city = arr[1].trim();
         if (city == null || city.length < 1)
             throw new Error(`не найден город юнита ${city}`);
-        
+
         // name
         let name = oneOrError($html, "#headerInfo h1").text().trim();
 
@@ -1222,7 +1273,8 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
             type: type,
             size: size,
             city: city,
-            img: img,
+            //img: img,
+            typeStr: UnitTypes[type],
             efficiency: eff,
             innovations: innov
         };
@@ -1579,6 +1631,88 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
 }
 
 /**
+ * В переданном хтмл пробует спарсить Имя юнита и Город расположения. Возвращает в таком же порядке
+ * @param $html полная страница или хедер
+ */
+function parseUnitNameCity($html: JQuery): [string, string] {
+
+    // city
+    // Нижний Новгород (Россия, Поволжье)	
+    let lines = oneOrError($html, "div.title:first p").text().trim().split("\n");
+    let arr = execOrError(lines[0].trim(), /^(.*)\(/i);
+    let city = arr[1].trim();
+    if (city == null || city.length < 1)
+        throw new Error(`не найден город юнита ${city}`);
+
+    // name
+    let name = oneOrError($html, "div.title:first h1").text().trim();
+    if (name == null || name.length < 1)
+        throw new Error(`не найдено имя юнита`);
+
+    return [name, city];
+}
+/**
+ * В переданном коде пробует спарсить размер юнита
+ * @param $html полная страница или хедер
+ */
+function parseUnitSize($html: JQuery): number {
+
+    // <div class="bg-image bgunit-shop_5"></div>
+    let $div = oneOrError($html, "div.bg-image");
+
+    let size = 0;
+    let classList = $div.attr("class").split(/\s+/);
+    for (let cl of classList) {
+        // вырезаем тупо "bgunit-"
+        // shop_5 || service_light_5
+        if (cl.startsWith("bgunit-")) {
+            let items = cl.slice(7).split("_");
+            size = parseInt(items[items.length - 1]);
+
+            if (isNaN(size))
+                throw new Error("Невозможно спарсить размер юнита из " + cl);
+
+            break;
+        }
+    }
+
+    if (size <= 0)
+        throw new Error("Невозможно спарсить размер юнита.");
+
+    return size;
+}
+/**
+ * С переданного хтмл пробует парсить тип юнита. Если 
+ * @param $html полная страница или хедер
+ */
+function parseUnitType($html: JQuery): UnitTypes {
+
+    let $div = oneOrError($html, "div.picture");
+
+    let typeStr = "";
+    let classList = $div.attr("class").split(/\s+/);
+    for (let cl of classList) {
+
+        // вырезаем тупо "bg-page-unit-header-"
+        if (cl.startsWith("bg-page-unit-header-")) {
+            typeStr = cl.slice(20);
+            break;
+        }
+    }
+
+    if (typeStr.length <= 0)
+        throw new Error("Невозможно спарсить тип юнита");
+
+    // некоторый онанизм с конверсией но никак иначе
+    let type: UnitTypes = (UnitTypes as any)[typeStr] ? (UnitTypes as any)[typeStr] : UnitTypes.unknown;
+    if (type == UnitTypes.unknown)
+        throw new Error("Не описан тип юнита " + typeStr);
+
+    return type;
+}
+
+
+/**
  * /lien/main/unit/view/4152881/finans_report
  * @param html
  * @param url
@@ -1625,6 +1759,53 @@ function parseUnitFinRep(html: any, url: string): [Date, IUnitFinance][] {
         throw err;
     }
 }
+
+/**
+ * Финансовый отчет по товарам для магазина/заправки
+   /olga/window/unit/view/6885676/finans_report/by_production
+ * @param html
+ * @param url
+ */
+function parseRetailFinRepByProd(html: any, url: string): IDictionary<[number,number,number]> {
+    let $html = $(html);
+
+    try {
+        let res: IDictionary<[number, number, number]> = {};
+
+        // для магазов где нет торговли будет пустая страница и ничего не будет
+        // для window таблица идет без парент тега надо искать иначе
+        let $tbl = $html.filter("table.grid");
+        if ($tbl.length <= 0)
+            $tbl = $html.find("table.grid");
+
+        if ($tbl.length <= 0)
+            return res;
+
+        if ($tbl.length > 1)
+            throw new Error("Нашли 2 таблицы table.grid вместо 1");
+
+        let $rows = $tbl.find("tr.even, tr.odd");
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+
+            let img = oneOrError($r, "img").attr("src");
+            let sold = numberfyOrError($tds.eq(1).text(), -1);
+            let turn = numberfyOrError($tds.eq(2).text(), -1);
+            let prime = numberfyOrError($tds.eq(3).text(), -1);
+
+            res[img] = [sold, turn, prime];
+        });
+        
+
+        return res;
+    }
+    catch (err) {
+        logDebug(`error on ${url}`);
+        throw err;
+    }
+}
+
 
 interface IWareResize {
     capacity: number[];
@@ -1875,7 +2056,7 @@ function parseWareSupply(html: any, url: string): [[IProduct, IBuyContract[]][],
                 contracts.push({
                     offer: {
                         id: offerID,
-                        unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
+                        unit: { subid: subid, type: UnitTypes.unknown, typeStr:"unknown", name: unitName, size: 0, city: "" },
                         maxLimit: maxLimit > 0 ? maxLimit : null,
                         origPrice: null,
                         stock: {
@@ -2497,7 +2678,7 @@ function parseRetailSupplyNew(html: any, url: string): [IProduct, IRetailStock, 
                 return {
                     offer: {
                         id: offerID,
-                        unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
+                        unit: { subid: subid, type: UnitTypes.unknown, typeStr: "unknown", name: unitName, size: 0, city: "" },
                         maxLimit: maxLimit > 0 ? maxLimit : null,
                         origPrice: null,
                         stock: {
@@ -2969,7 +3150,10 @@ function parseFinanceRepByUnits(html: any, url: string): IDictionaryN<IUnitFinan
  * @param url
  */
 function parseRetailPriceHistory(html: any, url: string): IPriceHistoryItem[] {
-    let $html = $(html);
+
+    // удалим графики ибо жрут ресурсы
+    let $html = $(html.replace(/<img.*\/graph\/.*>/i, "<img>"));
+
 
     try {
         // если продаж на неделе не было вообще => игра не запоминает в историю продаж такие дни вообще.
@@ -3146,7 +3330,7 @@ function parseSupplyCreate(html: any, url: string): IOffer[] {
                 companyName: companyName,
                 self: self,
                 isIndependend: isIndependent,
-                unit: { subid: subid, type: UnitTypes.unknown, name: unitName, size: 0, city: "" },
+                unit: { subid: subid, type: UnitTypes.unknown, typeStr: "unknown", name: unitName, size: 0, city: "" },
                 maxLimit: maxLimit > 0 ? maxLimit : null,
                 origPrice: origPrice,
                 stock: {
@@ -3215,7 +3399,8 @@ interface ICityRetailReport {
 }
 
 function parseCityRetailReport(html: any, url: string): ICityRetailReport {
-    let $html = $(html);
+    // удалим графики ибо жрут ресурсы
+    let $html = $(html.replace(/<img.*\/graph\/.*>/i, "<img>"));
 
     try {
         // какой то косяк верстки страниц и страница приходит кривая без второй таблицы, поэтому 

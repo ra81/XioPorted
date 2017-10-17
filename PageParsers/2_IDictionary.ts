@@ -8,6 +8,7 @@ interface IUnit {
     subid: number;
     name: string;
     type: UnitTypes;
+    typeStr: string;
     size: number;
     city: string;
 }
