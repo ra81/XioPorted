@@ -70,7 +70,9 @@ function parseUnitList(html: any, url: string): IDictionaryN<IUnit> {
     let $html = $(html);
 
     try {
-        let $table = $html.find("table.unit-list-2014");
+        let $table = isWindow($html, url)
+            ? $html.filter("table.unit-list-2014")
+            : $html.find("table.unit-list-2014");
 
         let res: IDictionaryN<IUnit> = {};
         let $rows = closestByTagName($table.find("td.unit_id"), "tr");

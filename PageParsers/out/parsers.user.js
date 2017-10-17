@@ -632,7 +632,7 @@ let url_supply_create_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i; //
 let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // заказ оборудования на завод, лабу или куда то еще
 // для компании
 // 
-let url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?(\/xiooverview|\/overview)?$/i; // список юнитов. Работает и для списка юнитов чужой компании
+//let url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?(\/xiooverview|\/overview)?$/i;     // список юнитов. Работает и для списка юнитов чужой компании
 let url_rep_finance_byunit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units(?:\/.*)?$/i; // отчет по подразделениями из отчетов
 //let url_rep_ad = /\/[a-z]+\/main\/company\/view\/\d+\/marketing_report\/by_advertising_program$/i;  // отчет по рекламным акциям
 let url_manag_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)$/i; // в окне управления юнитами групповой ремонт или закупка оборудования
@@ -650,6 +650,7 @@ let Url_rx = {
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
+    comp_unit_list: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?(\/xiooverview|\/overview)?$/i,
     // для юнита
     unit_main: /\/[a-z]+\/main\/unit\/view\/\d+\/?$/i,
     unit_ads: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/virtasement\/?$/i,
@@ -706,7 +707,7 @@ function isUnitOld(urlPath, $html, my = true) {
  */
 function isMyUnitList() {
     // для своих и чужих компани ссылка одна, поэтому проверяется и id
-    if (url_unit_list_rx.test(document.location.pathname) === false)
+    if (Url_rx.comp_unit_list.test(document.location.pathname) === false)
         return false;
     // запрос id может вернуть ошибку если мы на window ссылке. значит точно у чужого васи
     try {
@@ -726,7 +727,7 @@ function isMyUnitList() {
  */
 function isOthersUnitList() {
     // для своих и чужих компани ссылка одна, поэтому проверяется и id
-    if (url_unit_list_rx.test(document.location.pathname) === false)
+    if (Url_rx.comp_unit_list.test(document.location.pathname) === false)
         return false;
     try {
         // для чужого списка будет разный айди в дашборде и в ссылке
@@ -1418,7 +1419,7 @@ let urlTemplates = {
     salary: [Url_rx.unit_salary,
             (html) => true,
         parseUnitSalary],
-    unitlist: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig,
+    unitlist: [Url_rx.comp_unit_list,
             (html) => true,
         parseUnitList],
     sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
@@ -1663,7 +1664,9 @@ function parseAllSavedSubid(realm) {
 function parseUnitList(html, url) {
     let $html = $(html);
     try {
-        let $table = $html.find("table.unit-list-2014");
+        let $table = isWindow($html, url)
+            ? $html.filter("table.unit-list-2014")
+            : $html.find("table.unit-list-2014");
         let res = {};
         let $rows = closestByTagName($table.find("td.unit_id"), "tr");
         if ($rows.length === 0)

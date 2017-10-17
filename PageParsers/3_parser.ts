@@ -20,7 +20,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     salary: [Url_rx.unit_salary,
         (html: any) => true,
         parseUnitSalary],
-    unitlist: [/\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig,
+    unitlist: [Url_rx.comp_unit_list,
         (html: any) => true,
         parseUnitList],
     sale: [/\/\w+\/main\/unit\/view\/\d+\/sale$\/?/ig,
