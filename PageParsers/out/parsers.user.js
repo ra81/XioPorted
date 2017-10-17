@@ -634,7 +634,7 @@ let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // зак�
 // 
 let url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?(\/xiooverview|\/overview)?$/i; // список юнитов. Работает и для списка юнитов чужой компании
 let url_rep_finance_byunit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units(?:\/.*)?$/i; // отчет по подразделениями из отчетов
-let url_rep_ad = /\/[a-z]+\/main\/company\/view\/\d+\/marketing_report\/by_advertising_program$/i; // отчет по рекламным акциям
+//let url_rep_ad = /\/[a-z]+\/main\/company\/view\/\d+\/marketing_report\/by_advertising_program$/i;  // отчет по рекламным акциям
 let url_manag_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)$/i; // в окне управления юнитами групповой ремонт или закупка оборудования
 let url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee\/?$/i; // управление - персонал
 // для для виртономики
@@ -647,7 +647,10 @@ let url_products_size_rx = /\/[a-z]+\/main\/industry\/unit_type\/info\/2011\/vol
 let url_country_duties_rx = /\/[a-z]+\/main\/geo\/countrydutylist\/\d+\/?/i; // таможенные пошлины и ИЦ
 let url_tm_info_rx = /\/[a-z]+\/main\/globalreport\/tm\/info/i; // брендовые товары список
 let Url_rx = {
+    // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
+    comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
+    // для юнита
     unit_main: /\/[a-z]+\/main\/unit\/view\/\d+\/?$/i,
     unit_ads: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/virtasement\/?$/i,
 };
@@ -1408,9 +1411,9 @@ let urlTemplates = {
     ads: [Url_rx.unit_ads,
             (html) => true,
         parseUnitAds],
-    reportAds: [url_rep_ad,
+    reportAds: [Url_rx.comp_ads_rep,
             (html) => true,
-        parseReportAdvertising],
+        parseCompAdsReport],
     salary: [/\/\w+\/window\/unit\/employees\/engage\/\d+\/?$/ig,
             (html) => true,
         parseSalary],
@@ -3936,11 +3939,13 @@ function parseManageEmployees(html, url) {
  * @param html
  * @param url
  */
-function parseReportAdvertising(html, url) {
+function parseCompAdsReport(html, url) {
     let $html = $(html);
     try {
         // заберем таблицы по сервисам и по торговле, а рекламу офисов не будем брать. числануть тока по шапкам
-        let $tbls = $html.find("table.grid").has("th:contains('Город')");
+        let $tbls = isWindow($html, url)
+            ? $html.filter("table.grid").has("th:contains('Город')")
+            : $html.find("table.grid").has("th:contains('Город')");
         let $rows = $tbls.find("tr").has("a[href*='unit']"); // отсекаем шапку оставляем тока чистые
         let units = {};
         $rows.each((i, e) => {
@@ -4456,4 +4461,3 @@ function parseX(html, url) {
     //    throw new ParseError("ware size", url, err);
     //}
 }
-//# sourceMappingURL=parsers.user.js.map

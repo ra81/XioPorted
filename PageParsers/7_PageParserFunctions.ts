@@ -3009,12 +3009,15 @@ function parseManageEmployees(html: any, url: string) {
  * @param html
  * @param url
  */
-function parseReportAdvertising(html: any, url: string) {
+function parseCompAdsReport(html: any, url: string) {
     let $html = $(html);
 
     try {
         // заберем таблицы по сервисам и по торговле, а рекламу офисов не будем брать. числануть тока по шапкам
-        let $tbls = $html.find("table.grid").has("th:contains('Город')");
+        let $tbls = isWindow($html, url)
+            ? $html.filter("table.grid").has("th:contains('Город')")
+            : $html.find("table.grid").has("th:contains('Город')");
+
         let $rows = $tbls.find("tr").has("a[href*='unit']");  // отсекаем шапку оставляем тока чистые
 
         let units: IDictionaryN<IAdsNew> = {};
