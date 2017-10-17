@@ -1431,12 +1431,12 @@ let urlTemplates = {
     retailSupplyNew: [Url_rx.unit_supply,
             (html) => { return $(html).find("#productsHereDiv").length > 0; },
         parseRetailSupplyNew],
+    wareSupply: [Url_rx.unit_supply,
+            (html) => $(html).text().indexOf("склад") > 0,
+        parseWareSupply],
     supplyCreate: [Url_rx.unit_supply_create,
             (html) => true,
         parseSupplyCreate],
-    wareSupply: [Url_rx.unit_supply,
-            (html) => isWarehouse($(html)),
-        parseWareSupply],
     tradehallOld: [/\/\w+\/main\/unit\/view\/\d+\/trading_hall\/?$/gi,
             (html) => true,
         parseTradeHallOld],
@@ -3234,7 +3234,9 @@ function parseWareSupply(html, url) {
             res.push([product, contracts]);
         });
         // парсинг товаров внизу на которые заказов нет
-        let $items = $html.find("div.add_contract");
+        let $items = isWindow($html, url)
+            ? $html.filter("div.add_contract")
+            : $html.find("div.add_contract");
         let arr = [];
         $items.each((i, el) => {
             let $div = $(el);

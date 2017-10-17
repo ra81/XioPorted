@@ -2098,7 +2098,10 @@ function parseWareSupply(html: any, url: string): [[IProduct, IBuyContract[]][],
         });
 
         // парсинг товаров внизу на которые заказов нет
-        let $items = $html.find("div.add_contract");
+        let $items = isWindow($html, url)
+            ? $html.filter("div.add_contract")
+            : $html.find("div.add_contract");
+
         let arr: IProduct[] = [];
         $items.each((i, el) => {
             let $div = $(el);
