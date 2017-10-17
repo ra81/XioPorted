@@ -50,7 +50,7 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     reportAds: [Url_rx.comp_ads_rep,
         (html: any) => true,
         parseCompAdsReport],
-    finRepByUnits: [url_rep_finance_byunit,
+    finRepByUnits: [Url_rx.comp_fin_rep_byunit,
         (html: any) => true,
         parseFinanceRepByUnits],
 

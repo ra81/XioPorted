@@ -3079,7 +3079,9 @@ function parseFinanceRepByUnits(html: any, url: string): IDictionaryN<IUnitFinan
     let $html = $(html);
 
     try {
-        let $grid = $html.find("table.grid");
+        let $grid = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
         if ($grid.length === 0)
             throw new Error("Не найдена таблица с юнитами.");
 

@@ -633,7 +633,7 @@ let url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i; // зак�
 // для компании
 // 
 //let url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?(\/xiooverview|\/overview)?$/i;     // список юнитов. Работает и для списка юнитов чужой компании
-let url_rep_finance_byunit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units(?:\/.*)?$/i; // отчет по подразделениями из отчетов
+//let url_rep_finance_byunit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units(?:\/.*)?$/i;  // отчет по подразделениями из отчетов
 //let url_rep_ad = /\/[a-z]+\/main\/company\/view\/\d+\/marketing_report\/by_advertising_program$/i;  // отчет по рекламным акциям
 let url_manag_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)$/i; // в окне управления юнитами групповой ремонт или закупка оборудования
 let url_manag_empl_rx = /\/[a-z]+\/main\/company\/view\/\d+\/unit_list\/employee\/?$/i; // управление - персонал
@@ -662,6 +662,7 @@ let Url_rx = {
     // для компании в целом
     top_manager: /\/[a-z]+\/(?:main|window)\/user\/privat\/persondata\/knowledge\/?$/ig,
     comp_ads_rep: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/marketing_report\/by_advertising_program\/?$/i,
+    comp_fin_rep_byunit: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+\/finance_report\/by_units(?:\/.*)?$/i,
     comp_unit_list: /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?(\/xiooverview|\/overview)?$/i,
     // для юнита
     unit_main: /\/[a-z]+\/main\/unit\/view\/\d+\/?$/i,
@@ -785,7 +786,7 @@ function isUnitFinanceReport() {
     return Url_rx.unit_finrep.test(document.location.pathname);
 }
 function isCompanyRepByUnit() {
-    return url_rep_finance_byunit.test(document.location.pathname);
+    return Url_rx.comp_fin_rep_byunit.test(document.location.pathname);
 }
 /**
  * Возвращает Истину если данная страница есть страница в магазине своем или чужом. Иначе Ложь
@@ -1467,7 +1468,7 @@ let urlTemplates = {
     reportAds: [Url_rx.comp_ads_rep,
             (html) => true,
         parseCompAdsReport],
-    finRepByUnits: [url_rep_finance_byunit,
+    finRepByUnits: [Url_rx.comp_fin_rep_byunit,
             (html) => true,
         parseFinanceRepByUnits],
     // юнит
@@ -3952,7 +3953,9 @@ function parseProducts(html, url) {
 function parseFinanceRepByUnits(html, url) {
     let $html = $(html);
     try {
-        let $grid = $html.find("table.grid");
+        let $grid = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
         if ($grid.length === 0)
             throw new Error("Не найдена таблица с юнитами.");
         let $rows = closestByTagName($grid.find("img[src*='unit_types']"), "tr");
