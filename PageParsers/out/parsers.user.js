@@ -330,11 +330,17 @@ function getRealmOrError() {
     return realm;
 }
 /**
- * Парсит id компании со страницы и выдает ошибку если не может спарсить
+ * Парсит id компании со страницы. Если не получилось то вернет null
  */
-function getCompanyId() {
-    let str = matchedOrError($("a.dashboard").attr("href"), /\d+/);
-    return numberfyOrError(str);
+function parseCompanyId(html) {
+    let $html = $(html);
+    let href = $html.find("a.dashboard").attr("href");
+    if (href == null || href.length <= 0)
+        return null;
+    let arr = href.match(/\d+/);
+    if (arr == null || arr.length !== 1)
+        return null;
+    return numberfyOrError(arr[0]);
 }
 /**
  * Оцифровывает строку. Возвращает всегда либо число или Number.POSITIVE_INFINITY либо -1 если str не содержит числа.
@@ -738,7 +744,7 @@ function isMyUnitList() {
         return false;
     // запрос id может вернуть ошибку если мы на window ссылке. значит точно у чужого васи
     try {
-        let id = getCompanyId();
+        let id = nullCheck(parseCompanyId(document));
         let urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
         if (urlId[0] != id)
             return false;
@@ -758,7 +764,7 @@ function isOthersUnitList() {
         return false;
     try {
         // для чужого списка будет разный айди в дашборде и в ссылке
-        let id = getCompanyId();
+        let id = nullCheck(parseCompanyId(document));
         let urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
         if (urlId[0] === id)
             return false;
@@ -1914,8 +1920,12 @@ var SalePolicies;
 function parseUnitSaleNew(html, url) {
     let $html = $(html);
     try {
+        let $form = isWindow($html, url)
+            ? $html.filter("form[name=storageForm]")
+            : $html.find("form[name=storageForm]");
+        if ($form.length <= 0)
+            throw new Error("Не найдена форма.");
         let $tbl = oneOrError($html, "table.grid");
-        let $form = $html.find("form[name=storageForm]");
         let $rows = closestByTagName($tbl.find("select[name*='storageData']"), "tr");
         let dict = {};
         $rows.each((i, el) => {
@@ -2850,17 +2860,16 @@ function parseUnitMainNew(html, url) {
  * @param $html полная страница или хедер
  */
 function parseUnitNameCity($html) {
-    // city
-    // Нижний Новгород (Россия, Поволжье)	
-    let lines = oneOrError($html, "div.title:first p").text().trim().split("\n");
-    let arr = execOrError(lines[0].trim(), /^(.*)\(/i);
-    let city = arr[1].trim();
-    if (city == null || city.length < 1)
-        throw new Error(`не найден город юнита ${city}`);
     // name
     let name = oneOrError($html, "div.title:first h1").text().trim();
     if (name == null || name.length < 1)
         throw new Error(`не найдено имя юнита`);
+    // city
+    // Нижний Новгород (Россия, Поволжье)	
+    let m = getOnlyText(oneOrError($html, "div.title:first"))[1].trim().match(/^(.*)\(/i);
+    if (m == null || m[1] == null || m[1].length <= 1)
+        throw new Error(`не найден город юнита ${name}`);
+    let city = m[1].trim();
     return [name, city];
 }
 /**
@@ -3737,20 +3746,21 @@ function parseCities(html, url) {
 }
 /**
  * Со странички пробуем спарсить игровую дату. А так как дата есть почти везде, то можно почти везде ее спарсить
- * Вывалит ошибку если не сможет спарсить дату со странички
+ * Если дату не вышло содрать то вернет null
  * @param html
- * @param url
  */
-function parseGameDate(html, url) {
+function parseGameDate(html) {
     let $html = $(html);
     try {
         // вытащим текущую дату, потому как сохранять данные будем используя ее
         let $date = $html.find("div.date_time");
         if ($date.length !== 1)
-            throw new Error("Не получилось получить текущую игровую дату");
+            return null;
+        //throw new Error("Не получилось получить текущую игровую дату");
         let currentGameDate = extractDate(getOnlyText($date)[0].trim());
         if (currentGameDate == null)
-            throw new Error("Не получилось получить текущую игровую дату");
+            return null;
+        //throw new Error("Не получилось получить текущую игровую дату");
         return currentGameDate;
     }
     catch (err) {

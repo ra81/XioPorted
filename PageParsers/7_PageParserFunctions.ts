@@ -433,8 +433,13 @@ function parseUnitSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWar
     let $html = $(html);
 
     try {
+        let $form = isWindow($html, url)
+            ? $html.filter("form[name=storageForm]")
+            : $html.find("form[name=storageForm]");
+        if ($form.length <= 0)
+            throw new Error("Не найдена форма.");
+
         let $tbl = oneOrError($html, "table.grid");
-        let $form = $html.find("form[name=storageForm]");
         let $rows = closestByTagName($tbl.find("select[name*='storageData']"), "tr");
 
         let dict: IDictionary<ISaleWareItem> = {};
@@ -1650,18 +1655,18 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
  */
 function parseUnitNameCity($html: JQuery): [string, string] {
 
-    // city
-    // Нижний Новгород (Россия, Поволжье)	
-    let lines = oneOrError($html, "div.title:first p").text().trim().split("\n");
-    let arr = execOrError(lines[0].trim(), /^(.*)\(/i);
-    let city = arr[1].trim();
-    if (city == null || city.length < 1)
-        throw new Error(`не найден город юнита ${city}`);
-
     // name
     let name = oneOrError($html, "div.title:first h1").text().trim();
     if (name == null || name.length < 1)
         throw new Error(`не найдено имя юнита`);
+
+    // city
+    // Нижний Новгород (Россия, Поволжье)	
+    let m = getOnlyText(oneOrError($html, "div.title:first"))[1].trim().match(/^(.*)\(/i);
+    if (m == null || m[1] == null || m[1].length <= 1)
+        throw new Error(`не найден город юнита ${name}`);
+
+    let city = m[1].trim();
 
     return [name, city];
 }
@@ -2802,22 +2807,23 @@ function parseCities(html: any, url: string): ICity[] {
 
 /**
  * Со странички пробуем спарсить игровую дату. А так как дата есть почти везде, то можно почти везде ее спарсить
- * Вывалит ошибку если не сможет спарсить дату со странички
+ * Если дату не вышло содрать то вернет null
  * @param html
- * @param url
  */
-function parseGameDate(html: any, url: string): Date {
+function parseGameDate(html: any): Date | null {
     let $html = $(html);
 
     try {
         // вытащим текущую дату, потому как сохранять данные будем используя ее
         let $date = $html.find("div.date_time");
         if ($date.length !== 1)
-            throw new Error("Не получилось получить текущую игровую дату");
+            return null;
+            //throw new Error("Не получилось получить текущую игровую дату");
 
         let currentGameDate = extractDate(getOnlyText($date)[0].trim());
         if (currentGameDate == null)
-            throw new Error("Не получилось получить текущую игровую дату");
+            return null;
+            //throw new Error("Не получилось получить текущую игровую дату");
 
         return currentGameDate;
     }
@@ -2825,6 +2831,7 @@ function parseGameDate(html: any, url: string): Date {
         throw err;
     }
 }
+
 
 /**
  * Парсит данные по числу рабов со страницы управления персоналам в Управлении
