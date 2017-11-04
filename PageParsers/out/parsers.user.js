@@ -42,6 +42,28 @@ class ParseError extends Error {
         super(msg);
     }
 }
+/**
+ * Возвращает словарь где для каждого img товара лежит массив заказов
+ * @param jsonStr
+ * @param url
+ */
+function parseSaleContractsAPI(jsonObj, url) {
+    try {
+        let res = {};
+        for (let contr of jsonObj) {
+            if (contr.product_symbol.length <= 0)
+                throw new Error("пустая строка вместо символа продукта.");
+            let img = `/img/products/${contr.product_symbol}.gif`;
+            if (res[img] == null)
+                res[img] = [];
+            res[img].push(contr);
+        }
+        return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
 ;
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
@@ -551,33 +573,6 @@ function sayMoney(num, symbol = "$") {
     return result;
 }
 /**
- * Пробует взять со страницы тип юнита
- * Сейчас эта хня берется из классов вида
-   <div class="picture bg-page-unit-header-kindergarten"></div>
- * Он кореллирует четко с i-kindergarten в списке юнитов
- * Если картинки на странице нет, то вернет null. Сам разбирайся почему ее там нет
-   Может выдать ошибку если тип не был найден в списке типов
- * @param $html
- */
-//function getUnitType($html: JQuery): UnitTypes | null {
-//    let $div = $html.find("div.picture");
-//    if ($div.length !== 1)
-//        return null;
-//    let typeStr = "";
-//    let classList = $div.attr("class").split(/\s+/);
-//    for (let cl of classList) {
-//        if (cl.startsWith("bg-page-unit-header-") == false)
-//            continue;
-//        // вырезаем тупо "bg-page-unit-header-"
-//        typeStr = cl.slice(20);
-//    }
-//    // некоторый онанизм с конверсией но никак иначе
-//    let type: UnitTypes = (UnitTypes as any)[typeStr] ? (UnitTypes as any)[typeStr] : UnitTypes.unknown;
-//    if (type == UnitTypes.unknown)
-//        throw new Error("Не описан тип юнита " + typeStr);
-//    return type;
-//}
-/**
  * Пробует взять со страницы картинку юнита и спарсить тип юнита
  * Пример сорса /img/v2/units/shop_1.gif  будет тип shop.
  * Он кореллирует четко с i-shop в списке юнитов
@@ -620,6 +615,13 @@ function nullCheck(val) {
     if (val == null)
         throw new Error(`nullCheck Error`);
     return val;
+}
+/**
+ * Спать потоку заданное число миллисекунд. Асинхронная!!
+ * @param ms
+ */
+function sleep_async(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 // РЕГУЛЯРКИ ДЛЯ ССЫЛОК ------------------------------------
 // для 1 юнита
@@ -688,6 +690,8 @@ let Url_rx = {
     unit_ware_change_spec: /\/[a-z]+\/window\/unit\/speciality_change\/\d+\/?$/i,
     unit_finrep: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report(\/graphical)?$/i,
     unit_finrep_by_prod: /\/[a-z]+\/(?:main|window)\/unit\/view\/\d+\/finans_report\/by_production\/?$/i,
+    // API
+    api_unit_sale_contracts: /api\/[a-z]+\/main\/unit\/sale\/contracts/i,
 };
 /**
  * По заданной ссылке и хтмл определяет находимся ли мы внутри юнита или нет.
@@ -1016,6 +1020,65 @@ function tryGet_async(url, retries = 10, timeout = 1000, beforeGet, onError) {
             url: url,
             type: "GET",
             success: (data, status, jqXHR) => $deffered.resolve(data),
+            error: function (jqXHR, textStatus, errorThrown) {
+                if (onError) {
+                    try {
+                        onError(url);
+                    }
+                    catch (err) {
+                        logDebug("onError вызвал исключение", err);
+                    }
+                }
+                retries--;
+                if (retries <= 0) {
+                    let err = new Error(`can't get ${this.url}\nstatus: ${jqXHR.status}\ntextStatus: ${jqXHR.statusText}\nerror: ${errorThrown}`);
+                    $deffered.reject(err);
+                    return;
+                }
+                //logDebug(`ошибка запроса ${this.url} осталось ${retries} попыток`);
+                let _this = this;
+                setTimeout(() => {
+                    if (beforeGet) {
+                        try {
+                            beforeGet(url);
+                        }
+                        catch (err) {
+                            logDebug("beforeGet вызвал исключение", err);
+                        }
+                    }
+                    $.ajax(_this);
+                }, timeout);
+            }
+        });
+        return $deffered.promise();
+    });
+}
+/**
+ * Аналогично обычному методу tryGet_async правда ожидает только json и конвертает по ходу дела числа в числа если они идут строкой
+ */
+function tryGetJSON_async(url, retries = 10, timeout = 1000, beforeGet, onError) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // сам метод пришлось делать Promise<any> потому что string | Error не работало какого то хуя не знаю. Из за стрик нулл чек
+        let $deffered = $.Deferred();
+        if (beforeGet) {
+            try {
+                beforeGet(url);
+            }
+            catch (err) {
+                logDebug("beforeGet вызвал исключение", err);
+            }
+        }
+        $.ajax({
+            url: url,
+            type: "GET",
+            cache: false,
+            dataType: "text",
+            success: (jsonStr, status, jqXHR) => {
+                let obj = JSON.parse(jsonStr, (k, v) => {
+                    return (typeof v === "object" || isNaN(v)) ? v : parseFloat(v);
+                });
+                $deffered.resolve(obj);
+            },
             error: function (jqXHR, textStatus, errorThrown) {
                 if (onError) {
                     try {
@@ -1509,9 +1572,9 @@ let urlTemplates = {
     unitAds: [Url_rx.unit_ads,
             (html) => true,
         parseUnitAds],
-    unitSale: [Url_rx.unit_sale,
+    wareSale: [Url_rx.unit_sale,
             (html) => true,
-        parseUnitSaleNew],
+        parseWareSaleNew],
     retailSupplyNew: [Url_rx.unit_supply,
             (html) => { return $(html).find("#productsHereDiv").length > 0; },
         parseRetailSupplyNew],
@@ -1534,6 +1597,10 @@ let urlTemplates = {
             (html) => $(html).text().indexOf("склад") > 0,
         parseWareSupply],
 };
+let urlAPI = {
+    // API
+    saleContracts: [Url_rx.api_unit_sale_contracts, parseSaleContractsAPI],
+};
 $(document).ready(() => parseStart());
 function parseStart() {
     let href = window.location.href;
@@ -1543,10 +1610,19 @@ function parseStart() {
     logDebug("realm: ", realm);
     if (realm == null)
         throw new Error("realm не найден.");
+    // обычные страницы
     for (let key in urlTemplates) {
         let html = $("html").html();
         if (urlTemplates[key][0].test(url) && urlTemplates[key][1](html)) {
             let obj = urlTemplates[key][2](html, url);
+            logDebug(`parsed ${key}: `, obj);
+        }
+    }
+    // API
+    for (let key in urlAPI) {
+        let str = $("pre").text();
+        if (urlAPI[key][0].test(url)) {
+            let obj = urlAPI[key][1](str, url);
             logDebug(`parsed ${key}: `, obj);
         }
     }
@@ -1917,7 +1993,7 @@ var SalePolicies;
  * @param html
  * @param url
  */
-function parseUnitSaleNew(html, url) {
+function parseWareSaleNew(html, url) {
     let $html = $(html);
     try {
         let $form = isWindow($html, url)
@@ -1933,14 +2009,18 @@ function parseUnitSaleNew(html, url) {
             let $tds = $r.children("td");
             // товар
             let prod = parseProduct($tds.eq(2));
-            let $price = oneOrError($tds.eq(6), "input.money");
-            let $policy = oneOrError($tds.eq(7), "select:eq(0)");
+            let $price = oneOrError($r, "input.money[name*='[price]']");
+            let $policy = oneOrError($r, "select[name*='[constraint]']");
+            let $maxQty = oneOrError($r, "input.money[name*='[max_qty]']");
+            let maxQty = numberfy($maxQty.val());
+            maxQty = maxQty > 0 ? maxQty : null;
             dict[prod.img] = {
                 product: prod,
                 stock: parseStock($tds.eq(3)),
                 outOrdered: numberfyOrError($tds.eq(4).text(), -1),
                 price: numberfyOrError($price.val(), -1),
                 salePolicy: $policy.prop("selectedIndex"),
+                maxQty: maxQty,
                 priceName: $price.attr("name"),
                 policyName: $policy.attr("name"),
             };
@@ -2860,6 +2940,7 @@ function parseUnitMainNew(html, url) {
  * @param $html полная страница или хедер
  */
 function parseUnitNameCity($html) {
+    let x;
     // name
     let name = oneOrError($html, "div.title:first h1").text().trim();
     if (name == null || name.length < 1)
@@ -3237,6 +3318,96 @@ function parseWareChangeSpec(html, url) {
  * @param url
  */
 function parseProductSuppliers(html, url) {
+    let $html = $(html);
+    try {
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
+        let res = [];
+        let $rows = $tbl.find("tr.odd, tr.even");
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+            // для независимого поставщика у нас особый подход будет
+            let isIndep = $tds.eq(0).find("img[src='/img/unit_types/seaport.gif']").length > 0;
+            if (isIndep) {
+                let cname = $tds.eq(0).text().trim();
+                let q = numberfyOrError($tds.eq(3).text());
+                let price = numberfyOrError($tds.eq(4).text());
+                res.push({
+                    companyName: cname,
+                    id: -1,
+                    isIndependend: true,
+                    maxLimit: null,
+                    origPrice: price,
+                    self: false,
+                    tmImg: "",
+                    unit: { city: "", name: cname, size: -1, subid: -1, type: UnitTypes.warehouse, typeStr: "warehouse" },
+                    stock: {
+                        total: Number.POSITIVE_INFINITY,
+                        available: Number.POSITIVE_INFINITY,
+                        product: { brand: 0, price: price, quality: q },
+                        purchased: 0,
+                    }
+                });
+                return;
+            }
+            //  собираем юнит
+            let $a = $tds.eq(0).find("a").has("strong");
+            let m = extractIntPositive($a.attr("href"));
+            if (m == null || m.length != 1)
+                throw new Error("Не найден subid юнита");
+            let subid = m[0];
+            let name = getOnlyText($a)[0].trim();
+            // такой изврат с приведением из за компилера. надо чтобы работало
+            let imgName = nullCheck($tds.find("img").attr("src").split("/").pop());
+            let typestr = imgName.split(".")[0].trim(); // картинка без расширения
+            if (typestr == null || typestr.length < 1)
+                throw new Error("Не найден type юнита");
+            let type = UnitTypes[typestr] ? UnitTypes[typestr] : UnitTypes.unknown;
+            if (type == UnitTypes.unknown)
+                throw new Error("Не описан тип юнита " + typestr);
+            // остальные параметры
+            let company = $tds.eq(0).find("strong").text().trim(); // может быть и пустым у некоторых ушлепков
+            let q = numberfyOrError($tds.eq(3).text());
+            let price = numberfyOrError($tds.eq(4).text());
+            let total = numberfyOrError(getOnlyText($tds.eq(1))[0].trim());
+            let free = numberfyOrError($tds.eq(2).text());
+            // max: 80 000
+            let maxLim = $tds.eq(1).find("span").length > 0
+                ? numberfyOrError(nullCheck($tds.eq(1).find("span").text().split(":").pop()))
+                : null;
+            res.push({
+                id: -1,
+                companyName: company,
+                isIndependend: isIndep,
+                maxLimit: maxLim,
+                origPrice: price,
+                self: false,
+                tmImg: "",
+                unit: {
+                    city: "",
+                    name: name,
+                    size: -1,
+                    subid: subid,
+                    type: type,
+                    typeStr: typestr
+                },
+                stock: {
+                    available: free,
+                    total: total,
+                    purchased: 0,
+                    product: { brand: 0, price: price, quality: q }
+                }
+            });
+        });
+        return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+function parseProductSuppliersOld(html, url) {
     let $html = $(html);
     try {
         let $tbl = isWindow($html, url)

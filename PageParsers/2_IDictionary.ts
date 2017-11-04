@@ -1,9 +1,5 @@
 ﻿
 
-
-// алиас для группы типов.
-type MappedPage = ISaleNew | IWareSupply | IWareResize | IWareMain | ITraining | ITech | IStoreSupply | IServiceHistory | IProductReport | ISaleContract | ICtie | ITransport | IIp | ITm | IRetailReport | IPriceHistoryItem | IExperimentalUnit | IResearch | IConsume | IFinanceItem | IAjax | ISale | IService | IEmployees | IUnitList | ITopManager | IUnitAds | IMachines | IAnimals | IEquipment | IUnitSalary | IMain | ITradeHall | IProdSupply;
-
 interface IUnit {
     subid: number;
     name: string;
@@ -49,16 +45,6 @@ interface IMain {
     service: ServiceLevels;
 }
 
-interface IEmployees {
-    id: number[];
-    salary: number[];
-    salaryCity: number[];
-    skill: number[];
-    skillRequired: number[];
-    onHoliday: boolean[];
-    efficiency: string[];
-}
-
 interface IEmployeesNew {
     subid: number;      // айди юнита
     empl: number;       // число рабов в юните
@@ -70,11 +56,6 @@ interface IEmployeesNew {
     eff: number;        // эффективность персонала
     holiday: boolean;   // в отпуске или нет. Если да, то eff будет -1
 };
-
-interface IUnitList {
-    subids: number[];
-    type: string[];
-}
 
 interface ITopManager {
     base: number[];
@@ -97,42 +78,6 @@ interface IAdsNew {
     celebrity: number;
     visitors: number;
     profit: number;
-}
-
-interface IMachines {
-    id: number[];
-    subid: number[];
-    type: string[];
-    num: number[];
-    perc: number[];
-    black: number[];
-    red: number[];
-    quality: number[];
-    required: number[];
-}
-
-interface IAnimals {
-    id: number[];
-    subid: number[];
-    type: string[];
-    num: number[];
-    perc: number[];
-    black: number[];
-    red: number[];
-}
-
-interface IEquipment {
-    qualNow: number;
-    qualReq: number;
-    equipNum: number;
-    equipMax: number;
-    equipPerc: number;
-    price: number[];
-    qualOffer: number[];
-    available: number[];
-    offer: number[];
-    img: string[];
-    filtername: string;
 }
 
 interface IUnitSalary {
@@ -161,45 +106,6 @@ interface ITradeHall {
     cityquality: number[];
     historyUrl: string[];
     history: (IPriceHistoryItem[])[];
-}
-
-interface IProdSupply {
-    isProd: boolean;
-    parcel: number[];
-    price_mark_up: number[];
-    price_constraint_max: number[];
-    price_constraint_type: string[];
-    quality_constraint_min: number[];
-    required: number[];
-    stock: number[];
-    basequality: number[];
-    prodid: number[];
-    offer: number[];
-    price: number[];
-    quality: number[];
-    available: number[];
-    maximum: number[];
-    reprice: boolean[];
-    mainrow: boolean[];
-    nosupplier: boolean[];
-    img: string;
-}
-
-interface IService {
-    price: number[];
-    history: string[];
-    incineratorPrice: number[];
-
-    //not used
-    stock: number[];
-    deliver: number[];
-    report: string[];
-    img: string[];
-    quality: number[];
-    name: string[];
-    share: number[];
-    cityprice: number[];
-    cityquality: number[];
 }
 
 interface ISale {
@@ -233,38 +139,6 @@ interface ISaleNew {
     contracts: IDictionary<ISaleContract[]>;
 }
 
-interface IAjax {
-    [key: string]: { symbol: string, size: string, initial_cost: string, ttl: string, cost_per_turn: string };
-}
-
-interface IFinanceItem {
-    energy: number;
-}
-
-interface IConsume {
-    consump: number[];
-    purch: number[];
-}
-
-interface IResearch {
-    isFree: boolean;
-    isHypothesis: boolean;
-    isBusy: boolean;
-    hypId: number[];
-    curIndex: number;
-    chance: number[];
-    time: number[];
-    isAbsent: boolean;
-    isFactory: boolean;
-    unittype: number;
-    industry: number;
-    level: number;
-}
-
-interface IExperimentalUnit {
-    id: number[];
-}
-
 interface IPriceHistoryItem {
     date: Date;
     quantity: number;
@@ -281,36 +155,6 @@ interface IRetailReport {
     cityquality: number;
 }
 
-interface ITm {
-    product: string[];
-    franchise: string[];
-}
-
-interface IIp {
-    product: string[];
-    IP: number[];
-}
-
-interface ITransport {
-    countryName: string[];
-    countryId: number[];
-    regionName: string[];
-    regionId: number[];
-    cityName: string[];
-    cityId: number[];
-}
-
-interface ICtie {
-    product: string[];
-    profitTax: number;
-    CTIE: number[];
-}
-
-//interface ISaleContract {
-//    category: string[];
-//    contractprice: string|number[];
-//}
-
 interface IProductReport {
     max: number[];
     total: number[];
@@ -318,11 +162,6 @@ interface IProductReport {
     quality: number[];
     price: number[];
     subid: number[];
-}
-
-interface IServiceHistory {
-    price: number[];
-    quantity: number[];
 }
 
 interface IStoreSupply {
@@ -343,65 +182,6 @@ interface IStoreSupply {
     available: number[];
 
     img: string[];
-}
-
-interface ITech {
-    price: string[];
-    tech: number;
-    img: string;
-}
-
-interface ITraining {
-    form: JQuery;
-    salaryNow: number;
-    salaryCity: number;
-    weekcost: number;
-    employees: number;
-    skillNow: number;
-    skillCity: number;
-}
-
-interface IWareMain {
-    size: number;
-    full: number;
-    product: string[];
-    stock: number[];
-    shipments: number[];
-}
-
-interface IWareSupply {
-    form: JQuery;
-    contract: string[];
-    id: number[];
-    type: string[];
-    stock: number[];
-    shipments: number[];
-    parcel: number[];
-    price_mark_up: number[];
-    price_constraint_max: number[];
-    price_constraint_type: string[];
-    quality_constraint_min: number[];
-    product: string[];
-    price: number[];
-    reprice: boolean[];
-    quality: number[];
-    offer: number[];
-    available: number[];
-    myself: boolean[];
-    contractAdd: string[];
-    idAdd: number[];
-    typeAdd: string[];
-}
-
-interface IBuyContractOld {
-    available: number[];
-    offer: number[];
-    price: number[];
-    quality: number[];
-    tm: string[];
-    company: string[];
-    myself: boolean[];
-    product: string;
 }
 
 // информация о товаре в хранилище. Кол-во, качество, цена, бренд
@@ -437,12 +217,6 @@ interface ISaleContract {
     Ordered: number;    // заказано на след пересчет
     Price: number;      // цена контракта
 }
-
-//interface IProductContracts {
-//    Name: string;       // имя товара
-//    Img: string;        // урл на картинку
-//    Contracts: IContract[];
-//}
 
 interface IEnergyPrices {
     sector: string;     // отрасль

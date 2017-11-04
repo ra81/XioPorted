@@ -4,7 +4,7 @@
 $ = jQuery = jQuery.noConflict(true);
 $xioDebug = true;
 
-let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: string) => any]> = {
+let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (data: any, url: string) => any]> = {
 
     // вирта глобальные
     manager: [Url_rx.top_manager,
@@ -84,9 +84,9 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
     unitAds: [Url_rx.unit_ads,
     (html: any) => true,
         parseUnitAds],
-    unitSale: [Url_rx.unit_sale,
+    wareSale: [Url_rx.unit_sale,
         (html: any) => true,
-        parseUnitSaleNew],
+        parseWareSaleNew],
     retailSupplyNew: [Url_rx.unit_supply,
         (html: any) => { return $(html).find("#productsHereDiv").length > 0; },
         parseRetailSupplyNew],
@@ -110,6 +110,12 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (html: any, url: 
         parseWareSupply],
 };
 
+let urlAPI: IDictionary<[RegExp, (data: any, url: string) => any]> = {
+
+    // API
+    saleContracts: [Url_rx.api_unit_sale_contracts, parseSaleContractsAPI],
+}
+
 $(document).ready(() => parseStart());
 
 function parseStart() {
@@ -122,10 +128,20 @@ function parseStart() {
     if (realm == null)
         throw new Error("realm не найден.");
 
+    // обычные страницы
     for (let key in urlTemplates) {
         let html = $("html").html();
         if (urlTemplates[key][0].test(url) && urlTemplates[key][1](html)) {
             let obj = urlTemplates[key][2](html, url);
+            logDebug(`parsed ${key}: `, obj);
+        }
+    }
+
+    // API
+    for (let key in urlAPI) {
+        let str = $("pre").text();
+        if (urlAPI[key][0].test(url)) {
+            let obj = urlAPI[key][1](str, url);
             logDebug(`parsed ${key}: `, obj);
         }
     }

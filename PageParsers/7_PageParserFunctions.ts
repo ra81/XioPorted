@@ -420,6 +420,7 @@ interface ISaleWareItem {
 
     price: number;
     salePolicy: SalePolicies;
+    maxQty: number | null;  // ограничение на макс объем заказа
 
     priceName: string;  // имена элементов для быстрого поиска по форме потом
     policyName: string;
@@ -429,7 +430,7 @@ interface ISaleWareItem {
  * @param html
  * @param url
  */
-function parseUnitSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWareItem>] {
+function parseWareSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWareItem>] {
     let $html = $(html);
 
     try {
@@ -450,8 +451,11 @@ function parseUnitSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWar
             // товар
             let prod = parseProduct($tds.eq(2));
 
-            let $price = oneOrError($tds.eq(6), "input.money");
-            let $policy = oneOrError($tds.eq(7), "select:eq(0)");
+            let $price = oneOrError($r, "input.money[name*='[price]']");
+            let $policy = oneOrError($r, "select[name*='[constraint]']");
+            let $maxQty = oneOrError($r, "input.money[name*='[max_qty]']");
+            let maxQty: null | number = numberfy($maxQty.val());
+            maxQty = maxQty > 0 ? maxQty : null;
 
             dict[prod.img] = {
                 product: prod,
@@ -460,6 +464,7 @@ function parseUnitSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWar
 
                 price: numberfyOrError($price.val(), -1),
                 salePolicy: $policy.prop("selectedIndex"),
+                maxQty: maxQty,
 
                 priceName: $price.attr("name"),
                 policyName: $policy.attr("name"),
@@ -510,6 +515,7 @@ function parseUnitSaleNew(html: any, url: string): [JQuery, IDictionary<ISaleWar
         }
     }
 }
+
 
 
 ///**
@@ -1654,7 +1660,7 @@ function parseUnitMainNew(html: any, url: string): IMainBase {
  * @param $html полная страница или хедер
  */
 function parseUnitNameCity($html: JQuery): [string, string] {
-
+    let x: IProduct;
     // name
     let name = oneOrError($html, "div.title:first h1").text().trim();
     if (name == null || name.length < 1)
@@ -2121,7 +2127,112 @@ function parseWareChangeSpec(html: any, url: string): [number, string, boolean][
  * @param html
  * @param url
  */
-function parseProductSuppliers(html: any, url: string): IProductReport {
+function parseProductSuppliers(html: any, url: string): IOffer[] {
+    let $html = $(html);
+
+    try {
+        let $tbl = isWindow($html, url)
+            ? $html.filter("table.grid")
+            : $html.find("table.grid");
+
+        let res: IOffer[] = [];
+        let $rows = $tbl.find("tr.odd, tr.even");
+        $rows.each((i, el) => {
+            let $r = $(el);
+            let $tds = $r.children("td");
+
+            // для независимого поставщика у нас особый подход будет
+            let isIndep = $tds.eq(0).find("img[src='/img/unit_types/seaport.gif']").length > 0
+            if (isIndep) {
+                let cname = $tds.eq(0).text().trim()
+                let q = numberfyOrError($tds.eq(3).text());
+                let price = numberfyOrError($tds.eq(4).text());
+
+                res.push({
+                    companyName: cname,
+                    id: -1,
+                    isIndependend: true,
+                    maxLimit: null,
+                    origPrice: price,
+                    self: false,
+                    tmImg: "",
+                    unit: { city: "", name: cname, size: -1, subid: -1, type: UnitTypes.warehouse, typeStr: "warehouse" },
+                    stock: {
+                        total: Number.POSITIVE_INFINITY,
+                        available: Number.POSITIVE_INFINITY,
+                        product: { brand: 0, price: price, quality: q },
+                        purchased: 0,
+                    }
+                });
+
+                return;
+            }
+
+
+            //  собираем юнит
+            let $a = $tds.eq(0).find("a").has("strong");
+            let m = extractIntPositive($a.attr("href"));
+            if (m == null || m.length != 1)
+                throw new Error("Не найден subid юнита");
+
+            let subid = m[0];
+            let name = getOnlyText($a)[0].trim();
+
+            // такой изврат с приведением из за компилера. надо чтобы работало
+            let imgName = nullCheck($tds.find("img").attr("src").split("/").pop());
+            let typestr = imgName.split(".")[0].trim();    // картинка без расширения
+            if (typestr == null || typestr.length < 1)
+                throw new Error("Не найден type юнита");
+
+            let type: UnitTypes = (UnitTypes as any)[typestr] ? (UnitTypes as any)[typestr] : UnitTypes.unknown;
+            if (type == UnitTypes.unknown)
+                throw new Error("Не описан тип юнита " + typestr);
+
+
+            // остальные параметры
+            let company = $tds.eq(0).find("strong").text().trim();  // может быть и пустым у некоторых ушлепков
+            let q = numberfyOrError($tds.eq(3).text());
+            let price = numberfyOrError($tds.eq(4).text());
+
+            let total = numberfyOrError(getOnlyText($tds.eq(1))[0].trim());
+            let free = numberfyOrError($tds.eq(2).text());
+            // max: 80 000
+            let maxLim = $tds.eq(1).find("span").length > 0
+                ? numberfyOrError(nullCheck($tds.eq(1).find("span").text().split(":").pop()))
+                : null;
+
+            res.push({
+                id: -1,
+                companyName: company,
+                isIndependend: isIndep,
+                maxLimit: maxLim,
+                origPrice: price,
+                self: false,
+                tmImg: "",
+                unit: {
+                    city: "",
+                    name: name,
+                    size: -1,
+                    subid: subid,
+                    type: type,
+                    typeStr: typestr
+                },
+                stock: {
+                    available: free,
+                    total: total,
+                    purchased: 0,
+                    product: { brand: 0, price: price, quality: q }
+                }
+            });
+        });
+
+        return res;
+    }
+    catch (err) {
+        throw err;
+    }
+}
+function parseProductSuppliersOld(html: any, url: string): IProductReport {
     let $html = $(html);
 
     try {

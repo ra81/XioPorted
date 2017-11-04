@@ -29,6 +29,7 @@
   <ItemGroup>
     <TypeScriptCompile Include="0_Header.ts" />
     <TypeScriptCompile Include="1_Exceptions.ts" />
+    <TypeScriptCompile Include="8_API.ts" />
     <TypeScriptCompile Include="2_IDictionary.ts" />
     <TypeScriptCompile Include="3_parser.ts" />
     <TypeScriptCompile Include="7_PageParserFunctions.ts" />
