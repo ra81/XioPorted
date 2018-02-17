@@ -84,9 +84,6 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (data: any, url: 
     unitAds: [Url_rx.unit_ads,
     (html: any) => true,
         parseUnitAds],
-    wareSale: [Url_rx.unit_sale,
-        (html: any) => true,
-        parseWareSaleNew],
     retailSupplyNew: [Url_rx.unit_supply,
         (html: any) => { return $(html).find("#productsHereDiv").length > 0; },
         parseRetailSupplyNew],
@@ -106,14 +103,27 @@ let urlTemplates: IDictionary<[RegExp, (html: any) => boolean, (data: any, url: 
         (html: any) => true,
         parseWareChangeSpec],
     wareSupply: [Url_rx.unit_supply,
-        (html: any) => $(html).text().indexOf("склад") > 0,
+        (html: any) => parseUnitType($(html)) === UnitTypes.warehouse,
         parseWareSupply],
+    wareSale: [Url_rx.unit_sale,
+    (html: any) => parseUnitType($(html)) === UnitTypes.warehouse,
+        parseWareSaleNew],
+    workshopSupply: [Url_rx.unit_supply,
+        (html: any) => parseUnitType($(html)) === UnitTypes.workshop,
+        parseWorkshopSupply],
+    workshopSale: [Url_rx.unit_sale,
+    (html: any) => parseUnitType($(html)) === UnitTypes.workshop,
+        parseWorkshopSale],
 };
 
 let urlAPI: IDictionary<[RegExp, (data: any, url: string) => any]> = {
 
     // API
     saleContracts: [Url_rx.api_unit_sale_contracts, parseSaleContractsAPI],
+    supplyContracts: [Url_rx.api_unit_supply_contracts, parseSupplyContractsAPI],
+    tradeProducts: [Url_rx.api_trade_products, parseProductsAPI],
+    cities: [Url_rx.api_cities, parseCityAPI],
+    regions: [Url_rx.api_regions, parseRegionAPI],
 }
 
 $(document).ready(() => parseStart());
@@ -139,9 +149,13 @@ function parseStart() {
 
     // API
     for (let key in urlAPI) {
-        let str = $("pre").text();
+        let jsonStr = $("pre").text();
         if (urlAPI[key][0].test(url)) {
-            let obj = urlAPI[key][1](str, url);
+            let jsonObj = JSON.parse(jsonStr, (k, v) => {
+                return (typeof v === "object" || isNaN(v)) ? v : parseFloat(v);
+            });
+
+            let obj = urlAPI[key][1](jsonObj, url);
             logDebug(`parsed ${key}: `, obj);
         }
     }

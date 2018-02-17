@@ -29,10 +29,15 @@
   <ItemGroup>
     <TypeScriptCompile Include="0_Header.ts" />
     <TypeScriptCompile Include="1_Exceptions.ts" />
+    <TypeScriptCompile Include="7.1_CompanyParsers.ts" />
+    <TypeScriptCompile Include="7.1_WorkshopParsers.ts" />
+    <TypeScriptCompile Include="7.1_RetailParsers.ts" />
+    <TypeScriptCompile Include="7.1_GeoParsers.ts" />
+    <TypeScriptCompile Include="7.1_MiscParsers.ts" />
+    <TypeScriptCompile Include="7.1_WareParsers.ts" />
     <TypeScriptCompile Include="8_API.ts" />
-    <TypeScriptCompile Include="2_IDictionary.ts" />
     <TypeScriptCompile Include="3_parser.ts" />
-    <TypeScriptCompile Include="7_PageParserFunctions.ts" />
+    <TypeScriptCompile Include="7.0_PageParserFunctions.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
   </ItemGroup>
   <ItemGroup>
